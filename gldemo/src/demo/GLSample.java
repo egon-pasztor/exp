@@ -1,5 +1,8 @@
 package demo;
 
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -29,8 +32,10 @@ import demo.GLMath.*;
  * inspired from http://www.lighthouse3d.com/cg-topics/code-samples/opengl-3-3-glsl-1-5-sample/
  * 
  */
-public class GLSample implements GLEventListener {
+public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
 
+   private GLCanvas glCanvas;
+   
    // -----------------------------------------------------------
    // -----------------------------------------------------------
 
@@ -41,13 +46,15 @@ public class GLSample implements GLEventListener {
       
       GLProfile glp = GLProfile.get(GLProfile.GL3);
       GLCapabilities glCapabilities = new GLCapabilities(glp);
-      GLCanvas glCanvas = new GLCanvas(glCapabilities);
-      glCanvas.addGLEventListener(sample);
+      sample.glCanvas = new GLCanvas(glCapabilities);
+      sample.glCanvas.addGLEventListener(sample);
+      sample.glCanvas.addMouseListener(sample);
+      sample.glCanvas.addMouseMotionListener(sample);
       
       JFrame frame = new JFrame("GL Sample");
       frame.setBounds(10, 10, 300, 200);
       frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-      frame.add(glCanvas);
+      frame.add(sample.glCanvas);
       frame.setVisible(true);
    }
 
@@ -74,14 +81,21 @@ public class GLSample implements GLEventListener {
    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
       System.out.format("GLSample.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
       
-      float ratio;
-      // Prevent a divide by zero, when window is too short
-      // (you can't make a window of zero width).
-      if (height == 0)
-         height = 1;
-
-      ratio = (1.0f * width) / height;
-      this.projMatrix = buildProjectionMatrix(53.13f, ratio, 1.0f, 30.0f, this.projMatrix);
+      cameraBall = new CameraBall(width, height,
+                                  new Vector3f(0.5f, 0.5f, -1),   // look-at
+                                  new Vector3f(0.5f, 0.5f, 2),    // camera-pos
+                                  new Vector3f(0.0f, 1.0f, 0.0f), // camera-up
+                                  53.13f);
+      updateMatrices();
+//      
+//      float ratio;
+//      // Prevent a divide by zero, when window is too short
+//      // (you can't make a window of zero width).
+//      if (height == 0)
+//         height = 1;
+//
+//      ratio = (1.0f * width) / height;
+//      this.projMatrix = buildProjectionMatrix(53.13f, ratio, 1.0f, 30.0f, this.projMatrix);
    }
 
    /** GL Render loop */
@@ -99,6 +113,50 @@ public class GLSample implements GLEventListener {
       System.out.format("GLSample.dispose() called\n");
    }
 
+   // -----------------------------------------------------------
+   // MOUSE Events
+   // -----------------------------------------------------------
+
+   @Override
+   public void mouseClicked(MouseEvent e) {
+      System.out.format("GLSample.mouseClicked() called\n");
+   }
+
+   @Override
+   public void mouseEntered(MouseEvent e) {
+      System.out.format("GLSample.mouseEntered() called\n");
+   }
+
+   @Override
+   public void mouseExited(MouseEvent e) {
+      System.out.format("GLSample.mouseExited() called\n");
+   }
+
+   @Override
+   public void mousePressed(MouseEvent e) {
+      System.out.format("GLSample.mousePressed() called\n");
+      cameraBall.grab(e.getX(), e.getY(), CameraBall.GrabType.Rotate);
+   }
+
+   @Override
+   public void mouseReleased(MouseEvent e) {
+      System.out.format("GLSample.mouseReleased() called\n");
+      cameraBall.release();
+   }
+
+   @Override
+   public void mouseMoved(MouseEvent e) {
+      System.out.format("GLSample.mouseMoved(%d,%d) called\n", e.getX(), e.getY());
+   }
+
+   @Override
+   public void mouseDragged(MouseEvent e) {
+      System.out.format("GLSample.mouseDragged(%d,%d) called\n", e.getX(), e.getY());
+      cameraBall.moveTo(e.getX(), e.getY());
+      updateMatrices();
+      glCanvas.display();
+   }
+   
    // -----------------------------------------------------------
    // SETUP program
    // -----------------------------------------------------------
@@ -441,222 +499,68 @@ public class GLSample implements GLEventListener {
    }
 
    
-
    // -----------------------------------------------------------------------
-   
-   public static class ColorRGBA {
-   
-       public byte r;
-       public byte g;
-       public byte b;
-       public byte a;
-   
-       public ColorRGBA() {}
-   
-       public ColorRGBA(byte r, byte g, byte b, byte a) {
-           this.r = r;
-           this.g = g;
-           this.b = b;
-           this.a = a;
-       }
-       
-       public int toInteger() {
-          return ((int)r)<<24 | ((int)g)<<16 | ((int)b)<<8 | ((int)a);
-       }
-       public String toString() {
-          return String.format("#%02x%02x%02x%02x", r,g,b,a);
-       }
-   }
-
-   
-
-   public static class Triangle {
-       private Vector3f  v1,v2,v3;       
-       private Vector3f  n1,n2,n3;
-       private Vector2f  t1,t2,t3;
-       private ColorRGBA c1,c2,c3;
-       
-   }
-   
-   // -----------------------------------------------------------------------
+   // CameraBall to Matrices
    // -----------------------------------------------------------------------
 
+   private CameraBall cameraBall;
    
-   
-   
-
    // storage for Matrices
    float projMatrix[] = new float[16];
    float viewMatrix[] = new float[16];
-
    
-   // ------------------
-   // VECTOR STUFF
-   //
+   private void setMatrix(float[] m,
+         float xx, float xy, float xz, float xw,
+         float yx, float yy, float yz, float yw,
+         float zx, float zy, float zz, float zw,
+         float wx, float wy, float wz, float ww) {
 
-   // res = a cross b;
-   void crossProduct(float a[], float b[], float res[]) {
-
-      res[0] = a[1] * b[2] - b[1] * a[2];
-      res[1] = a[2] * b[0] - b[2] * a[0];
-      res[2] = a[0] * b[1] - b[0] * a[1];
+      m[0]=xx; m[4]=xy; m[8]=xz;  m[12]=xw;
+      m[1]=yx; m[5]=yy; m[9]=yz;  m[13]=yw;
+      m[2]=zx; m[6]=zy; m[10]=zz; m[14]=zw;
+      m[3]=wx; m[7]=wy; m[11]=wz; m[15]=ww;
    }
-
-   // Normalize a vec3
-   void normalize(float a[]) {
-
-      float mag = (float) Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
-
-      a[0] /= mag;
-      a[1] /= mag;
-      a[2] /= mag;
-   }
-
-   // ----------------
-   // MATRIX STUFF
-   //
-
-   // sets the square matrix mat to the identity matrix,
-   // size refers to the number of rows (or columns)
-   void setIdentityMatrix(float[] mat, int size) {
-
-      // fill matrix with 0s
-      for (int i = 0; i < size * size; ++i)
-         mat[i] = 0.0f;
-
-      // fill diagonal with 1s
-      for (int i = 0; i < size; ++i)
-         mat[i + i * size] = 1.0f;
-   }
-
-   //
-   // a = a * b;
-   //
-   void multMatrix(float[] a, float[] b) {
-
-      float[] res = new float[16];
-
-      for (int i = 0; i < 4; ++i) {
-         for (int j = 0; j < 4; ++j) {
-            res[j * 4 + i] = 0.0f;
-            for (int k = 0; k < 4; ++k) {
-               res[j * 4 + i] += a[k * 4 + i] * b[j * 4 + k];
-            }
-         }
-      }
-      System.arraycopy(res, 0, a, 0, 16);
-   }
-
-   // Defines a transformation matrix mat with a translation
-   void setTranslationMatrix(float[] mat, float x, float y, float z) {
-
-      setIdentityMatrix(mat, 4);
-      mat[12] = x;
-      mat[13] = y;
-      mat[14] = z;
-   }
-
-   // ------------------
-   // Projection Matrix
-   //
-
-   float[] buildProjectionMatrix(float fov, float ratio, float nearP, float farP, float[] projMatrix) {
-
+   
+   private void updateMatrices() {
+      
+      float fov    = cameraBall.getVerticalFOV();
+      float aspect = cameraBall.getAspectRatio();      
+      float zNear = 1.0f;
+      float zFar  = 30.0f;
+      
       float f = 1.0f / (float) Math.tan(fov * (Math.PI / 360.0));
 
-      setIdentityMatrix(projMatrix, 4);
-
-      projMatrix[0] = f / ratio;
-      projMatrix[1 * 4 + 1] = f;
-      projMatrix[2 * 4 + 2] = (farP + nearP) / (nearP - farP);
-      projMatrix[3 * 4 + 2] = (2.0f * farP * nearP) / (nearP - farP);
-      projMatrix[2 * 4 + 3] = -1.0f;
-      projMatrix[3 * 4 + 3] = 0.0f;
-
-      return projMatrix;
+      // https://unspecified.wordpress.com/2012/06/21/
+      //      calculating-the-gluperspective-matrix-and-other-opengl-matrix-maths/      
+      setMatrix(projMatrix,
+            
+         f/aspect,         0.0f,                         0.0f,                              0.0f,
+             0.0f,            f,                         0.0f,                              0.0f,
+             0.0f,         0.0f,    (zFar+zNear)/(zNear-zFar),    (2.0f*zFar*zNear)/(zNear-zFar),
+             0.0f,         0.0f,                        -1.0f,                              0.0f );
+            
+      
+      Vector3f camPos  = cameraBall.getCameraPosition();
+      Vector3f camFwd  = cameraBall.getLookatPoint().minus(camPos).normalized();
+      Vector3f camRt   = camFwd.cross(cameraBall.getCameraUpVector()).normalized();
+      Vector3f camUp   = camRt.cross(camFwd);
+      
+      setMatrix(viewMatrix,
+            
+          camRt.x,     camRt.y,      camRt.z,     -camPos.dot(camRt),
+          camUp.x,     camUp.y,      camUp.z,     -camPos.dot(camUp),
+        -camFwd.x,   -camFwd.y,    -camFwd.z,      camPos.dot(camFwd),
+             0.0f,        0.0f,         0.0f,      1.0f);
    }
 
-   // ------------------
-   // View Matrix
-   //
-   // note: it assumes the camera is not tilted,
-   // i.e. a vertical up vector (remmeber gluLookAt?)
-   //
+   
+   // -----------------------------------------------------------------------
+   // Rendering
+   // -----------------------------------------------------------------------
 
-   float[] setCamera(float posX, float posY, float posZ, float lookAtX,
-         float lookAtY, float lookAtZ, float[] viewMatrix) {
-
-      float[] dir = new float[3];
-      float[] right = new float[3];
-      float[] up = new float[3];
-
-      up[0] = 0.0f;
-      up[1] = 1.0f;
-      up[2] = 0.0f;
-
-      dir[0] = (lookAtX - posX);
-      dir[1] = (lookAtY - posY);
-      dir[2] = (lookAtZ - posZ);
-      normalize(dir);
-
-      crossProduct(dir, up, right);
-      normalize(right);
-
-      crossProduct(right, dir, up);
-      normalize(up);
-
-      float[] aux = new float[16];
-
-      viewMatrix[0] = right[0];
-      viewMatrix[4] = right[1];
-      viewMatrix[8] = right[2];
-      viewMatrix[12] = 0.0f;
-
-      viewMatrix[1] = up[0];
-      viewMatrix[5] = up[1];
-      viewMatrix[9] = up[2];
-      viewMatrix[13] = 0.0f;
-
-      viewMatrix[2] = -dir[0];
-      viewMatrix[6] = -dir[1];
-      viewMatrix[10] = -dir[2];
-      viewMatrix[14] = 0.0f;
-
-      viewMatrix[3] = 0.0f;
-      viewMatrix[7] = 0.0f;
-      viewMatrix[11] = 0.0f;
-      viewMatrix[15] = 1.0f;
-
-      setTranslationMatrix(aux, -posX, -posY, -posZ);
-
-      multMatrix(viewMatrix, aux);
-
-      return viewMatrix;
-   }
-
-   // ------------------
-
-   void changeSize(GL3 gl, int w, int h) {
-
-      float ratio;
-      // Prevent a divide by zero, when window is too short
-      // (you cant make a window of zero width).
-      if (h == 0)
-         h = 1;
-
-      // Set the viewport to be the entire window
-      //gl.glViewport(0, 0, w, h);
-
-      ratio = (1.0f * w) / h;
-      this.projMatrix = buildProjectionMatrix(53.13f, ratio, 1.0f, 30.0f, this.projMatrix);
-   }
    protected void renderScene(GL3 gl) {
 
       gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-
-      setCamera(  0.5f, 0.5f,  2, 
-               0.5f, 0.5f, -1,
-               this.viewMatrix);
 
       // must be called after glUseProgram
       // set the view and the projection matrix 

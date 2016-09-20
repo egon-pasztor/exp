@@ -2,16 +2,16 @@
  
 uniform mat4 viewMatrix, projMatrix;
  
-in vec4 position;
-in vec3 color;
-in vec2 vertexUV;
+in vec4 inVertexPosition;
+in vec3 inVertexColor;
+in vec2 inVertexTexCoords;
  
-out vec3 Color;
-out vec2 fragmentUV;
+out vec3 fragColor;
+out vec2 fragTexCoords;
  
 void main()
 {
-    Color = color;
-    fragmentUV = vertexUV;    
-    gl_Position = projMatrix * viewMatrix * position ;
+    fragColor = inVertexColor;
+    fragTexCoords = inVertexTexCoords;    
+    gl_Position = projMatrix * viewMatrix * inVertexPosition;
 }
