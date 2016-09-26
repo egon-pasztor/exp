@@ -1,5 +1,7 @@
 package demo;
 
+import java.util.ArrayList;
+
 public class GLMath {
    
    // -----------------------------------------------------------------------
@@ -8,56 +10,22 @@ public class GLMath {
    
    public static class Vector3f {
       
-       public float x, y, z;
+       public final float x, y, z;
    
-       public Vector3f() {
-          this(0.0f, 0.0f, 0.0f);
-       }
        public Vector3f(float x_, float y_, float z_) {
           x = x_;
           y = y_;
           z = z_;
        }
-       public Vector3f(Vector3f v) {
-          this(v.x, v.y, v.z);
-       }
-       public Vector3f copy() {
-          return new Vector3f(this);
-       }
-       
-       public Vector3f set(Vector3f v) {
-          x = v.x;
-          y = v.y;
-          z = v.z;
-          return this;
-       }
-       public Vector3f add(Vector3f v) {
-          x += v.x;
-          y += v.y;
-          z += v.z;
-          return this;
-       }
-       public Vector3f subtract(Vector3f v) {
-          x -= v.x;
-          y -= v.y;
-          z -= v.z;
-          return this;
-       }
-       public Vector3f multiply(float s) {
-          x *= s;
-          y *= s;
-          z *= s;
-          return this;
-       }
        
        public Vector3f plus(Vector3f v) {
-          return copy().add(v);
+	  return new Vector3f(x + v.x, y + v.y, z + v.z);
        }
        public Vector3f minus(Vector3f v) {
-          return copy().subtract(v);
+	  return new Vector3f(x - v.x, y - v.y, z - v.z);
        }
        public Vector3f times(float s) {   
-          return copy().multiply(s);
+	  return new Vector3f(x * s, y * s, z * s);
        }       
        
        public static float innerProduct(Vector3f a, Vector3f b) {
@@ -88,15 +56,12 @@ public class GLMath {
        public float length() {
           return (float) Math.sqrt(lengthSq());
        }
-       public Vector3f normalize() {
-          return this.multiply(1.0f / length());
-       }
        public Vector3f normalized() {
-          return copy().normalize();
+          return this.times(1.0f / length());
        }
        
        public String toString() {
-          return String.format("(%g,%g,%g)",  x,y,z);
+          return String.format("(%g,%g,%g)", x,y,z);
        }
 
        public Vector3f rotated(Vector3f normalizedAxis, float angle) {
@@ -124,11 +89,9 @@ public class GLMath {
    
    public static class Matrix3f {
       
-      public float xx, xy, xz,
-                   yx, yy, yz,
-                   zx, zy, zz;
-  
-      public Matrix3f() {}
+      public final float xx, xy, xz,
+                         yx, yy, yz,
+                         zx, zy, zz;
   
       public Matrix3f(float xx_, float xy_, float xz_,
                       float yx_, float yy_, float yz_,
@@ -138,61 +101,30 @@ public class GLMath {
           yx = yx_; yy = yy_; yz = yz_;
           zx = zx_; zy = zy_; zz = zz_;
       }
-      public Matrix3f(Matrix3f m) {         
-         this(m.xx, m.xy, m.xz,
-              m.yx, m.yy, m.yz,
-              m.zx, m.zy, m.zz);
-      }
-      
-      public Matrix3f copy() {
-         return new Matrix3f(this);
-      }       
-      
-      public Matrix3f set(Matrix3f m) {
-         xx = m.xx; xy = m.xy; xz = m.xz;
-         yx = m.yx; yy = m.yy; yz = m.yz;
-         zx = m.zx; zy = m.zy; zz = m.zz;
-         return this;
-      }
-      public Matrix3f add(Matrix3f m) {
-         xx += m.xx; xy += m.xy; xz += m.xz;
-         yx += m.yx; yy += m.yy; yz += m.yz;
-         zx += m.zx; zy += m.zy; zz += m.zz;
-         return this;
-      }
-      public Matrix3f subtract(Matrix3f m) {
-         xx -= m.xx; xy -= m.xy; xz -= m.xz;
-         yx -= m.yx; yy -= m.yy; yz -= m.yz;
-         zx -= m.zx; zy -= m.zy; zz -= m.zz;
-         return this;
-      }
-      public Matrix3f multiply(float s) {
-         xx *= s; xy *= s; xz *= s;
-         yx *= s; yy *= s; yz *= s;
-         zx *= s; zy *= s; zz *= s;
-         return this;
-      }
-      public Matrix3f transpose() {
-         float t;
-         t = xy; xy = yx; yx = t;
-         t = xz; xz = zx; zx = t;
-         t = yz; yz = zy; zy = t;
-         return this;
-      }
-      
       public Matrix3f plus(Matrix3f m) {
-         return copy().add(m);
+         return new Matrix3f(
+            xx + m.xx, xy + m.xy, xz + m.xz,
+	    yx + m.yx, yy + m.yy, yz + m.yz,
+	    zx + m.zx, zy + m.zy, zz + m.zz);
       }
       public Matrix3f minus(Matrix3f m) {
-         return copy().subtract(m);
+         return new Matrix3f(
+            xx - m.xx, xy - m.xy, xz - m.xz,
+	    yx - m.yx, yy - m.yy, yz - m.yz,
+	    zx - m.zx, zy - m.zy, zz - m.zz);
       }
-      public Matrix3f times(float s) {   
-         return copy().multiply(s);
-      }       
+      public Matrix3f times(float s) {
+         return new Matrix3f(
+            xx * s, xy * s, xz * s,
+	    yx * s, yy * s, yz * s,
+	    zx * s, zy * s, zz * s);
+      }
       public Matrix3f transposed() {
-         return copy().transpose();
+	 return new Matrix3f(xx, yx, zx,
+			     xy, yy, zy,
+                             xz, yz, zz);
       }
-      
+
       public static Vector3f product(Vector3f a, Matrix3f b) {
          return new Vector3f (
                a.x * b.xx + a.y * b.yx + a.z * b.zx,
@@ -220,9 +152,8 @@ public class GLMath {
                a.zx * b.xz + a.zy * b.yz + a.zz * b.zz);         
       }
       
-      
       public String toString() {
-         return String.format("(%g,%g,%g; %g,%g,%g; %g,%g%g)",  xx,xy,xz, yx,yy,yz, zx,zy,zz);
+         return String.format("(%g,%g,%g; %g,%g,%g; %g,%g,%g)",  xx,xy,xz, yx,yy,yz, zx,zy,zz);
       }
 
       public float determinate() {
@@ -230,13 +161,12 @@ public class GLMath {
               - (yx*zz-zx*yz) * xy
               + (yx*zy-zx*yy) * xz;
       }
-      public Matrix3f inverted() {
-         Matrix3f cofactorMatrix = new Matrix3f(
-              +(yy*zz-zy*yz), -(yx*zz-zx*yz), +(yx*zy-zx*yy),
-              -(xy*zz-zy*xz), +(xx*zz-zx*xz), -(xx*zy-zx*xy),
-              +(xy*yz-yy*xz), -(xx*yz-yx*xz), +(xx*yy-yx*xy));
-         
-         return cofactorMatrix.transpose().multiply(1.0f / determinate());
+      public Matrix3f inverse() {
+	 final float d = determinate();
+         return new Matrix3f(
+	      +(yy*zz-zy*yz)/d, -(xy*zz-zy*xz)/d, +(xy*yz-yy*xz)/d, 
+              -(yx*zz-zx*yz)/d, +(xx*zz-zx*xz)/d, -(xx*yz-yx*xz)/d,  
+              +(yx*zy-zx*yy)/d, -(xx*zy-zx*xy)/d, +(xx*yy-yx*xy)/d);
       }
       
       public static Matrix3f scaling(float s) {
@@ -245,9 +175,9 @@ public class GLMath {
                               0.0f, 0.0f,    s);
       }
       public static Matrix3f rotation(Vector3f normalizedAxis, float angle) {
-         float sa = (float) Math.sin(angle);
-         float ca = (float) Math.cos(angle);
-         float x = normalizedAxis.x, y = normalizedAxis.y, z = normalizedAxis.z;
+         final float sa = (float) Math.sin(angle);
+         final float ca = (float) Math.cos(angle);
+         final float x = normalizedAxis.x, y = normalizedAxis.y, z = normalizedAxis.z;
          return new Matrix3f ( x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
                                y*x*(1-ca)+ sa*z, y*y*(1-ca)+ ca,   y*z*(1-ca)- sa*x,
                                z*x*(1-ca)- sa*y, z*y*(1-ca)+ sa*x, z*z*(1-ca)+ ca    );   
@@ -284,13 +214,13 @@ public class GLMath {
       }
 
       public Vector3f getLookatPoint() {
-         return lookatPoint.copy();
+         return lookatPoint;
       }      
       public Vector3f getCameraPosition() {
-         return cameraPosition.copy();
+         return cameraPosition;
       }
       public Vector3f getCameraUpVector() {
-         return cameraUpVector.copy();
+	 return cameraUpVector;
       }
       public float getVerticalFOV() {
          return verticalFOV;
@@ -316,10 +246,9 @@ public class GLMath {
          grab_lookat_Point     = lookatPoint;
          grab_lookat_to_camera = cameraPosition.minus(lookatPoint);
 
-         grab_zVector = grab_lookat_to_camera.copy();        grab_zVector.normalize();
-         grab_xVector = grab_zVector.cross(cameraUpVector);  grab_xVector.normalize();
-         grab_yVector = grab_xVector.cross(grab_zVector);    grab_yVector.normalize();
-
+         grab_zVector = grab_lookat_to_camera.normalized();
+         grab_xVector = grab_zVector.cross(cameraUpVector).normalized();
+         grab_yVector = grab_xVector.cross(grab_zVector);
 
          if (grabType == GrabType.Rotate) {
 
@@ -357,13 +286,12 @@ public class GLMath {
             float amount;
 
             if (roll) {
-                        axis = new Vector3f (0,0,1); 
-                        amount = (float) (Math.atan2(y,x) - grabAngle);
-                        amount *= Scale2DRotation;
+	       axis = Vector3f.Z; 
+               amount = (float) (Math.atan2(y,x) - grabAngle) * Scale2DRotation;
+
             } else { 
-                        axis = new Vector3f ((float) dy,(float) -dx,0).normalize();
-                        amount = ((float) Math.sqrt(dx*dx+dy*dy));  
-                        amount *= Scale3DRotation;
+               axis = new Vector3f ((float) dy,(float) -dx, 0).normalized();
+               amount = ((float) Math.sqrt(dx*dx+dy*dy)) * Scale3DRotation;
             }
             
             Vector3f rotationAxis = grab_xVector.times(axis.x)
@@ -376,7 +304,7 @@ public class GLMath {
             
          } else if (grabType == GrabType.Zoom) {
 
-            cameraPosition = grab_lookat_to_camera.multiply((float) Math.pow(ScaleZoom, dy/tScale)).plus(lookatPoint);
+            cameraPosition = grab_lookat_to_camera.times((float) Math.pow(ScaleZoom, dy/tScale)).plus(lookatPoint);
 
          } else if (grabType == GrabType.Pan) {
 
@@ -400,7 +328,6 @@ public class GLMath {
       public boolean isGrabbed() {
          return grabbed;
       }
-
       
       // ----------------------------------------------------------
       
@@ -433,9 +360,7 @@ public class GLMath {
       private static final float ScaleZoom       = 3.0f;
       private static final float Scale2DRotation = 1.5f;
       private static final float Scale3DRotation = 2.0f;
-      
    }
-   
    
    // -----------------------------------------------------------------------
    // Vector2f
@@ -443,53 +368,21 @@ public class GLMath {
    
    public static class Vector2f {
       
-      public float x;
-      public float y;
-  
-      public Vector2f() {
-         this(0.0f, 0.0f);
-      }  
+      public final float x, y;
+
       public Vector2f(float x, float y) {
           this.x = x;
           this.y = y;
       }
-      public Vector2f(Vector2f v) {
-          this.x = v.x;
-          this.y = v.y;
-      }
-      public Vector2f copy() {
-         return new Vector2f(this);
-      }       
-      
-      public Vector2f set(Vector2f v) {
-         x = v.x;
-         y = v.y;
-         return this;
-      }
-      public Vector2f add(Vector2f v) {
-         x += v.x;
-         y += v.y;
-         return this;
-      }
-      public Vector2f subtract(Vector2f v) {
-         x -= v.x;
-         y -= v.y;
-         return this;
-      }
-      public Vector2f multiply(float s) {
-         x *= s;
-         y *= s;
-         return this;
-      }
       
       public Vector2f plus(Vector2f v) {
-         return copy().add(v);
+	 return new Vector2f(x + v.x, y + v.y);
       }
       public Vector2f minus(Vector2f v) {
-         return copy().subtract(v);
+	 return new Vector2f(x - v.x, y - v.y);
       }
       public Vector2f times(float s) {   
-         return copy().multiply(s);
+	 return new Vector2f(x * s, y * s);
       }       
       
       public float dot(Vector2f v) {
@@ -502,11 +395,8 @@ public class GLMath {
       public float length() {
          return (float) Math.sqrt(lengthSq());
       }
-      public Vector2f normalize() {
-         return this.multiply(1.0f / length());
-      }
       public Vector2f normalized() {
-         return copy().normalize();
+         return this.times(1.0f / length());
       }
       
       public String toString() {
@@ -523,21 +413,15 @@ public class GLMath {
    // -----------------------------------------------------------------------
    
    public static class ColorRGBA {
-   
-       public byte r;
-       public byte g;
-       public byte b;
-       public byte a;
-   
-       public ColorRGBA() {}
+       public final byte r,g,b,a;
    
        public ColorRGBA(byte r, byte g, byte b, byte a) {
            this.r = r;
            this.g = g;
            this.b = b;
            this.a = a;
-       }
-       
+       }       
+
        public int toInteger() {
           return ((int)r)<<24 | ((int)g)<<16 | ((int)b)<<8 | ((int)a);
        }
@@ -546,15 +430,161 @@ public class GLMath {
        }
    }
 
+   // -----------------------------------------------------------------------
+   // Triangle
+   // -----------------------------------------------------------------------
    
-
    public static class Triangle {
-       private Vector3f  v1,v2,v3;       
-       private Vector3f  n1,n2,n3;
-       private Vector2f  t1,t2,t3;
-       private ColorRGBA c1,c2,c3;
-       
+
+       public Vector3f  v1,v2,v3;       
+       public Vector2f  t1,t2,t3;
+       public ColorRGBA c1,c2,c3;
+
+       public Triangle() {
+	   v1=v2=v3=null;
+	   t1=t2=t3=null;
+	   c1=c2=c3=null;
+       }
+
+       public void setPositions(Vector3f v1, Vector3f v2, Vector3f v3) {
+           this.v1 = v1;
+           this.v2 = v2;
+           this.v3 = v3;
+       }
+       public void setTexCoords(Vector2f t1, Vector2f t2, Vector2f t3) {
+           this.t1 = t1;
+           this.t2 = t2;
+           this.t3 = t3;
+       }
+       public void setColors(ColorRGBA c1, ColorRGBA c2, ColorRGBA c3) {
+           this.c1 = c1;
+           this.c2 = c2;
+           this.c3 = c3;
+       }
    }
-      
+
+   // -----------------------------------------------------------------------
+   // Model
+   // -----------------------------------------------------------------------
+
+   public static class Model {
+
+       public Model() {
+	   triangles = new ArrayList<Triangle>();
+       }
+
+       public void addTriangle(Triangle t) {
+	   triangles.add(t);
+       }
+       public void clearTriangles() {
+           triangles.clear();
+       }
+       public int numTriangles() {
+           return triangles.size();
+       }
+
+       private ArrayList<Triangle> triangles;
+
+       // -- -- -- -- -- -- -- --
+
+       public void addSquare (Vector3f center, Vector3f dx, Vector3f dy) {
+           Vector3f tr = center.plus(dx).plus(dy);
+           Vector3f tl = center.minus(dx).plus(dy);
+           Vector3f br = center.plus(dx).minus(dy);
+           Vector3f bl = center.minus(dx).minus(dy);
+
+	   System.out.format("Adding square [%s][%s][%s][%s]\n",
+			     tr,tl,br,bl);
+
+           Triangle t1 = new Triangle();
+           Triangle t2 = new Triangle();
+           t1.setPositions(bl,tl,br);
+           t2.setPositions(tl,br,tr);
+
+           t1.setTexCoords(new Vector2f(0.0f, 1.0f),
+                           new Vector2f(0.0f, 0.0f),
+		           new Vector2f(1.0f, 1.0f));
+
+           t2.setTexCoords(new Vector2f(0.0f, 0.0f),
+   	 	           new Vector2f(1.0f, 1.0f),
+		           new Vector2f(1.0f, 0.0f));
+
+
+           t1.setColors(new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
+                        new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
+                        new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff));
    
+           t2.setColors(new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
+                        new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
+                        new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff));
+
+           addTriangle(t1);
+           addTriangle(t2);
+       }
+
+       // -- -- -- -- -- -- -- --
+
+       public static class Arrays {
+	   float[] positions;
+           float[] texCoords;
+           float[] colors;
+       }
+
+       public Arrays getArrays() {
+	   Arrays result = new Arrays();
+           int n = triangles.size();
+
+           result.positions = new float[n*3*4];
+	   { int c = 0;
+             for (int i = 0; i < n; ++i) {
+		 Triangle t = triangles.get(i);
+		 c = copyVector3f(result.positions, c, t.v1);
+		 c = copyVector3f(result.positions, c, t.v2);
+		 c = copyVector3f(result.positions, c, t.v3);
+	     }
+	   }
+
+           result.texCoords = new float[n*3*2];
+	   { int c = 0;
+             for (int i = 0; i < n; ++i) {
+		 Triangle t = triangles.get(i);
+		 c = copyVector2f(result.texCoords, c, t.t1);
+		 c = copyVector2f(result.texCoords, c, t.t2);
+		 c = copyVector2f(result.texCoords, c, t.t3);
+	     }
+	   }
+
+           result.colors = new float[n*3*4];
+	   { int c = 0;
+             for (int i = 0; i < n; ++i) {
+		 Triangle t = triangles.get(i);
+		 c = copyColor(result.colors, c, t.c1);
+		 c = copyColor(result.colors, c, t.c2);
+		 c = copyColor(result.colors, c, t.c3);
+	     }
+	   }
+           
+	   return result;
+       }
+
+       private int copyVector3f(float[] arr, int base, Vector3f v) {
+           arr[base+0] = v.x;
+           arr[base+1] = v.y;
+           arr[base+2] = v.z;
+           arr[base+3] = 1.0f;
+           return base+4;
+       }
+       private int copyVector2f(float[] arr, int base, Vector2f v) {
+           arr[base+0] = v.x;
+           arr[base+1] = v.y;
+           return base+2;
+       }
+       private int copyColor(float[] arr, int base, ColorRGBA c) {
+           arr[base+0] = ((float)(c.r&0xff))/255.0f;
+           arr[base+1] = ((float)(c.g&0xff))/255.0f;
+           arr[base+2] = ((float)(c.b&0xff))/255.0f;
+           arr[base+3] = ((float)(c.a&0xff))/255.0f;
+           return base+4;
+       }
+   }   
 }

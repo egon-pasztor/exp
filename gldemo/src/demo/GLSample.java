@@ -27,11 +27,6 @@ import com.jogamp.common.nio.Buffers;
 
 import demo.GLMath.*;
 
-
-/**
- * inspired from http://www.lighthouse3d.com/cg-topics/code-samples/opengl-3-3-glsl-1-5-sample/
- * 
- */
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
 
    private GLCanvas glCanvas;
@@ -58,6 +53,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       frame.setVisible(true);
    }
 
+   public GLSample() {
+      initModel();
+   }
+
    // -----------------------------------------------------------
    // These 4 methods appear to be GLEventListener methods
    // -----------------------------------------------------------
@@ -82,20 +81,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       System.out.format("GLSample.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
       
       cameraBall = new CameraBall(width, height,
-                                  new Vector3f(0.5f, 0.5f, -1),   // look-at
-                                  new Vector3f(0.5f, 0.5f, 2),    // camera-pos
-                                  new Vector3f(0.0f, 1.0f, 0.0f), // camera-up
+                                  new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
+                                  new Vector3f(0.0f, 0.0f, 6.0f),   // camera-pos
+                                  new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
                                   53.13f);
       updateMatrices();
-//      
-//      float ratio;
-//      // Prevent a divide by zero, when window is too short
-//      // (you can't make a window of zero width).
-//      if (height == 0)
-//         height = 1;
-//
-//      ratio = (1.0f * width) / height;
-//      this.projMatrix = buildProjectionMatrix(53.13f, ratio, 1.0f, 30.0f, this.projMatrix);
    }
 
    /** GL Render loop */
@@ -311,48 +301,43 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // SETUP buffers
    // -----------------------------------------------------------
 
+   Model m;
+
+   void initModel() {
+       m = new Model();
+
+       Vector3f center = Vector3f.Z;
+       Vector3f dx = Vector3f.X;
+       Vector3f dy = Vector3f.Y;
+
+       float ninety = (float) (Math.PI/2);
+       for (int i = 0; i < 4; ++i) {
+	   float angle = i * ninety;
+
+ 	   m.addSquare(center.rotated(Vector3f.Y,angle),
+                      dx.rotated(Vector3f.Y,angle),
+                      dy.rotated(Vector3f.Y,angle));
+       }
+      
+       m.addSquare(center.rotated(Vector3f.X,ninety),
+                   dx.rotated(Vector3f.X,ninety),
+		   dy.rotated(Vector3f.X,ninety));
+      
+       m.addSquare(center.rotated(Vector3f.X,-ninety),
+                   dx.rotated(Vector3f.X,-ninety),
+                   dy.rotated(Vector3f.X,-ninety));
+
+   }
+
    // Vertex Array Object ID
    int triangleVAO;
-
-   // Data for triangle  x,y,z,w
-   float positions[] = { 
-         0.0f, 0.0f, 0.0f, 1.0f,  
-         0.0f, 1.0f, 0.0f, 1.0f,
-         1.0f, 0.0f, 0.0f, 1.0f,
-         
-         0.1f, 1.0f, 0.0f, 1.0f,  
-         1.1f, 0.0f, 0.0f, 1.0f,
-         1.1f, 1.0f, 0.0f, 1.0f 
-   
-   };
-
-   float colors[] = {  // RGBA
-         0.0f, 0.0f, 1.0f, 1.0f, 
-         0.0f, 1.0f, 0.0f, 1.0f, 
-         0.0f, 0.0f, 1.0f, 1.0f,
-         
-         0.0f, 1.0f, 0.0f, 1.0f,
-         0.0f, 0.0f, 1.0f, 1.0f, 
-         0.0f, 1.0f, 0.0f, 1.0f,
-   };
-   
-   float texCoords[] = { 
-         0.0f, 1.0f,  
-         0.0f, 0.0f, 
-         1.0f, 1.0f, 
-
-         0.0f, 0.0f,  
-         1.0f, 1.0f, 
-         1.0f, 0.0f,          
-   };
-
    
    void setupBuffers(GL3 gl) {
       System.out.format("SETUP-buffers called\n");
       
       // generate the IDs
       this.triangleVAO = this.generateVAOId(gl);
-      gl.glBindVertexArray( triangleVAO);
+      gl.glBindVertexArray(triangleVAO);
       
       // Generate slots
       checkError(gl, "bufferIdCreation");
@@ -361,13 +346,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       int texCoordsBufferId = this.generateBufferId(gl);
    
       // bind the buffers
-      checkError(gl, "bind0");
-      this.bindBuffer(gl, positionBufferId,  positions, 4,vsPositionLoc);
-      checkError(gl, "bind1");
-      this.bindBuffer(gl, colorBufferId,     colors,    4,vsColorLoc);
-      checkError(gl, "bind2");
-      this.bindBuffer(gl, texCoordsBufferId, texCoords, 2,vsTexCoordsLoc);
-      checkError(gl, "bind3");
+
+      Model.Arrays ma = m.getArrays();
+      this.bindBuffer(gl, positionBufferId,  ma.positions, 4, vsPositionLoc);
+      this.bindBuffer(gl, colorBufferId,     ma.colors,    4, vsColorLoc);
+      this.bindBuffer(gl, texCoordsBufferId, ma.texCoords, 2, vsTexCoordsLoc);
    }
    
    void bindBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
@@ -459,7 +442,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       System.out.format("SETUP-texture called\n");
       
       Image myTexture = new Image(256,256);
-      myTexture.setFromResource("teapot.png");
+      myTexture.setFromResource("lea.png");
       //myTexture.fillRect(0, 0, 256, 256, 0x00ffffff);
       myTexture.fillRect(10, 10, 30, 30, 0x00ff0000);
       myTexture.fillRect(30, 30, 30, 30, 0x0000ff00);
@@ -524,7 +507,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private void updateMatrices() {
       
       float fov    = cameraBall.getVerticalFOV();
-      float aspect = cameraBall.getAspectRatio();      
+      float aspect = cameraBall.getAspectRatio();
       float zNear = 1.0f;
       float zFar  = 30.0f;
       
@@ -568,7 +551,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glUniformMatrix4fv( this.viewMatrixLoc, 1, false, this.viewMatrix, 0);
 
       gl.glBindVertexArray(this.triangleVAO);
-      gl.glDrawArrays(GL.GL_TRIANGLES, 0, 6);
+      gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3*m.numTriangles());
 
       // Check out error
       checkError(gl, "render");
