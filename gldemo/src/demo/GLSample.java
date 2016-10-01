@@ -30,6 +30,9 @@ import demo.GLMath.*;
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
 
    private GLCanvas glCanvas;
+  
+   boolean cube = false;
+
    
    // -----------------------------------------------------------
    // -----------------------------------------------------------
@@ -82,7 +85,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       cameraBall = new CameraBall(width, height,
                                   new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
-                                  new Vector3f(0.0f, 0.0f, 6.0f),   // camera-pos
+                                  new Vector3f(0.0f, 0.0f, cube?6.0f:3.4f),   // camera-pos
                                   new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
                                   53.13f);
       updateMatrices();
@@ -305,28 +308,82 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    void initModel() {
        m = new Model();
+       
+       boolean cube = false;
+       if (cube) {
+          Vector3f center = Vector3f.Z;
+          Vector3f dx = Vector3f.X;
+          Vector3f dy = Vector3f.Y;
+   
+          float ninety = (float) (Math.PI/2);
+          for (int i = 0; i < 4; ++i) {
+     	       float angle = i * ninety;
+    	        m.addSquare(center.rotated(Vector3f.Y,angle),
+                          dx.rotated(Vector3f.Y,angle),
+                          dy.rotated(Vector3f.Y,angle));
+          }
+         
+          m.addSquare(center.rotated(Vector3f.X,ninety),
+                      dx.rotated(Vector3f.X,ninety),
+   		             dy.rotated(Vector3f.X,ninety));
+         
+          m.addSquare(center.rotated(Vector3f.X,-ninety),
+                      dx.rotated(Vector3f.X,-ninety),
+                      dy.rotated(Vector3f.X,-ninety));
+          
+       } else {
+          // Icosahedron
 
-       Vector3f center = Vector3f.Z;
-       Vector3f dx = Vector3f.X;
-       Vector3f dy = Vector3f.Y;
-
-       float ninety = (float) (Math.PI/2);
-       for (int i = 0; i < 4; ++i) {
-	   float angle = i * ninety;
-
- 	   m.addSquare(center.rotated(Vector3f.Y,angle),
-                      dx.rotated(Vector3f.Y,angle),
-                      dy.rotated(Vector3f.Y,angle));
+          Vector3f top    = new Vector3f(0f,1f,0f);
+   
+          Vector3f t0,t1,t2,t3,t4;
+          Vector3f b0,b1,b2,b3,b4;
+          
+          t0 = new Vector3f((float)(2.0/Math.sqrt(5)), (float)(1.0/Math.sqrt(5)), 0f);
+          b0 = t0.rotated(Vector3f.Y, (float)(1 * Math.PI/5.0));
+          t1 = t0.rotated(Vector3f.Y, (float)(2 * Math.PI/5.0));
+          b1 = t0.rotated(Vector3f.Y, (float)(3 * Math.PI/5.0));
+          t2 = t0.rotated(Vector3f.Y, (float)(4 * Math.PI/5.0));
+          b2 = t0.rotated(Vector3f.Y, (float)(5 * Math.PI/5.0));
+          t3 = t0.rotated(Vector3f.Y, (float)(6 * Math.PI/5.0));
+          b3 = t0.rotated(Vector3f.Y, (float)(7 * Math.PI/5.0));
+          t4 = t0.rotated(Vector3f.Y, (float)(8 * Math.PI/5.0));
+          b4 = t0.rotated(Vector3f.Y, (float)(9 * Math.PI/5.0));
+          
+          b0 = new Vector3f(b0.x,-b0.y,b0.z);
+          b1 = new Vector3f(b1.x,-b1.y,b1.z);
+          b2 = new Vector3f(b2.x,-b2.y,b2.z);
+          b3 = new Vector3f(b3.x,-b3.y,b3.z);
+          b4 = new Vector3f(b4.x,-b4.y,b4.z);
+          
+          Vector3f bottom = new Vector3f(0f,-1f,0f);
+          
+          
+          m.addTriangle(top, t0,t1);
+          m.addTriangle(top, t1,t2);
+          m.addTriangle(top, t2,t3);
+          m.addTriangle(top, t3,t4);
+          m.addTriangle(top, t4,t0);
+          
+          m.addTriangle(t0, b0, t1);
+          m.addTriangle(t1, b0, b1);
+          m.addTriangle(t1, b1, t2);
+          m.addTriangle(t2, b1, b2);
+          m.addTriangle(t2, b2, t3);
+          m.addTriangle(t3, b2, b3);
+          m.addTriangle(t3, b3, t4);
+          m.addTriangle(t4, b3, b4);
+          m.addTriangle(t4, b4, t0);
+          m.addTriangle(t0, b4, b0);
+          
+          m.addTriangle(b0, bottom, b1);
+          m.addTriangle(b1, bottom, b2);
+          m.addTriangle(b2, bottom, b3);
+          m.addTriangle(b3, bottom, b4);
+          m.addTriangle(b4, bottom, b0);
+          
        }
-      
-       m.addSquare(center.rotated(Vector3f.X,ninety),
-                   dx.rotated(Vector3f.X,ninety),
-		   dy.rotated(Vector3f.X,ninety));
-      
-       m.addSquare(center.rotated(Vector3f.X,-ninety),
-                   dx.rotated(Vector3f.X,-ninety),
-                   dy.rotated(Vector3f.X,-ninety));
-
+       
    }
 
    // Vertex Array Object ID
@@ -442,7 +499,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       System.out.format("SETUP-texture called\n");
       
       Image myTexture = new Image(256,256);
-      myTexture.setFromResource("lea.png");
+      myTexture.setFromResource("teapot.png");
       //myTexture.fillRect(0, 0, 256, 256, 0x00ffffff);
       myTexture.fillRect(10, 10, 30, 30, 0x00ff0000);
       myTexture.fillRect(30, 30, 30, 30, 0x0000ff00);
@@ -534,6 +591,40 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
           camUp.x,     camUp.y,      camUp.z,     -camPos.dot(camUp),
         -camFwd.x,   -camFwd.y,    -camFwd.z,      camPos.dot(camFwd),
              0.0f,        0.0f,         0.0f,      1.0f);
+      
+      
+      // lookat-point -->
+      //    x ==   camRt.lookAt  - camRt.camPos    ==  camRt.(lookAt-camPos)    == 0   (camRt is perp to the line from camPos to lookAt)
+      //    y ==   camUp.lookAt  - camUp.camPos    ==  camUp.(lookAt-camPos)    == 0   (camUp is perp to the line from camPos to lookAt)
+      //    z == - camFwd.lookAt + camFwd.camPos   == - camFwd.(lookAt-camPos)  == -d  (camFwd is normalized and colinear with (lookAt-camPos))
+      //                                                                                so d is the DISTANCE from lookAt to camPos
+      //    w == 1
+      
+      //
+      // so if P is camPos,  (viewMatrix x P) is <0,0,0>
+      // so if P is lookAt,  (viewMatrix x P) is <0,0,-d> where -d is the distance from lookAt to camPos
+      
+      //
+      // if d is zNear,
+      //
+      // then projMatrix * viewMatrix * lookAt  == projMatrix * <0,0,-zNear,1>  ==
+      //
+      //  z ==    ( - zNear * (zFar + zNear) + 2*zFar*zNear ) / (zNear - zFar)  ==  -zNear (zNear-zFar) / (zNear - zFar) == -zNear
+      //  w ==    zNear
+      //
+      // resulting in <0,0,-1>
+      
+      // if d is zFar,
+      //
+      // then projMatrix * viewMatrix * lookAt  == projMatrix * <0,0,-zFar,1>  ==
+      //
+      //  z ==    ( - zFar * (zFar + zNear) + 2*zFar*zNear ) / (zNear - zFar)  ==  zFar (zNear-zFar) / (zNear - zFar) == zFar
+      //  w ==    zFar
+      //
+      // resulting in <0,0,1>
+      
+      
+      
    }
 
    

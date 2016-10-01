@@ -1,6 +1,7 @@
 package demo;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class GLMath {
    
@@ -162,7 +163,7 @@ public class GLMath {
               + (yx*zy-zx*yy) * xz;
       }
       public Matrix3f inverse() {
-	 final float d = determinate();
+  	      final float d = determinate();
          return new Matrix3f(
 	      +(yy*zz-zy*yz)/d, -(xy*zz-zy*xz)/d, +(xy*yz-yy*xz)/d, 
               -(yx*zz-zx*yz)/d, +(xx*zz-zx*xz)/d, -(xx*yz-yx*xz)/d,  
@@ -431,19 +432,414 @@ public class GLMath {
    }
 
    // -----------------------------------------------------------------------
+   // Mesh Structure
+   // -----------------------------------------------------------------------
+/*
+   public static class Vertex {
+      HalfEdge outgoingEdge;
+      
+      // vertex-info:
+      Vector3f position;
+      
+   }
+   public static class Edge {
+      HalfEdge oneEdge;
+      
+      // edge-info
+   }
+   
+   public static class Face {
+      HalfEdge oneEdge;
+
+      // face-info
+      ColorRGBA color;
+   }
+   
+   public static class HalfEdge {
+      HalfEdge nextEdge;
+      Vertex endVertex;
+      HalfEdge sibling;   // 
+      Face face;          // left side of halfedge
+      
+      // halfedge-info:                 
+   }
+   
+   public static class Mesh {
+      ArrayList<Vertex> vertices;      
+      ArrayList<Face> faces; 
+      ArrayList<Edge> edges;
+   }
+  */
+
+   
+   
+   /*
+   public static class Vertex {
+      public Vertex(Vector3f position) {
+         this.position = position;
+         r = null;
+      }
+      
+      // vertex-info
+      public Vector3f position;
+
+      public EdgeRef getRep()          { return r;   }
+      public void    setRep(EdgeRef r) { this.r = r; }
+      
+      private EdgeRef r;
+   }
+   
+   public static class Triangle {
+      public Vertex v0,v1,v2;      
+      public EdgeRef e0,e1,e2;
+      
+      Triangle(Vertex v0, Vertex v1, Vertex v2, EdgeRef e0, EdgeRef e1, EdgeRef e2) {
+         this.v0 = v0; this.v1 = v1; this.v2 = v2;
+         this.e0 = e0; this.e1 = e1; this.e2 = e2;
+      }
+   }
+   
+   //
+   //  examples:   cube
+   //              icosahedron
+   //              tesselated-bezier-patch
+   //              teapot (eg, 5 tesselated-bezier-patches)
+   //              plain-old-simple-triangle
+   //              plain-old-simple-square
+   //              
+   
+   public static class EdgeRef {
+      public final Triangle t;
+      public final int i;
+      
+      public EdgeRef(Triangle triangle, int edgeIndex) {
+         this.t = triangle;
+         this.i = edgeIndex;
+      }
+      
+      public boolean equals(EdgeRef e) {
+         return (e != null) && (t == e.t) && (i == e.i);
+      }
+      
+      public EdgeRef rot()    { return new EdgeRef(t, (i+1)%3); }
+      public EdgeRef rotInv() { return new EdgeRef(t, (i+2)%3); }
+      public EdgeRef sym()    { return next().rot(); }
+
+      public Vertex dest()   { return rotInv().org(); }
+      public Vertex right()  { return rot().org(); }
+      public Vertex left()   { return next().dest(); }
+      
+      public Vertex org()     { return (i==0) ? t.v0 : (i==1) ? t.v1 : t.v2; }
+      public EdgeRef next()   { return (i==0) ? t.e0 : (i==1) ? t.e1 : t.e2; }
+      public EdgeRef prev()   { return rot().next().rot(); }
+
+      public void setOrg(Vertex v)   { if (i==0) t.v0 = v; else if (i==1) t.v1 = v; else t.v2 = v; }
+      public void setNext(EdgeRef e) { if (i==0) t.e0 = e; else if (i==1) t.e1 = e; else t.e2 = e; }
+   }
+      
+   
+   public static class Mesh {
+      private HashSet<Triangle> triangles; 
+      private HashSet<Vertex> vertices;      
+      private Vertex inf;
+      
+      public Mesh() {
+         triangles = new HashSet<Triangle>();
+         vertices = new HashSet<Vertex>();
+         inf = new Vertex(null);
+      }
+            
+      public EdgeRef makeEdge(Vertex v0, Vertex v1) {
+         Triangle a = new Triangle(v1,v0,inf,   null,null,null);
+         Triangle b = new Triangle(v0,v1,inf,   null,null,null);
+         a.e0 = new EdgeRef(b,1); a.e1 = new EdgeRef(b,0); a.e2 = new EdgeRef(b,2);
+         b.e0 = new EdgeRef(a,1); b.e1 = new EdgeRef(a,0); b.e2 = new EdgeRef(a,2);
+         triangles.add(a);
+         triangles.add(b);
+         return b.e0;
+      }
+      
+      public void splice(EdgeRef a, EdgeRef b) {
+         EdgeRef aNext = a.next();
+         EdgeRef bNext = b.next();
+         EdgeRef aSym = aNext.rot();
+         EdgeRef bSym = bNext.rot();
+         EdgeRef aRotInv = a.rotInv();
+         EdgeRef bRotInv = b.rotInv();
+         
+         a.setNext(bNext);
+         b.setNext(aNext);
+         aSym.setNext(bRotInv);
+         bSym.setNext(aRotInv);         
+      }
+      
+      public EdgeRef swap(EdgeRef e) {
+         EdgeRef a = e.next();
+         EdgeRef b = e.rotInv();
+         a.setOrg(b.dest());
+         b.setOrg(a.dest());
+         splice(a, e);
+         splice(a, b.sym());
+         return a;
+      }
+      
+      public void AddTriangle(Vertex v0, Vertex v1, Vertex v2) {
+         EdgeRef g0 = null,g1 = null,g2 = null;
+         
+         // phase 0
+         for (int i = 0; i < 2; i++) {
+            Vertex vi       = (i==0)?v0:(i==1)?v1:v2;
+            Vertex viMinus1 = (i==0)?v2:(i==1)?v0:v1;
+            Vertex viPlus1  = (i==0)?v1:(i==1)?v2:v0;
+            
+            // We're proposing a triangle that will contain 'vi',
+            // connected on one side to viMinus1, and on the other to viPlus1.
+            //
+            // But does 'vi' already have edges connected to it?
+            
+            EdgeRef e = vi.getRep(), g = null;
+            if (e!=null) {
+               EdgeRef a = null, b = null, c = null;
+
+               // Edge 'e' starts at 'vi'.
+               // Walk around vertex 'vi' looking at all the edges
+               // that emanate from there:
+               
+               EdgeRef e0 = e;
+               do {
+                  Vertex w = e.dest();
+                  if (w == viMinus1) {
+                     if (e.right() != inf) { 
+                        throw new RuntimeException("invalid edge 1");
+                     }                     
+                     // We found a pre-existing edge that goes from vi to viMinus1
+                     b = e;
+                  } else if (w == viPlus1) {
+                     if (e.left() != inf) { 
+                        throw new RuntimeException("invalid edge 2");
+                     }
+                     // We found a pre-existing edge that goes from vi to viPlus1
+                     a = e;
+                  } else if (w == inf) {
+                     c = e;
+                  }
+                  
+                  e = e.next();
+               } while ((e != e0) && ((a==null) || (b==null)));
+               
+               if (a!=null) {
+                  if (b!=null) {
+                     // Both "a" (vi->viMinus1) and "b" (vi->viPlus1) already exist
+                     if (!a.next().equals(b.prev())) {
+                        e = b.next();
+                        while (!e.equals(a) && (e.dest() != inf)) {
+                           e = e.next();
+                        }
+                        if (e.equals(a)) {
+                           throw new RuntimeException("non manifold vertex 1");
+                        }
+                        EdgeRef f = b.prev();
+                        splice(a.next(), f);
+                        splice(e, f);
+                     }
+                     
+                     g = b;
+                     
+                  } else {
+                     // Only "a" (vi->viMinus1) exists
+                     g = a.next();
+                  }
+               } else if (b != null) {
+                  // Only "b" (vi->viPlus1) exists
+                  g = b;
+               } else if (c != null) {
+                  g = c;
+               } else {
+                  throw new RuntimeException("non manifold vertex 2");
+               }
+               
+               if (i==0) g0=g; else if (i==1) g1=g; else g2=g;
+            }            
+         }
+         
+        
+         // ???
+         
+      }
+   }
+   */
+
+
+   
+   public static class Vertex {
+      public Vertex(Vector3f position) {
+         this.position = position;
+         r = null;
+      }
+      
+      // vertex-info
+      public Vector3f position;
+
+      public Triangle.Ref getRep()       { return r;   }
+      public void setRep(Triangle.Ref r) { this.r = r; }
+      
+      private Triangle.Ref r;
+   }
+   
+   // Okay this is going to be MY mesh class.
+   //   
+   public static class Triangle {
+      
+      // Triangle vertices go counterclockwise.
+      //
+      // From:       v0 -> v1 -> v2 -> v0
+      // Edges are      e2 -> e0 -> e1
+      
+      public Vertex v0,v1,v2; 
+      public Triangle.Ref e0,e1,e2;
+      
+      public abstract class Ref {
+         public Triangle getTriangle() {
+            return Triangle.this;
+         }
+         
+         // These methods let you move from one (edge/vertex) to the next going around the Triangle.
+         public abstract Ref ccwAroundTriangle();
+         public abstract Ref cwAroundTriangle();
+         
+         // When being used to refer to a vertex, it refers to one of {v0,v1,v2} within its Triangle.
+         // This variable points to a Vertex object and we can both read and write this pointer:
+         public abstract Vertex getVertex();
+         public abstract void setVertex(Vertex v);
+         
+         // When being used to refer to an edge, it refers to one of {e0,e1,e2} within its Triangle.
+         // This variable points to a Triangle.Ref and we can both read and write this pointer:
+         public abstract void setOppositeEdge(Ref e);
+         public abstract Ref getOppositeEdge();
+
+         // When being used to refer to a edge, the edge has these start and end points:
+         public Vertex getStart() { return ccwAroundTriangle().getVertex(); }
+         public Vertex getEnd()   { return cwAroundTriangle().getVertex(); }         
+         
+         public Ref ccwAroundVertex() { return ccwAroundTriangle().getOppositeEdge().cwAroundTriangle(); }
+         public Ref cwAroundVertex() { return cwAroundTriangle().getOppositeEdge().ccwAroundTriangle(); }
+      }
+      
+      public final Triangle.Ref ref0, ref1, ref2;
+      
+      Triangle(Vertex v0, Vertex v1, Vertex v2) {
+         this.v0 = v0; this.v1 = v1; this.v2 = v2;
+         e0 = e1 = e2 = null;
+
+         // Create three "Ref" objects that can be used 
+         // to refer to each side/corner of this Triangle;
+         ref0 = new Ref() {
+            @Override public Vertex getVertex()            { return Triangle.this.v0;   }
+            @Override public void   setVertex(Vertex v)    { Triangle.this.v0 = v;      }
+            @Override public void   setOppositeEdge(Ref e) { Triangle.this.e0 = e;      }
+            @Override public Ref    getOppositeEdge()      { return Triangle.this.e0;   }
+            @Override public Ref    ccwAroundTriangle()    { return Triangle.this.ref1; }
+            @Override public Ref    cwAroundTriangle()     { return Triangle.this.ref2; }
+         };
+         ref1 = new Ref() {
+            @Override public Vertex getVertex()            { return Triangle.this.v1;   }
+            @Override public void   setVertex(Vertex v)    { Triangle.this.v1 = v;      }
+            @Override public void   setOppositeEdge(Ref e) { Triangle.this.e1 = e;      }
+            @Override public Ref    getOppositeEdge()      { return Triangle.this.e1;   }
+            @Override public Ref    ccwAroundTriangle()    { return Triangle.this.ref2; }
+            @Override public Ref    cwAroundTriangle()     { return Triangle.this.ref0; }
+         };
+         ref2 = new Ref() {
+            @Override public Vertex getVertex()            { return Triangle.this.v2;   }
+            @Override public void   setVertex(Vertex v)    { Triangle.this.v2 = v;      }
+            @Override public void   setOppositeEdge(Ref e) { Triangle.this.e2 = e;      }
+            @Override public Ref    getOppositeEdge()      { return Triangle.this.e2;   }
+            @Override public Ref    ccwAroundTriangle()    { return Triangle.this.ref0; }
+            @Override public Ref    cwAroundTriangle()     { return Triangle.this.ref1; }
+         };
+      }
+   }
+   
+
+   public static class Mesh {
+      private HashSet<Triangle> triangles; 
+      private HashSet<Vertex> vertices;      
+      private Vertex inf;
+      
+      public Mesh() {
+         triangles = new HashSet<Triangle>();
+         vertices = new HashSet<Vertex>();
+         inf = new Vertex(null);
+      }
+            
+      public Triangle.Ref makeEdge(Vertex v0, Vertex v1) {
+         Triangle a = new Triangle(v1,v0,inf);
+         Triangle b = new Triangle(v0,v1,inf);
+         a.e0 = b.ref1;  a.e1 = b.ref0; a.e2 = b.ref2;
+         b.e0 = a.ref1;  b.e1 = a.ref0; b.e2 = a.ref2;
+         triangles.add(a);
+         triangles.add(b);
+         return b.e0;
+      }      
+      
+      public Triangle.Ref swap(Triangle.Ref e) {
+         Triangle.Ref oe = e.getOppositeEdge();
+         
+         Triangle.Ref trInner = oe.cwAroundTriangle();
+         Triangle.Ref brInner = oe.ccwAroundTriangle();
+         Triangle.Ref tlInner = e.ccwAroundTriangle();
+         Triangle.Ref blInner = e.cwAroundTriangle();
+         
+         Triangle.Ref trOuter = trInner.getOppositeEdge();
+         Triangle.Ref blOuter = blInner.getOppositeEdge();         
+         
+         tlInner.setVertex(oe.getVertex());
+         brInner.setVertex(e.getVertex());
+         
+         e.setOppositeEdge(trOuter);
+         trOuter.setOppositeEdge(e);
+         
+         oe.setOppositeEdge(blOuter);
+         blOuter.setOppositeEdge(oe);
+         
+         trInner.setOppositeEdge(blInner);
+         blInner.setOppositeEdge(trInner);
+
+         return blInner;
+      }
+      
+      /*
+      public void splice(EdgeRef a, EdgeRef b) {
+         EdgeRef aNext = a.next();
+         EdgeRef bNext = b.next();
+         EdgeRef aSym = aNext.rot();
+         EdgeRef bSym = bNext.rot();
+         EdgeRef aRotInv = a.rotInv();
+         EdgeRef bRotInv = b.rotInv();
+         
+         a.setNext(bNext);
+         b.setNext(aNext);
+         aSym.setNext(bRotInv);
+         bSym.setNext(aRotInv);         
+      }
+      */
+   }
+      
+   
+   // -----------------------------------------------------------------------
    // Triangle
    // -----------------------------------------------------------------------
    
-   public static class Triangle {
+   public static class Triangle2 {
 
        public Vector3f  v1,v2,v3;       
        public Vector2f  t1,t2,t3;
        public ColorRGBA c1,c2,c3;
 
-       public Triangle() {
-	   v1=v2=v3=null;
-	   t1=t2=t3=null;
-	   c1=c2=c3=null;
+       public Triangle2() {
+	       v1=v2=v3=null;
+	       t1=t2=t3=null;
+  	       c1=c2=c3=null;
        }
 
        public void setPositions(Vector3f v1, Vector3f v2, Vector3f v3) {
@@ -470,10 +866,10 @@ public class GLMath {
    public static class Model {
 
        public Model() {
-	   triangles = new ArrayList<Triangle>();
+	   triangles = new ArrayList<Triangle2>();
        }
 
-       public void addTriangle(Triangle t) {
+       public void addTriangle(Triangle2 t) {
 	   triangles.add(t);
        }
        public void clearTriangles() {
@@ -483,10 +879,22 @@ public class GLMath {
            return triangles.size();
        }
 
-       private ArrayList<Triangle> triangles;
+       private ArrayList<Triangle2> triangles;
 
        // -- -- -- -- -- -- -- --
 
+       public void addTriangle (Vector3f a, Vector3f b, Vector3f c) {
+          Triangle2 t1 = new Triangle2();
+          t1.setPositions(a,b,c);
+          t1.setColors(new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
+                       new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
+                       new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff));
+          t1.setTexCoords(new Vector2f(0.0f, 1.0f),
+                          new Vector2f(0.0f, 0.0f),
+                          new Vector2f(1.0f, 1.0f));
+          addTriangle(t1);
+          
+       }
        public void addSquare (Vector3f center, Vector3f dx, Vector3f dy) {
            Vector3f tr = center.plus(dx).plus(dy);
            Vector3f tl = center.minus(dx).plus(dy);
@@ -496,8 +904,8 @@ public class GLMath {
 	   System.out.format("Adding square [%s][%s][%s][%s]\n",
 			     tr,tl,br,bl);
 
-           Triangle t1 = new Triangle();
-           Triangle t2 = new Triangle();
+           Triangle2 t1 = new Triangle2();
+           Triangle2 t2 = new Triangle2();
            t1.setPositions(bl,tl,br);
            t2.setPositions(tl,br,tr);
 
@@ -537,7 +945,7 @@ public class GLMath {
            result.positions = new float[n*3*4];
 	   { int c = 0;
              for (int i = 0; i < n; ++i) {
-		 Triangle t = triangles.get(i);
+		 Triangle2 t = triangles.get(i);
 		 c = copyVector3f(result.positions, c, t.v1);
 		 c = copyVector3f(result.positions, c, t.v2);
 		 c = copyVector3f(result.positions, c, t.v3);
@@ -547,7 +955,7 @@ public class GLMath {
            result.texCoords = new float[n*3*2];
 	   { int c = 0;
              for (int i = 0; i < n; ++i) {
-		 Triangle t = triangles.get(i);
+		 Triangle2 t = triangles.get(i);
 		 c = copyVector2f(result.texCoords, c, t.t1);
 		 c = copyVector2f(result.texCoords, c, t.t2);
 		 c = copyVector2f(result.texCoords, c, t.t3);
@@ -557,7 +965,7 @@ public class GLMath {
            result.colors = new float[n*3*4];
 	   { int c = 0;
              for (int i = 0; i < n; ++i) {
-		 Triangle t = triangles.get(i);
+		 Triangle2 t = triangles.get(i);
 		 c = copyColor(result.colors, c, t.c1);
 		 c = copyColor(result.colors, c, t.c2);
 		 c = copyColor(result.colors, c, t.c3);
