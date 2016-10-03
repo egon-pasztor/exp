@@ -686,8 +686,6 @@ public class GLMath {
       private Triangle.Ref r;
    }
    
-   // Okay this is going to be MY mesh class.
-   //   
    public static class Triangle {
       
       // Triangle vertices go counterclockwise.
@@ -823,6 +821,50 @@ public class GLMath {
          bSym.setNext(aRotInv);         
       }
       */
+
+       public void addTriangle (Vertex v0, Vertex v1, Vertex v2) {
+
+
+
+       }
+
+       /*
+       it looks like there are 8 cases:
+
+  e1 -->  v0  e2  v1  e0  v2  e1  -->  v0  
+
+          x   x   x   x   x   x     -->  triangle in free space
+                                            create and attach three ~boundary" triangles
+
+          0   x   x   x   x   x     -->  triangle with one attached point
+          0   x   0   x   x   x     -->  triangle with two attached points
+          0-------0   x   x   x     -->  triangle with an attached edge
+          0-------0   x   0   x     -->  triangle with an attached edge and one attached point
+          0-------0-------0   x     -->  triangle with two attached edges
+                                            .. ???
+                                            
+        --0-------0-------0----     -->  triangle with three attached edges
+                                            disconnect and delete three "boundary triangles"
+                                            "filling a hole"
+
+
+
+      0 0 0    --- 
+
+       free space
+       one-point attached
+       two-points attached
+       three-points attached
+
+       one-edge attached
+       one=edge and a point
+
+       two-edges attached
+       three edges
+
+
+       */
+
    }
       
    
