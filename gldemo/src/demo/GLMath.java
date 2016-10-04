@@ -680,80 +680,76 @@ public class GLMath {
       // vertex-info
       public Vector3f position;
 
-      public Triangle.Ref getRep()       { return r;   }
-      public void setRep(Triangle.Ref r) { this.r = r; }
+      public Triangle.Edge getRep()       { return r;   }
+      public void setRep(Triangle.Edge r) { this.r = r; }
       
-      private Triangle.Ref r;
+      private Triangle.Edge r;
    }
    
    public static class Triangle {
       
-      // Triangle vertices go counterclockwise.
-      //
-      // From:       v0 -> v1 -> v2 -> v0
-      // Edges are      e2 -> e0 -> e1
-      
+      // Triangle points to its three vertices:  { v0 -> v1 -> v2 -> v0 }
       public Vertex v0,v1,v2; 
-      public Triangle.Ref e0,e1,e2;
       
-      public abstract class Ref {
+      // Triangle points to the edges opposite each edge:
+      public Triangle.Edge o0,o1,o2;
+
+      
+      public abstract class Edge {
          public Triangle getTriangle() {
             return Triangle.this;
          }
          
-         // These methods let you move from one (edge/vertex) to the next going around the Triangle.
-         public abstract Ref ccwAroundTriangle();
-         public abstract Ref cwAroundTriangle();
+         // These methods let you move from one edge to the next going around the Triangle.
+         public abstract Edge nextCCW();
+         public abstract Edge nextCW();
          
-         // When being used to refer to a vertex, it refers to one of {v0,v1,v2} within its Triangle.
+         // This class can be used to refer to one of the {v0,v1,v2} Vertex references.
          // This variable points to a Vertex object and we can both read and write this pointer:
-         public abstract Vertex getVertex();
-         public abstract void setVertex(Vertex v);
+         public abstract Vertex getOppositeVertex();
+         public abstract void setOppositeVertex(Vertex v);
          
-         // When being used to refer to an edge, it refers to one of {e0,e1,e2} within its Triangle.
+         // This class can be used to refer to one of the {o0,o1,o2} EdgeRef references
          // This variable points to a Triangle.Ref and we can both read and write this pointer:
-         public abstract void setOppositeEdge(Ref e);
-         public abstract Ref getOppositeEdge();
+         public abstract void setOppositeEdge(Edge e);
+         public abstract Edge getOppositeEdge();
 
          // When being used to refer to a edge, the edge has these start and end points:
-         public Vertex getStart() { return ccwAroundTriangle().getVertex(); }
-         public Vertex getEnd()   { return cwAroundTriangle().getVertex(); }         
-         
-         public Ref ccwAroundVertex() { return ccwAroundTriangle().getOppositeEdge().cwAroundTriangle(); }
-         public Ref cwAroundVertex() { return cwAroundTriangle().getOppositeEdge().ccwAroundTriangle(); }
+         public Vertex getStart() { return nextCCW().getOppositeVertex(); }
+         public Vertex getEnd()   { return nextCW().getOppositeVertex(); }         
       }
       
-      public final Triangle.Ref ref0, ref1, ref2;
+      public final Triangle.Edge e0, e1, e2;
       
       Triangle(Vertex v0, Vertex v1, Vertex v2) {
          this.v0 = v0; this.v1 = v1; this.v2 = v2;
-         e0 = e1 = e2 = null;
+         o0 = o1 = o2 = null;
 
          // Create three "Ref" objects that can be used 
          // to refer to each side/corner of this Triangle;
-         ref0 = new Ref() {
-            @Override public Vertex getVertex()            { return Triangle.this.v0;   }
-            @Override public void   setVertex(Vertex v)    { Triangle.this.v0 = v;      }
-            @Override public void   setOppositeEdge(Ref e) { Triangle.this.e0 = e;      }
-            @Override public Ref    getOppositeEdge()      { return Triangle.this.e0;   }
-            @Override public Ref    ccwAroundTriangle()    { return Triangle.this.ref1; }
-            @Override public Ref    cwAroundTriangle()     { return Triangle.this.ref2; }
+         e0 = new Edge() {
+            @Override public Vertex getOppositeVertex()         { return Triangle.this.v0; }
+            @Override public Edge   getOppositeEdge()           { return Triangle.this.o0; }
+            @Override public void   setOppositeVertex(Vertex v) { Triangle.this.v0 = v;    }
+            @Override public void   setOppositeEdge(Edge e)     { Triangle.this.o0 = e;    }
+            @Override public Edge   nextCCW()                   { return Triangle.this.e1; }
+            @Override public Edge   nextCW()                    { return Triangle.this.e2; }
          };
-         ref1 = new Ref() {
-            @Override public Vertex getVertex()            { return Triangle.this.v1;   }
-            @Override public void   setVertex(Vertex v)    { Triangle.this.v1 = v;      }
-            @Override public void   setOppositeEdge(Ref e) { Triangle.this.e1 = e;      }
-            @Override public Ref    getOppositeEdge()      { return Triangle.this.e1;   }
-            @Override public Ref    ccwAroundTriangle()    { return Triangle.this.ref2; }
-            @Override public Ref    cwAroundTriangle()     { return Triangle.this.ref0; }
+         e1 = new Edge() {
+            @Override public Vertex getOppositeVertex()         { return Triangle.this.v1; }
+            @Override public void   setOppositeVertex(Vertex v) { Triangle.this.v1 = v;    }
+            @Override public void   setOppositeEdge(Edge e)     { Triangle.this.o1 = e;    }
+            @Override public Edge   getOppositeEdge()           { return Triangle.this.o1; }
+            @Override public Edge   nextCCW          ()         { return Triangle.this.e2; }
+            @Override public Edge   nextCW()                    { return Triangle.this.e0; }
          };
-         ref2 = new Ref() {
-            @Override public Vertex getVertex()            { return Triangle.this.v2;   }
-            @Override public void   setVertex(Vertex v)    { Triangle.this.v2 = v;      }
-            @Override public void   setOppositeEdge(Ref e) { Triangle.this.e2 = e;      }
-            @Override public Ref    getOppositeEdge()      { return Triangle.this.e2;   }
-            @Override public Ref    ccwAroundTriangle()    { return Triangle.this.ref0; }
-            @Override public Ref    cwAroundTriangle()     { return Triangle.this.ref1; }
+         e2 = new Edge() {
+            @Override public Vertex getOppositeVertex()         { return Triangle.this.v2; }
+            @Override public void   setOppositeVertex(Vertex v) { Triangle.this.v2 = v;    }
+            @Override public void   setOppositeEdge(Edge e)     { Triangle.this.o2 = e;    }
+            @Override public Edge   getOppositeEdge()           { return Triangle.this.o2; }
+            @Override public Edge   nextCCW()                   { return Triangle.this.e0; }
+            @Override public Edge   nextCW()                    { return Triangle.this.e1; }
          };
       }
    }
@@ -770,29 +766,30 @@ public class GLMath {
          inf = new Vertex(null);
       }
             
-      public Triangle.Ref makeEdge(Vertex v0, Vertex v1) {
+      public Triangle.Edge makeEdge(Vertex v0, Vertex v1) {
          Triangle a = new Triangle(v1,v0,inf);
          Triangle b = new Triangle(v0,v1,inf);
-         a.e0 = b.ref1;  a.e1 = b.ref0; a.e2 = b.ref2;
-         b.e0 = a.ref1;  b.e1 = a.ref0; b.e2 = a.ref2;
+         a.o0 = b.e1;  a.o1 = b.e0;  a.o2 = b.e2;
+         b.o1 = a.e0;  b.o0 = a.e1;  b.o2 = a.e2;
          triangles.add(a);
          triangles.add(b);
          return b.e0;
       }      
       
-      public Triangle.Ref swap(Triangle.Ref e) {
-         Triangle.Ref oe = e.getOppositeEdge();
+      public Triangle.Edge swap(Triangle.Edge e) {
+         Triangle.Edge oe = e.getOppositeEdge();
          
-         Triangle.Ref trInner = oe.cwAroundTriangle();
-         Triangle.Ref brInner = oe.ccwAroundTriangle();
-         Triangle.Ref tlInner = e.ccwAroundTriangle();
-         Triangle.Ref blInner = e.cwAroundTriangle();
+         Triangle.Edge trInner = oe.nextCW();
+         Triangle.Edge brInner = oe.nextCCW();
+         Triangle.Edge tlInner = e.nextCCW();
+         Triangle.Edge blInner = e.nextCW();
          
-         Triangle.Ref trOuter = trInner.getOppositeEdge();
-         Triangle.Ref blOuter = blInner.getOppositeEdge();         
+         Triangle.Edge trOuter = trInner.getOppositeEdge();
+         Triangle.Edge blOuter = blInner.getOppositeEdge();         
          
-         tlInner.setVertex(oe.getVertex());
-         brInner.setVertex(e.getVertex());
+         tlInner.setOppositeVertex(oe.getOppositeVertex());
+         brInner.setOppositeVertex(e.getOppositeVertex());
+         // wait wait wait... by calling setOppositeVertex, don't we also maybe have to call setRep??
          
          e.setOppositeEdge(trOuter);
          trOuter.setOppositeEdge(e);
@@ -822,9 +819,130 @@ public class GLMath {
       }
       */
 
-       public void addTriangle (Vertex v0, Vertex v1, Vertex v2) {
+       public boolean addTriangle (Vertex v0, Vertex v1, Vertex v2) {
 
+          Triangle t = new Triangle(v0,v1,v2);
+          
+          // we should, yes, start by exploring each of the 3 vertices:
+          for (Triangle.Edge ei : new Triangle.Edge[] { t.e0, t.e1, t.e2 }) {
+             // Consider vertex vi opposite edge ei.
+             Vertex vi = ei.getOppositeVertex();
+             
+             // The edges to the left and right of vi are
+             Triangle.Edge leftEdge = ei.nextCCW();
+             Triangle.Edge rightEdge = ei.nextCW();
+           
+             // At this point, vi isn't connected back to this triangle yet, the triangle's just been created.
+             // But is vi connected to other, pre-existing triangles?
+             Triangle.Edge viEdge = vi.getRep();
+             if (viEdge != null) {
+                
+                Triangle.Edge outFromViAlongLeftEdge = null;
+                Triangle.Edge inToViAlongRightEdge = null;                
+                Triangle.Edge outFromViToInf = null;
+                
+                Triangle.Edge viFirstEdge = viEdge;                
+                do {
+                   Triangle.Edge outFromVi = viEdge.nextCW();
+                   if (outFromVi.getEnd() == leftEdge.getStart()) {
+                      // outFromVi will LINK to the left edge...
+                      outFromViAlongLeftEdge = outFromVi;
+                   }
+                   if (outFromVi.getEnd() == rightEdge.getEnd()) {
+                      // outFromVi conflicts with the right edge indicating ORIENTATION mismatch
+                      return false;
+                   }
+                   if (outFromVi.getEnd() == null) {
+                      // if we've found one of these it indicates vi is on a boundary...
+                      outFromViToInf = outFromVi;
+                   }
+                   
+                   Triangle.Edge inToVi = viEdge.nextCCW();
+                   if (inToVi.getStart() == leftEdge.getStart()) {
+                      // outFromVi conflicts with the left edge indicating ORIENTATION mismatch
+                      return false;
+                   }
+                   if (inToVi.getEnd() == rightEdge.getEnd()) {
+                      // outFromVi will LINK to the right edge...
+                      inToViAlongRightEdge = inToVi;
+                   }
+                   
+                   
+                   viEdge = inToVi.getOppositeEdge().nextCCW();
+                } while (viEdge != viFirstEdge);
+                
+                if (outFromViToInf == null) {
+                   // We went all the way around "vi" and didn't find even one edge-to-inf,
+                   // indicates "vi" is already surrounded by triangles, we can't add this one
+                   return false;
+                }
+                
+                // so.. if "outFromViAlongLeftEdge" is set,
+                // then there is a pre-existing EDGE along 
+                
+                
+             }
+             
+          }
+          
+          
+          
 
+          if (/* no edges... */true) {
+             
+             /*
+             x   x   x   x   x   x     -->  triangle in free space
+             0   x   x   x   x   x     -->  triangle with one attached point
+             0   x   0   x   x   x     -->  triangle with two attached points
+             0   x   0   x   0   x     -->  triangle with three attached points
+             */
+             
+             // Three boundary triangles are created
+             Triangle b0 = new Triangle(v1,v0,null);
+             Triangle b1 = new Triangle(v2,v1,null);
+             Triangle b2 = new Triangle(v0,v2,null);
+             
+             // The triangle points to the boundaries and vice-versa
+             t.o0 = b0.e2;  b0.o2 = t.e0;
+             t.o1 = b1.e2;  b1.o2 = t.e1;
+             t.o2 = b2.e2;  b2.o2 = t.e2;
+             
+             // The boundaries must connect to themselves:
+             for (Triangle.Edge ei : new Triangle.Edge[] { t.e0, t.e1, t.e2 }) {
+                // Consider vertex vi opposite edge ei.
+                Vertex vi = ei.getOppositeVertex();
+                
+                // The edges to the left and right of vi are
+                Triangle.Edge leftEdge = ei.nextCCW();
+                Triangle.Edge rightEdge = ei.nextCW();
+                
+                // The left edge of the boundary triangle on the left. 
+                //  and the right edge of the boundary triangle on the right:
+                Triangle.Edge leftEdgeOfLeftBoundary = leftEdge.getOppositeEdge().nextCW();
+                Triangle.Edge rightEdgeOfRightBoundary = rightEdge.getOppositeEdge().nextCCW();
+                
+                // Well, if "vi" isn't connected to anything...
+                if (vi.getRep() == null) {
+                   // Then the leftEdgeOfLeftBoundary and rightEdgeOfRightBoundary should connect:
+                   leftEdgeOfLeftBoundary.setOppositeEdge(rightEdgeOfRightBoundary);
+                   rightEdgeOfRightBoundary.setOppositeEdge(leftEdgeOfLeftBoundary);
+                   
+                   // and i guess vi gets connected to t
+                   vi.setRep(ei);
+                   
+                } else {
+                   // otherwise "vi" is connected to something...
+                   // but we assume in this block that 
+                   
+                   
+                }
+                
+                
+             }
+             
+             
+             
+          }
 
        }
 
@@ -833,19 +951,92 @@ public class GLMath {
 
   e1 -->  v0  e2  v1  e0  v2  e1  -->  v0  
 
-          x   x   x   x   x   x     -->  triangle in free space
-                                            create and attach three ~boundary" triangles
 
-          0   x   x   x   x   x     -->  triangle with one attached point
-          0   x   0   x   x   x     -->  triangle with two attached points
+
+          
+                                             soo.. "attached point" means the vertex has 
+                                             a REP triangle...  and going around the loop of triangles
+                                             one enounters a sequence of 1-or-more triangles,
+                                                                 then 2 boundary triangles
+                                                                    then 1-or-more triangles,
+                                                                 then 2 boundary triangles,
+                                                                    etc.
+                                             we'll need to create threee "boundary" triangles as before,
+                                             but they need to be "spliced"-in, between the boundary-triangles
+                                                                  of the pair... 
+                                                                     
+
+                                             we'll need to create threee "boundary" triangles as before,
+                                             but they need to be "spliced"-in, between the boundary-triangles
+                                                                  of each of the pre-existing points.
+                                                 
+
+                                             total "triangle count" +=3
+          
+             // so in these cases...
+              * 
+              *   our new triangle, vertices v0,v1,v2,
+              *   ...
+              *   gets 3 boundary triangles, t0,t1,t2
+              *     in all boundary triangles, v2 is the "null" vertex -- e2 is opposite the boundary edge,
+              *     attach the three "edges"..
+              *   
+              *   if vi is not attached, we have    v(i-1) -- e(i+1) -- v(i) -- e(i-1) -- v(i+1)
+              *      e(i+1) is vi.ccwAroundTriangle() 
+              *      e(i-1) is vi.cwAroundTriangle()
+              *      
+              *         opposite e(i+1) and cwAroundTriangle == opposite e(i-1) and ccwAroundTriangle
+              *         
+              *   
+              * 
+                for each vertex, we've confirmed that either it has no REP triangle (new??)                
+                                 or its REP triangle list exists,
+                                    does NOT include the edges we are trying to create,
+                                    and does include (at least one) 2-boundary-triangle pair
+          
+          
+          
+          
+          
+          
+                                             
           0-------0   x   x   x     -->  triangle with an attached edge
           0-------0   x   0   x     -->  triangle with an attached edge and one attached point
+          
+                                             the attached edge in these cases will be connected to a boundary-triangle
+                                                that we disconnect and delete.
+                                             two new boundary triangles are created
+                                             
+                                             total "triangle count" +=1
+                                             
+          
           0-------0-------0   x     -->  triangle with two attached edges
-                                            .. ???
+                                            
+                                             the two attached edges will have boundary-triangles that are deleted,
+                                                one new bounadry triangle is created.
+                                                
+                                             this case has the "triangle sorting problem" --
+                                                at the middle vertex.
+                                                if the two boundary-triangles are not adjacent,
+                                                then there must be a set of --boundary-triangle,
+                                                                                then 1-or-more triangles,
+                                                                              (then 2 boundary triangles
+                                                                                then 1-or-more triangles) x 0 or more times
+                                                                            --one boundary triangle
+                                                                      
+                                                  in between the two boundary triangles attached to our edges.
+                                             
+                                             these triangles need to be removed and "reinerted" anywhere else
+                                             around the vertex loop, in between another pair of "2-boundary triangles"..
+                                                
+                                             total "triangle count" -= 1
+                                            
                                             
         --0-------0-------0----     -->  triangle with three attached edges
                                             disconnect and delete three "boundary triangles"
                                             "filling a hole"
+
+                                             total "triangle count" -=3
 
 
 
@@ -866,6 +1057,15 @@ public class GLMath {
        */
 
    }
+   
+   
+   
+   // ------------------------------------
+   //
+   // 
+   
+   
+   
       
    
    // -----------------------------------------------------------------------
