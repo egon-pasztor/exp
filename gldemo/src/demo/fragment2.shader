@@ -3,19 +3,22 @@
 uniform sampler2D myTexture;
  
 in vec3 fragColor;
-in vec2 fragTexCoords;
+in vec4 fragTexCoords;
+in vec2 fragBaryCoords;
 out vec4 outColor;
  
 void main()
 {
-    vec4 texColor = texture2D(myTexture, fragTexCoords);
-    outColor = (texColor.a > 0.5) ? texColor : vec4(fragColor, 1.0);
+    vec2 lk;
+    lk.x = fragTexCoords.x / fragTexCoords.w;
+    lk.y = fragTexCoords.y;
+    outColor = texture2D(myTexture, lk);
     
-    float d1 = fragTexCoords.x;
-    float d2 = fragTexCoords.y;
-    float d3 = (fragTexCoords.x-fragTexCoords.y)/1.414;
-    float d4 = 1-fragTexCoords.x;
-    float d5 = 1-fragTexCoords.y;
+    float d1 = fragBaryCoords.x;
+    float d2 = fragBaryCoords.y;
+    float d3 = (fragBaryCoords.x-fragBaryCoords.y)/1.414;
+    float d4 = 1-fragBaryCoords.x;
+    float d5 = 1-fragBaryCoords.y;
     if (d3 < 0) d3 = -d3;
     
     float lowestD = d1;
@@ -24,5 +27,10 @@ void main()
     if (d4 < lowestD) lowestD = d4;
     if (d5 < lowestD) lowestD = d5;
     
-    if (lowestD < 0.01) outColor = vec4(0,0,0,0);
+    if (lowestD < 0.005) {
+       outColor.r = 1.0;
+       outColor.g = 0.0;
+       outColor.b = 0.0;
+    }
+       
 }

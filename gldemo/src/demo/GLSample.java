@@ -32,6 +32,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private GLCanvas glCanvas;
   
    boolean cube = false;
+   boolean ico = false;
+   boolean ball = true;
 
    
    // -----------------------------------------------------------
@@ -85,7 +87,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       cameraBall = new CameraBall(width, height,
                                   new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
-                                  new Vector3f(0.0f, 0.0f, cube?6.0f:3.4f),   // camera-pos
+                                  new Vector3f(0.0f, 0.0f, cube?5.0f:3f),   // camera-pos
                                   new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
                                   53.13f);
       updateMatrices();
@@ -162,6 +164,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    int vsPositionLoc;
    int vsColorLoc;
    int vsTexCoordsLoc;
+   int vsBaryCoordsLoc;
 
    // Uniform variable Locations
    int projMatrixLoc;
@@ -170,8 +173,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // Texture Locations
    int textureLoc;
    
-   
-   enum ShaderType{ VertexShader, FragmentShader}
+   enum ShaderType{ VertexShader, FragmentShader }
    
    void setupProgram(GL3 gl) {
       System.out.format("SETUP-program called\n");
@@ -199,6 +201,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       this.vsPositionLoc = gl.glGetAttribLocation(programID, "inVertexPosition");
       this.vsColorLoc = gl.glGetAttribLocation(programID, "inVertexColor");
+      this.vsBaryCoordsLoc = gl.glGetAttribLocation(programID, "inVertexBaryCoords");
       this.vsTexCoordsLoc = gl.glGetAttribLocation(programID, "inVertexTexCoords");
       System.out.format("Locations: [%d,%d,%d]\n", 
             vsPositionLoc, vsColorLoc, vsTexCoordsLoc);
@@ -304,12 +307,25 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // SETUP buffers
    // -----------------------------------------------------------
 
-   Model m;
+   private Model m;
 
-   void initModel() {
+   private Vector3f pos(float lat, float lon) {
+      float cosLat = (float) Math.cos(lat);
+      float sinLat = (float) Math.sin(lat);
+      float cosLon = (float) Math.cos(lon);
+      float sinLon = (float) Math.sin(lon);
+      return new Vector3f(cosLat * cosLon, cosLat * sinLon, sinLat);
+   }
+   
+   private Vector2f x(Vector2f v) {
+      float lat = v.x;
+      float lon = v.y;
+      return new Vector2f( (float) (lon / (2.0 * Math.PI)),
+                           1.0f - (float) (((Math.PI/2.0) + lat) / Math.PI) );
+   }
+   private void initModel() {
        m = new Model();
        
-       boolean cube = false;
        if (cube) {
           Vector3f center = Vector3f.Z;
           Vector3f dx = Vector3f.X;
@@ -331,13 +347,64 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                       dx.rotated(Vector3f.X,-ninety),
                       dy.rotated(Vector3f.X,-ninety));
           
-       } else {
+       }
+       if (ball) {
+          
+          int numLat = 10;
+          int numLon = 10;
+          double globalLatMin = -Math.PI/2;
+          double globalLatMax =  Math.PI/2;
+          double globalLonMin = 0;
+          double globalLonMax = 2*Math.PI;
+          
+          for (int lat = 0; lat < numLat; lat++) {
+             for (int lon = 0; lon < numLon; lon++) {
+                
+                float latMin = (float) (globalLatMin + ((lat * (globalLatMax - globalLatMin)) / numLat));
+                float latMax = (float) (globalLatMin + (((lat+1) * (globalLatMax - globalLatMin)) / numLat));
+                float lonMin = (float) (globalLonMin + ((lon * (globalLonMax - globalLonMin)) / numLon));
+                float lonMax = (float) (globalLonMin + (((lon+1) * (globalLonMax - globalLonMin)) / numLon));
+                
+                float wMax = (float) Math.cos(latMax) + .000001f;
+                float wMin = (float) Math.cos(latMin) + .000001f;
+
+                Vector3f tR = pos(latMax, lonMax);
+                Vector3f tL = pos(latMax, lonMin);
+                Vector3f bR = pos(latMin, lonMax);
+                Vector3f bL = pos(latMin, lonMin);
+                
+                if (lat > 0) {
+                   m.addTriangle(tL,bL,bR,
+                         x(new Vector2f(latMax, lonMin)), wMax,
+                         x(new Vector2f(latMin, lonMin)), wMin,
+                         x(new Vector2f(latMin, lonMax)), wMin);
+                }
+                if (lat < numLat-1) {
+                   m.addTriangle(tL,bR,tR,
+                         x(new Vector2f(latMax, lonMin)), wMax,
+                         x(new Vector2f(latMin, lonMax)), wMin,
+                         x(new Vector2f(latMax, lonMax)), wMax);
+                }
+                
+             }
+          }
+          
+          
+          
+       }
+       if (ico) {
           // Icosahedron
 
-          Vector3f top    = new Vector3f(0f,1f,0f);
+          Vector3f top = new Vector3f(0f,1f,0f);
    
           Vector3f t0,t1,t2,t3,t4;
           Vector3f b0,b1,b2,b3,b4;
+          
+          float northPoleLat = (float) Math.PI/2 - .00000001f;
+          float tLat = (float) Math.atan(0.5);
+          float lonDelta = (float) (Math.PI / 5.0) - .000000001f;
+          float bLat = -tLat;
+          float southPoleLat = - northPoleLat;
           
           t0 = new Vector3f((float)(2.0/Math.sqrt(5)), (float)(1.0/Math.sqrt(5)), 0f);
           b0 = t0.rotated(Vector3f.Y, (float)(1 * Math.PI/5.0));
@@ -358,29 +425,96 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
           
           Vector3f bottom = new Vector3f(0f,-1f,0f);
           
+          // TOP FIVE "CAP" TRIANGLES:
+          m.addTriangle(top, t0,t1,
+                x(new Vector2f(northPoleLat, 1 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         0 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         2 * lonDelta)), 1.0f);
+          m.addTriangle(top, t1,t2,
+                x(new Vector2f(northPoleLat, 3 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         2 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         4 * lonDelta)), 1.0f);
+          m.addTriangle(top, t2,t3,
+                x(new Vector2f(northPoleLat, 5 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         4 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         6 * lonDelta)), 1.0f);
+          m.addTriangle(top, t3,t4,
+                x(new Vector2f(northPoleLat, 7 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         6 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         8 * lonDelta)), 1.0f);
+
+          m.addTriangle(top, t4,t0,
+                x(new Vector2f(northPoleLat, 9  * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         8  * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,         10  * lonDelta)), 1.0f);
+
+          // MIDDLE "INTERIOR" TRIANGLES:
+          m.addTriangle(t0, b0, t1,
+                x(new Vector2f(tLat,  0 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  1 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,  2 * lonDelta)), 1.0f);
+          m.addTriangle(t1, b0, b1,
+                x(new Vector2f(tLat,  2 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  1 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  3 * lonDelta)), 1.0f);
           
-          m.addTriangle(top, t0,t1);
-          m.addTriangle(top, t1,t2);
-          m.addTriangle(top, t2,t3);
-          m.addTriangle(top, t3,t4);
-          m.addTriangle(top, t4,t0);
+          m.addTriangle(t1, b1, t2,
+                x(new Vector2f(tLat,  2 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  3 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,  4 * lonDelta)), 1.0f);
+          m.addTriangle(t2, b1, b2,
+                x(new Vector2f(tLat,  4 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  3 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  5 * lonDelta)), 1.0f);
           
-          m.addTriangle(t0, b0, t1);
-          m.addTriangle(t1, b0, b1);
-          m.addTriangle(t1, b1, t2);
-          m.addTriangle(t2, b1, b2);
-          m.addTriangle(t2, b2, t3);
-          m.addTriangle(t3, b2, b3);
-          m.addTriangle(t3, b3, t4);
-          m.addTriangle(t4, b3, b4);
-          m.addTriangle(t4, b4, t0);
-          m.addTriangle(t0, b4, b0);
+          m.addTriangle(t2, b2, t3,
+                x(new Vector2f(tLat,  4 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  5 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,  6 * lonDelta)), 1.0f);
+          m.addTriangle(t3, b2, b3,
+                x(new Vector2f(tLat,  6 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  5 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  7 * lonDelta)), 1.0f);
           
-          m.addTriangle(b0, bottom, b1);
-          m.addTriangle(b1, bottom, b2);
-          m.addTriangle(b2, bottom, b3);
-          m.addTriangle(b3, bottom, b4);
-          m.addTriangle(b4, bottom, b0);
+          m.addTriangle(t3, b3, t4,
+                x(new Vector2f(tLat,  6 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  7 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,  8 * lonDelta)), 1.0f);
+          m.addTriangle(t4, b3, b4,
+                x(new Vector2f(tLat,  8 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  7 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  9 * lonDelta)), 1.0f);
+          
+          m.addTriangle(t4, b4, t0,
+                x(new Vector2f(tLat,  8 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  9 * lonDelta)), 1.0f,
+                x(new Vector2f(tLat,  10 * lonDelta)), 1.0f);
+          m.addTriangle(t0, b4, b0,
+                x(new Vector2f(tLat,  10 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  9 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,  11 * lonDelta)), 1.0f);    
+          
+          // BOTTOM FIVE "CAP" TRIANGLES:
+          m.addTriangle(b0, bottom, b1,
+                x(new Vector2f(bLat,         1 * lonDelta)), 1.0f,
+                x(new Vector2f(southPoleLat, 2 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,         3 * lonDelta)), 1.0f);
+          m.addTriangle(b1, bottom, b2,
+                x(new Vector2f(bLat,         3 * lonDelta)), 1.0f,
+                x(new Vector2f(southPoleLat, 4 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,         5 * lonDelta)), 1.0f);
+          m.addTriangle(b2, bottom, b3,
+                x(new Vector2f(bLat,         5 * lonDelta)), 1.0f,
+                x(new Vector2f(southPoleLat, 6 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,         7 * lonDelta)), 1.0f);
+          m.addTriangle(b3, bottom, b4,
+                x(new Vector2f(bLat,         7 * lonDelta)), 1.0f,
+                x(new Vector2f(southPoleLat, 8 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,         9 * lonDelta)), 1.0f);
+          m.addTriangle(b4, bottom, b0,
+                x(new Vector2f(bLat,         9  * lonDelta)), 1.0f,
+                x(new Vector2f(southPoleLat, 10 * lonDelta)), 1.0f,
+                x(new Vector2f(bLat,         11  * lonDelta)), 1.0f);
           
        }
        
@@ -401,13 +535,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       int positionBufferId = this.generateBufferId(gl);
       int colorBufferId = this.generateBufferId(gl);
       int texCoordsBufferId = this.generateBufferId(gl);
+      int baryCoordsBufferId = this.generateBufferId(gl);
    
       // bind the buffers
 
       Model.Arrays ma = m.getArrays();
-      this.bindBuffer(gl, positionBufferId,  ma.positions, 4, vsPositionLoc);
-      this.bindBuffer(gl, colorBufferId,     ma.colors,    4, vsColorLoc);
-      this.bindBuffer(gl, texCoordsBufferId, ma.texCoords, 2, vsTexCoordsLoc);
+      this.bindBuffer(gl, positionBufferId,   ma.positions,  4, vsPositionLoc);
+      this.bindBuffer(gl, colorBufferId,      ma.colors,     4, vsColorLoc);
+      this.bindBuffer(gl, texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
+      this.bindBuffer(gl, baryCoordsBufferId, ma.baryCoords, 2, vsBaryCoordsLoc);
    }
    
    void bindBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
@@ -501,9 +637,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       Image myTexture = new Image(256,256);
       myTexture.setFromResource("teapot.png");
       //myTexture.fillRect(0, 0, 256, 256, 0x00ffffff);
-      myTexture.fillRect(10, 10, 30, 30, 0x00ff0000);
-      myTexture.fillRect(30, 30, 30, 30, 0x0000ff00);
-      myTexture.fillRect(50, 50, 30, 30, 0x000000ff);
+//      myTexture.fillRect(10, 10, 30, 30, 0x00ff0000);
+//      myTexture.fillRect(30, 30, 30, 30, 0x0000ff00);
+//      myTexture.fillRect(50, 50, 30, 30, 0x000000ff);
       
       ByteBuffer byteBuffer = ByteBuffer.allocateDirect(myTexture.pixels.length * 4);
       byteBuffer.order(ByteOrder.nativeOrder());
