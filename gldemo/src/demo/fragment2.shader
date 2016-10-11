@@ -27,7 +27,7 @@ void main()
     if (d4 < lowestD) lowestD = d4;
     if (d5 < lowestD) lowestD = d5;
     
-    if (lowestD < 0.005) {
+    if (lowestD < 0.02) {
        outColor.r = 1.0;
        outColor.g = 0.0;
        outColor.b = 0.0;

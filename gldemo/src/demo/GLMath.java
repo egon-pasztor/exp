@@ -3,6 +3,8 @@ package demo;
 import com.jogamp.graph.geom.Triangle;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
@@ -14,77 +16,85 @@ public class GLMath {
    
    public static class Vector3f {
       
-       public final float x, y, z;
+      public final float x, y, z;
    
-       public Vector3f(float x_, float y_, float z_) {
-          x = x_;
-          y = y_;
-          z = z_;
-       }
-       
-       public Vector3f plus(Vector3f v) {
-     return new Vector3f(x + v.x, y + v.y, z + v.z);
-       }
-       public Vector3f minus(Vector3f v) {
-     return new Vector3f(x - v.x, y - v.y, z - v.z);
-       }
-       public Vector3f times(float s) {   
-     return new Vector3f(x * s, y * s, z * s);
-       }       
-       
-       public static float innerProduct(Vector3f a, Vector3f b) {
-          return a.x * b.x + a.y * b.y + a.z * b.z;
-       }
-       public static Vector3f termwiseProduct(Vector3f a, Vector3f b) {
-          return new Vector3f(a.x * b.x, a.y * b.y, a.z * b.z);
-       }
-       public static Matrix3f outerProduct(Vector3f a, Vector3f b) {
-          return new Matrix3f(
-                a.x * b.x, a.x * b.y, a.x * b.z,
-                a.y * b.x, a.y * b.y, a.y * b.z,
-                a.z * b.x, a.z * b.y, a.z * b.z);
-       }
-       
-       public float dot(Vector3f v) {
-          return Vector3f.innerProduct(this, v);
-       }       
-       public Vector3f cross(Vector3f v) {
-          return new Vector3f(y * v.z - z * v.y, 
-                              z * v.x - x * v.z, 
-                              x * v.y - y * v.x);
-       }
+      public Vector3f(float x_, float y_, float z_) {
+         x = x_;
+         y = y_;
+         z = z_;
+      }
       
-       public float lengthSq() {
-          return this.dot(this);
-       }
-       public float length() {
-          return (float) Math.sqrt(lengthSq());
-       }
-       public Vector3f normalized() {
-          return this.times(1.0f / length());
-       }
+      public String toString() {
+         return String.format("(%g,%g,%g)", x,y,z);
+      }
+      public boolean equals(Vector3f v) {
+         return (x == v.x) && (y == v.y) && (z == v.z);
+      }
+      public int hashCode() {
+         return (new HashCodeMaker())
+            .addFloat(x).addFloat(y).addFloat(z)
+            .getHashCode();
+      }
        
-       public String toString() {
-          return String.format("(%g,%g,%g)", x,y,z);
-       }
+      public Vector3f plus(Vector3f v) {
+         return new Vector3f(x + v.x, y + v.y, z + v.z);
+      }
+      public Vector3f minus(Vector3f v) {
+         return new Vector3f(x - v.x, y - v.y, z - v.z);
+      }
+      public Vector3f times(float s) {   
+         return new Vector3f(x * s, y * s, z * s);
+      }       
+       
+      public static float innerProduct(Vector3f a, Vector3f b) {
+         return a.x * b.x + a.y * b.y + a.z * b.z;
+      }
+      public static Vector3f termwiseProduct(Vector3f a, Vector3f b) {
+         return new Vector3f(a.x * b.x, a.y * b.y, a.z * b.z);
+      }
+      public static Matrix3f outerProduct(Vector3f a, Vector3f b) {
+         return new Matrix3f(
+            a.x * b.x, a.x * b.y, a.x * b.z,
+            a.y * b.x, a.y * b.y, a.y * b.z,
+            a.z * b.x, a.z * b.y, a.z * b.z);
+      }
+       
+      public float dot(Vector3f v) {
+         return Vector3f.innerProduct(this, v);
+      }       
+      public Vector3f cross(Vector3f v) {
+         return new Vector3f(y * v.z - z * v.y, 
+                             z * v.x - x * v.z, 
+                             x * v.y - y * v.x);
+      }
+      
+      public float lengthSq() {
+         return this.dot(this);
+      }
+      public float length() {
+         return (float) Math.sqrt(lengthSq());
+      }
+      public Vector3f normalized() {
+         return this.times(1.0f / length());
+      }
 
-       public Vector3f rotated(Vector3f normalizedAxis, float angle) {
-          Vector3f qv = normalizedAxis.times((float) Math.sin(angle / 2.0f));
-          float    qs = (float) Math.cos(angle / 2.0f);
-          Vector3f mv = qv.cross(this).plus(this.times(qs));
-          return qv.cross(mv).plus(mv.times(qs)).plus(qv.times(this.dot(qv)));
-       }
-       public Vector3f interpolated(Vector3f target, float fraction) {
-          float remainder = 1.0f - fraction;
-          return new Vector3f(x * remainder + target.x * fraction,
-                              y * remainder + target.y * fraction,
-                              z * remainder + target.z * fraction);
-       }
+      public Vector3f rotated(Vector3f normalizedAxis, float angle) {
+         Vector3f qv = normalizedAxis.times((float) Math.sin(angle / 2.0f));
+         float    qs = (float) Math.cos(angle / 2.0f);
+         Vector3f mv = qv.cross(this).plus(this.times(qs));
+         return qv.cross(mv).plus(mv.times(qs)).plus(qv.times(this.dot(qv)));
+      }
+      public Vector3f interpolated(Vector3f target, float fraction) {
+         float remainder = 1.0f - fraction;
+         return new Vector3f(x * remainder + target.x * fraction,
+                             y * remainder + target.y * fraction,
+                             z * remainder + target.z * fraction);
+      }
 
-       public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f);
-       public static final Vector3f X      = new Vector3f(1.0f, 0.0f, 0.0f);
-       public static final Vector3f Y      = new Vector3f(0.0f, 1.0f, 0.0f);
-       public static final Vector3f Z      = new Vector3f(0.0f, 0.0f, 1.0f);
+      public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f);
+      public static final Vector3f X      = new Vector3f(1.0f, 0.0f, 0.0f);
+      public static final Vector3f Y      = new Vector3f(0.0f, 1.0f, 0.0f);
+      public static final Vector3f Z      = new Vector3f(0.0f, 0.0f, 1.0f);
    }
    
    // -----------------------------------------------------------------------
@@ -105,11 +115,28 @@ public class GLMath {
           yx = yx_; yy = yy_; yz = yz_;
           zx = zx_; zy = zy_; zz = zz_;
       }
+      
+      public String toString() {
+         return String.format("(%g,%g,%g; %g,%g,%g; %g,%g,%g)", xx,xy,xz, yx,yy,yz, zx,zy,zz);
+      }
+      public boolean equals(Matrix3f v) {
+         return (xx == v.xx) && (xy == v.xy) && (xz == v.xz)
+             && (yx == v.yx) && (yy == v.yy) && (yz == v.yz)
+             && (zx == v.zx) && (zy == v.zy) && (zz == v.zz);
+      }
+      public int hashCode() {
+         return (new HashCodeMaker())
+            .addFloat(xx).addFloat(xy).addFloat(xz)
+            .addFloat(yx).addFloat(yy).addFloat(yz)
+            .addFloat(zx).addFloat(zy).addFloat(zz)
+            .getHashCode();
+      }
+      
       public Matrix3f plus(Matrix3f m) {
          return new Matrix3f(
             xx + m.xx, xy + m.xy, xz + m.xz,
-       yx + m.yx, yy + m.yy, yz + m.yz,
-       zx + m.zx, zy + m.zy, zz + m.zz);
+            yx + m.yx, yy + m.yy, yz + m.yz,
+            zx + m.zx, zy + m.zy, zz + m.zz);
       }
       public Matrix3f minus(Matrix3f m) {
          return new Matrix3f(
@@ -156,17 +183,13 @@ public class GLMath {
                a.zx * b.xz + a.zy * b.yz + a.zz * b.zz);         
       }
       
-      public String toString() {
-         return String.format("(%g,%g,%g; %g,%g,%g; %g,%g,%g)",  xx,xy,xz, yx,yy,yz, zx,zy,zz);
-      }
-
       public float determinate() {
          return (yy*zz-zy*yz) * xx
               - (yx*zz-zx*yz) * xy
               + (yx*zy-zx*yy) * xz;
       }
       public Matrix3f inverse() {
-           final float d = determinate();
+         final float d = determinate();
          return new Matrix3f(
               +(yy*zz-zy*yz)/d, -(xy*zz-zy*xz)/d, +(xy*yz-yy*xz)/d, 
               -(yx*zz-zx*yz)/d, +(xx*zz-zx*xz)/d, -(xx*yz-yx*xz)/d,  
@@ -224,7 +247,7 @@ public class GLMath {
          return cameraPosition;
       }
       public Vector3f getCameraUpVector() {
-    return cameraUpVector;
+         return cameraUpVector;
       }
       public float getVerticalFOV() {
          return verticalFOV;
@@ -379,6 +402,18 @@ public class GLMath {
           this.y = y;
       }
       
+      public String toString() {
+         return String.format("(%g,%g)", x,y);
+      }
+      public boolean equals(Vector3f v) {
+         return (x == v.x) && (y == v.y);
+      }
+      public int hashCode() {
+         return (new HashCodeMaker())
+            .addFloat(x).addFloat(y)
+            .getHashCode();
+      }
+      
       public Vector2f plus(Vector2f v) {
           return new Vector2f(x + v.x, y + v.y);
       }
@@ -401,10 +436,6 @@ public class GLMath {
       }
       public Vector2f normalized() {
          return this.times(1.0f / length());
-      }
-      
-      public String toString() {
-         return String.format("(%g,%g)", x,y);
       }
       
       public static final Vector2f ORIGIN = new Vector2f(0.0f, 0.0f);
@@ -438,43 +469,41 @@ public class GLMath {
    // Mesh Structure
    // -----------------------------------------------------------------------
    
-   public static class Mesh {
+   public static class Mesh<V,T> {
             
       public Mesh() {
-         boundaryTriangles = new HashSet<Triangle>();
-         interiorTriangles = new HashSet<Triangle>();
-         vertices = new HashSet<Vertex>();
+         boundaryTriangles = new HashSet<Triangle<V,T>>();
+         interiorTriangles = new HashSet<Triangle<V,T>>();
+         vertices = new HashSet<Vertex<V,T>>();
       }
       
-      private HashSet<Triangle> boundaryTriangles; 
-      private HashSet<Triangle> interiorTriangles; 
-      private HashSet<Vertex> vertices;      
+      public HashSet<Triangle<V,T>> boundaryTriangles; 
+      public HashSet<Triangle<V,T>> interiorTriangles; 
+      public HashSet<Vertex<V,T>> vertices;      
       
       // -----------------------------------------------
       // VERTEX
       // -----------------------------------------------
       
-      public static class Vertex {
-         public Vertex(Vector3f position) {
-            this.position = position;
-         }
-         
-         // vertex-info
-         public Vector3f position;
-
+      public static class Vertex<V,T> {
          // Each Vertex holds a pointer to one outgoing Edge
-         public Triangle.Edge getOneOutgoingEdge()       { return oneOutgoingEdge;   }
-         public void setOneOutgoingEdge(Triangle.Edge e) { this.oneOutgoingEdge = e; }
-         private Triangle.Edge oneOutgoingEdge;
+         public Triangle<V,T>.Edge getOneOutgoingEdge()       { return oneOutgoingEdge; }
+         public void setOneOutgoingEdge(Triangle<V,T>.Edge e) { oneOutgoingEdge = e;    }
+         private Triangle<V,T>.Edge oneOutgoingEdge;
+         
+         // Vertex data
+         public V getData()          { return userdata; }
+         public void setData(V data) { userdata = data; }         
+         private V userdata;
       }
       
       // -----------------------------------------------
       // TRIANGLE
       // -----------------------------------------------
       
-      public static class Triangle {
+      public static class Triangle<V,T> {
 
-         public Triangle(Vertex v0, Vertex v1, Vertex v2) {
+         public Triangle(Vertex<V,T> v0, Vertex<V,T> v1, Vertex<V,T> v2) {
             // Create three final Edges for this Triangle
             edge0 = new Edge() {
                @Override public Edge ccwAroundTriangle() { return Triangle.this.edge1; }
@@ -496,11 +525,11 @@ public class GLMath {
          }
          
          // Each Triangle has three Edges:
-         public final Triangle.Edge edge0, edge1, edge2;
+         public final Triangle<V,T>.Edge edge0, edge1, edge2;
          
          // Each Edge has methods to get/set two fields: "oppositeVertex" and "oppositeEdge":
          public abstract class Edge {
-            public Triangle getTriangle() {
+            public Triangle<V,T> getTriangle() {
                return Triangle.this;
             }
             
@@ -509,13 +538,13 @@ public class GLMath {
             public abstract Edge cwAroundTriangle();
             
             // Each Edge holds a pointer to the Vertex opposite this Edge in this Triangle
-            public Vertex getOppositeVertex()       { return oppositeVertex; }
-            public void setOppositeVertex(Vertex v) { oppositeVertex = v;    }
-            private Vertex oppositeVertex;
+            public Vertex<V,T> getOppositeVertex()       { return oppositeVertex; }
+            public void setOppositeVertex(Vertex<V,T> v) { oppositeVertex = v;    }
+            private Vertex<V,T> oppositeVertex;
             
             // Return the start and end vertices of this Edge
-            public Vertex getStart() { return ccwAroundTriangle().getOppositeVertex(); }
-            public Vertex getEnd()   { return cwAroundTriangle().getOppositeVertex(); }         
+            public Vertex<V,T> getStart() { return ccwAroundTriangle().getOppositeVertex(); }
+            public Vertex<V,T> getEnd()   { return cwAroundTriangle().getOppositeVertex(); }         
             
             // Each Edge holds a pointer to the Edge facing the other way in the adjacent Triangle
             public Edge getOppositeEdge()       { return oppositeEdge; }
@@ -533,6 +562,11 @@ public class GLMath {
          public boolean isBoundary() {
             return edge2.oppositeVertex == null;
          }
+         
+         // Triangle data
+         public T getData()          { return userdata; }
+         public void setData(T data) { userdata = data; }         
+         private T userdata;
       }
             
       // --------------------------------------------------------
@@ -542,26 +576,26 @@ public class GLMath {
       public static void check(boolean cond, String err) {
          if (!cond) throw new RuntimeException("FAILED: " + err);
       }
-      public void checkEdge(Triangle.Edge e) {
+      public void checkEdge(Triangle<V,T>.Edge e) {
          check(e.oppositeEdge != null, "Edge.oppositeEdge is set");
          check(e != e.oppositeEdge, "Edge.oppositeEdge is different from this Edge");
          check(e == e.oppositeEdge.oppositeEdge, "oppositeEdge points back to us");
          check(e.getStart() == e.oppositeEdge.getEnd(), "start == oppositeEdge.end");
          check(e.getEnd() == e.oppositeEdge.getStart(), "end == oppositeEdge.start");
          
-         Triangle opposingTriangle = e.oppositeEdge.getTriangle();
+         Triangle<V,T> opposingTriangle = e.oppositeEdge.getTriangle();
          check(e.getTriangle() != opposingTriangle, "oppositeEdge is in a different Triangle");
          if (opposingTriangle.isBoundary()) {
             check(boundaryTriangles.contains(opposingTriangle), "oppositeTriangle is part of our boundary list");
          } else {
             check(interiorTriangles.contains(opposingTriangle), "oppositeTriangle is part of our interior list");
          }
-         Vertex opposingVertex = e.oppositeVertex;
+         Vertex<V,T> opposingVertex = e.oppositeVertex;
          if (opposingVertex != null) {
             check(vertices.contains(opposingVertex), "oppositeVertex is part of our vertex list");
          }
       }
-      public void checkTriangle(Triangle t, boolean isBoundary) {
+      public void checkTriangle(Triangle<V,T> t, boolean isBoundary) {
          checkEdge(t.edge0);
          checkEdge(t.edge1);
          checkEdge(t.edge2);
@@ -572,9 +606,9 @@ public class GLMath {
                (t.edge0.oppositeVertex != t.edge2.oppositeVertex) &&
                (t.edge1.oppositeVertex != t.edge2.oppositeVertex), "vertices are all different");
       }
-      public void checkVertex(Vertex v) {
+      public void checkVertex(Vertex<V,T> v) {
          check(v.oneOutgoingEdge != null, "Vertex.getOneOutgoingEdge is set");
-         Triangle.Edge e = v.oneOutgoingEdge;
+         Triangle<V,T>.Edge e = v.oneOutgoingEdge;
          while (true) {
             check (v == e.getStart(), "Edge is outgoing from this Vertex");
             e = e.ccwAroundStart();
@@ -582,16 +616,16 @@ public class GLMath {
          }
       }
       public void checkMesh() {
-         for (Triangle t : interiorTriangles) checkTriangle(t, false);
-         for (Triangle t : boundaryTriangles) checkTriangle(t, true);
-         for (Vertex v : vertices) checkVertex(v);
+         for (Triangle<V,T> t : interiorTriangles) checkTriangle(t, false);
+         for (Triangle<V,T> t : boundaryTriangles) checkTriangle(t, true);
+         for (Vertex<V,T> v : vertices) checkVertex(v);
       }
 
       // --------------------------------------------------------
       // Mesh Assembly
       // --------------------------------------------------------
       
-      public static void linkOpposingEdges(Triangle.Edge a, Triangle.Edge b) {
+      public static <V,T> void linkOpposingEdges(Triangle<V,T>.Edge a, Triangle<V,T>.Edge b) {
          a.setOppositeEdge(b);
          b.setOppositeEdge(a);
       }
@@ -599,20 +633,6 @@ public class GLMath {
       // --------------------------------------------------------
       // Buggy
       // --------------------------------------------------------
-
-      public Triangle.Edge makeEdge(Vertex v0, Vertex v1) {
-         Triangle a = new Triangle(v1,v0,null);
-         Triangle b = new Triangle(v0,v1,null);
-         // WAIT WAIT WAIT -- if v0 and v1 are already hooked up, we need to "splice in" or something,
-         //   if v0 and v1 are not hooked up, we need to set outOutgoingEdge!!
-
-         linkOpposingEdges(a.edge0, b.edge1);
-         linkOpposingEdges(a.edge1, b.edge0);
-         linkOpposingEdges(a.edge2, b.edge2);
-         boundaryTriangles.add(a);
-         boundaryTriangles.add(b);
-         return a.edge2;
-      }      
       
       public Triangle.Edge swap(Triangle.Edge e) {
          Triangle.Edge oe = e.getOppositeEdge();
@@ -639,24 +659,24 @@ public class GLMath {
       // AddTriangle
       // --------------------------------------------------------
       
-      public Triangle addTriangle (Vertex v0, Vertex v1, Vertex v2) {
+      public Triangle<V,T> addTriangle (Vertex<V,T> v0, Vertex<V,T> v1, Vertex<V,T> v2) {
           check((v0 != null) && (v1 != null) && (v2 != null) &&
                (v1 != v0) && (v2 != v0) && (v2 != v1), "Vertices should be all different");
          
-          Triangle t = new Triangle(v0,v1,v2);
+          Triangle<V,T> t = new Triangle<V,T>(v0,v1,v2);
           interiorTriangles.add(t);
           
           // Set the OPPOSITE-EDGE pointers in the new triangle
-          for (Triangle.Edge ei : new Triangle.Edge[] { t.edge0, t.edge1, t.edge2 }) {
+          for (Triangle<V,T>.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
              
-             Vertex start = ei.getStart();
-             Vertex end = ei.getEnd();
-             Triangle.Edge firstOutFromStart = start.getOneOutgoingEdge();
+             Vertex<V,T> start = ei.getStart();
+             Vertex<V,T> end = ei.getEnd();
+             Triangle<V,T>.Edge firstOutFromStart = start.getOneOutgoingEdge();
              if (firstOutFromStart != null) {      
                 // The start vertex already has edges attached to it.
                 // It must be on the boundary then...
                 
-                Triangle.Edge outFromStart = firstOutFromStart;
+                Triangle<V,T>.Edge outFromStart = firstOutFromStart;
                 boolean onBoundary = false;
                 do {
                    boolean isBoundary = outFromStart.getTriangle().isBoundary();
@@ -682,24 +702,24 @@ public class GLMath {
              if (ei.getOppositeEdge() == null) {
                 
                 // CREATE NEW BOUNDARY TRIANGLES HERE
-                Triangle b = new Triangle(end, start, null);
+                Triangle<V,T> b = new Triangle<V,T>(end, start, null);
                 ei.setOppositeEdge(b.edge2);
                 boundaryTriangles.add(b);
              }
           }
           
           // Now let's consider each VERTEX in turn
-          for (Triangle.Edge ei : new Triangle.Edge[] { t.edge0, t.edge1, t.edge2 }) {
-             Vertex v = ei.getOppositeVertex();
+          for (Triangle<V,T>.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
+             Vertex<V,T> v = ei.getOppositeVertex();
              
              // Going CCW around the new triangle, we encounter edges: prevEdge -> v -> nextEdge
-             Triangle.Edge prevEdge = ei.ccwAroundTriangle();  // (points towards v)
-             Triangle.Edge nextEdge = ei.cwAroundTriangle();   // (points away from v)
+             Triangle<V,T>.Edge prevEdge = ei.ccwAroundTriangle();  // (points towards v)
+             Triangle<V,T>.Edge nextEdge = ei.cwAroundTriangle();   // (points away from v)
              
              // The "opposite" pointers in these Edges were set above, either to NEW boundary
              // triangles (if unattached), or existing internal triangles (if attached):          
-             Triangle.Edge oppositePrevEdge = prevEdge.getOppositeEdge();  // (points away from v)
-             Triangle.Edge oppositeNextEdge = nextEdge.getOppositeEdge();  // (points towards v)             
+             Triangle<V,T>.Edge oppositePrevEdge = prevEdge.getOppositeEdge();  // (points away from v)
+             Triangle<V,T>.Edge oppositeNextEdge = nextEdge.getOppositeEdge();  // (points towards v)             
              boolean prevEdgeAttached = !oppositePrevEdge.getTriangle().isBoundary();
              boolean nextEdgeAttached = !oppositeNextEdge.getTriangle().isBoundary();
              
@@ -707,11 +727,11 @@ public class GLMath {
              if (!prevEdgeAttached && !nextEdgeAttached) {
                 // CASE 1. Link both "unattached" boundary triangles.
                 
-                Triangle.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();    // (points towards v)
-                Triangle.Edge newBoundaryNext  = nextEdge.cwAroundStart();  // (points away from v)
+                Triangle<V,T>.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();    // (points towards v)
+                Triangle<V,T>.Edge newBoundaryNext  = nextEdge.cwAroundStart();  // (points away from v)
 
                 // Does v have ANY existing edges?
-                Triangle.Edge firstOutFromV = v.getOneOutgoingEdge();
+                Triangle<V,T>.Edge firstOutFromV = v.getOneOutgoingEdge();
                 if (firstOutFromV == null) {      
                    // v has NO existing edges, it's a NEW vertex just for this Triangle.
                    // Connect the boundary triangles to each other:
@@ -721,7 +741,7 @@ public class GLMath {
                    // V does have existing edges.  We know it's on the boundary, so there
                    // must be two consecutive boundary triangles attached to V.  Find them:
                    
-                   Triangle.Edge outFromV = firstOutFromV;
+                   Triangle<V,T>.Edge outFromV = firstOutFromV;
                    boolean foundDoubleBoundary = false;                   
                    do {
                       if (outFromV.getTriangle().isBoundary() && 
@@ -735,7 +755,7 @@ public class GLMath {
                 
                    check(foundDoubleBoundary, "Attached vertex should have had two consecutive boundary triangles");
                    
-                   Triangle.Edge inToV = outFromV.getOppositeEdge();
+                   Triangle<V,T>.Edge inToV = outFromV.getOppositeEdge();
                    linkOpposingEdges(newBoundaryNext, inToV);
                    linkOpposingEdges(newBoundaryPrev, outFromV);
                 }
@@ -743,29 +763,29 @@ public class GLMath {
              } else if (prevEdgeAttached && !nextEdgeAttached) {
                 // CASE 2. Link the "unattached" boundary triangle that's opposite "nextEdge":
                 
-                Triangle.Edge newBoundaryNext = nextEdge.cwAroundStart();          // (points away from v)
-                Triangle.Edge oldBoundaryPrev = oppositePrevEdge.cwAroundStart();  // (points away from v)
+                Triangle<V,T>.Edge newBoundaryNext = nextEdge.cwAroundStart();          // (points away from v)
+                Triangle<V,T>.Edge oldBoundaryPrev = oppositePrevEdge.cwAroundStart();  // (points away from v)
                 linkOpposingEdges(newBoundaryNext, oldBoundaryPrev.getOppositeEdge());
 
              } else if (!prevEdgeAttached && nextEdgeAttached) {
                 // CASE 3. Link the "unattached" boundary triangle that's opposite "prevEdge":
                 
-                Triangle.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();           // (points toward v)
-                Triangle.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)
+                Triangle<V,T>.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();           // (points toward v)
+                Triangle<V,T>.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)
                 linkOpposingEdges(newBoundaryPrev, oldBoundaryNext.getOppositeEdge());
                 
              } else {
                 // CASE 4. BOTH edges are attached.  We need the old boundaries to be adjacent:
                 
-                Triangle.Edge oldBoundaryPrev = oppositePrevEdge.cwAroundStart();  // (points away from v)
-                Triangle.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)    
+                Triangle<V,T>.Edge oldBoundaryPrev = oppositePrevEdge.cwAroundStart();  // (points away from v)
+                Triangle<V,T>.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)    
                 if (oldBoundaryPrev.getOppositeEdge() != oldBoundaryNext) {
                    
                    // The old boundaries are not adjacent.  However, we can fix this, and there's no problem,
                    // if the vertex v has two consecutive boundary triangles elsewhere:
                    
-                   Triangle.Edge outFromV = oppositePrevEdge.ccwAroundStart();
-                   Triangle.Edge outFromVEnd = nextEdge.cwAroundStart();
+                   Triangle<V,T>.Edge outFromV = oppositePrevEdge.ccwAroundStart();
+                   Triangle<V,T>.Edge outFromVEnd = nextEdge.cwAroundStart();
                    boolean foundDoubleBoundary = false;                   
                    do {
                       if (outFromV.getTriangle().isBoundary() && 
@@ -779,7 +799,7 @@ public class GLMath {
                    
                    check(foundDoubleBoundary, "Triangle filling corner vertex has un-movable extra triangles");
                    
-                   Triangle.Edge inToV = outFromV.getOppositeEdge();
+                   Triangle<V,T>.Edge inToV = outFromV.getOppositeEdge();
                    linkOpposingEdges(inToV, oldBoundaryNext.getOppositeEdge());
                    linkOpposingEdges(outFromV, oldBoundaryPrev.getOppositeEdge());
                 }
@@ -790,12 +810,12 @@ public class GLMath {
           }
 
           // Finally we connect the backlinks from each OPPOSITE-EDGE pointer in the Triangle
-          for (Triangle.Edge ei : new Triangle.Edge[] { t.edge0, t.edge1, t.edge2 }) {
-             Triangle.Edge oppositeEi = ei.getOppositeEdge();
+          for (Triangle<V,T>.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
+             Triangle<V,T>.Edge oppositeEi = ei.getOppositeEdge();
              boolean isAttached = !oppositeEi.getTriangle().isBoundary();
              
              if (isAttached) {
-                Triangle b = oppositeEi.getOppositeEdge().getTriangle();
+                Triangle<V,T> b = oppositeEi.getOppositeEdge().getTriangle();
                 // DELETE OLD BOUNDARY TRIANGLES HERE
                 boundaryTriangles.remove(b);
              }
@@ -822,32 +842,26 @@ public class GLMath {
    // Triangle
    // -----------------------------------------------------------------------
    
-   public static class Triangle2 {
+   public static class TexInfo {
 
-       public Vector3f  v1,v2,v3;       
        public Vector2f  t1,t2,t3;
        public float t1w,t2w,t3w;
        public ColorRGBA c1,c2,c3;
 
-       public Triangle2() {
-          v1=v2=v3=null;
+       public TexInfo() {
           t1=t2=t3=null;
+          t1w=t2w=t3w=1.0f;
           c1=c2=c3=null;
        }
-
-       public void setPositions(Vector3f v1, Vector3f v2, Vector3f v3) {
-           this.v1 = v1;
-           this.v2 = v2;
-           this.v3 = v3;
-       }
+       
        public void setTexCoords(Vector2f t1, float t1w, Vector2f t2,float t2w, Vector2f t3, float t3w) {
-           this.t1 = t1;
-           this.t2 = t2;
-           this.t3 = t3;
-           this.t1w = t1w;
-           this.t2w = t2w;
-           this.t3w = t3w;
-       }
+          this.t1 = t1;
+          this.t2 = t2;
+          this.t3 = t3;
+          this.t1w = t1w;
+          this.t2w = t2w;
+          this.t3w = t3w;
+       }         
        public void setColors(ColorRGBA c1, ColorRGBA c2, ColorRGBA c3) {
            this.c1 = c1;
            this.c2 = c2;
@@ -861,72 +875,69 @@ public class GLMath {
 
    public static class Model {
 
-      private ArrayList<Triangle2> triangles;
-      private Mesh mesh;
+      public Mesh<Vector3f,TexInfo> mesh;
       
       public Model() {
-         triangles = new ArrayList<Triangle2>();
-         mesh = new Mesh();
+         mesh = new Mesh<Vector3f,TexInfo>();
       }
 
-      public void addTriangle(Triangle2 t) {
-        triangles.add(t);
+      public int numTriangles() {
+           return mesh.interiorTriangles.size();
       }
-       public void clearTriangles() {
-           triangles.clear();
-       }
-       public int numTriangles() {
-           return triangles.size();
-       }
 
+
+      public Mesh.Vertex<Vector3f,TexInfo> getOrAddVertex(Vector3f position) {
+         for (Mesh.Vertex<Vector3f,TexInfo> v : mesh.vertices) {
+            Vector3f vPosition = v.getData();
+            if (vPosition.minus(position).lengthSq() < .00000001f) return v;
+         }
+         Mesh.Vertex<Vector3f,TexInfo> v = new Mesh.Vertex<Vector3f,TexInfo>();
+         v.setData(position);
+         mesh.vertices.add(v);
+         return v;
+      }
+      
        // -- -- -- -- -- -- -- --
 
-       public void addTriangle (Vector3f a, Vector3f b, Vector3f c,  Vector2f aTex, float aTexW, Vector2f bTex, float bTexW, Vector2f cTex, float cTexW) {
-          Triangle2 t1 = new Triangle2();
-          t1.setPositions(a,b,c);
-          t1.setTexCoords(aTex,aTexW, bTex, bTexW, cTex,cTexW);
-          
-          System.out.format("POS (%s,%s,%s)\nTEX (%s,%s,%s)\n--\n",
+       public void addTriangle (Vector3f a, Vector3f b, Vector3f c, Vector2f aTex,
+                                float aTexW, Vector2f bTex, float bTexW, Vector2f cTex, float cTexW) {
+
+          System.out.format("Adding triangle:  POS (%s,%s,%s)\nTEX (%s,%s,%s)\n--\n",
                 a.toString(), b.toString(), c.toString(),
                 aTex.toString(), bTex.toString(), cTex.toString());
                 
-          t1.setColors(new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
+          Mesh.Vertex<Vector3f,TexInfo> va = getOrAddVertex(a);
+          Mesh.Vertex<Vector3f,TexInfo> vb = getOrAddVertex(b);
+          Mesh.Vertex<Vector3f,TexInfo> vc = getOrAddVertex(c);
+          Mesh.Triangle<Vector3f,TexInfo> t = mesh.addTriangle(va, vb, vc);
+          
+          TexInfo ti = new TexInfo();
+          ti.setTexCoords(aTex,aTexW, bTex, bTexW, cTex,cTexW);
+          ti.setColors(new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
                        new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
                        new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff));
-          addTriangle(t1);
+          t.setData(ti);
+             
+          System.out.format("MESH has %d vertices, %d interior triangles and %d boundary edges\n", mesh.vertices.size(),
+                mesh.interiorTriangles.size(), mesh.boundaryTriangles.size());
+          mesh.checkMesh();
        }
+       
        public void addSquare (Vector3f center, Vector3f dx, Vector3f dy) {
            Vector3f tr = center.plus(dx).plus(dy);
            Vector3f tl = center.minus(dx).plus(dy);
            Vector3f br = center.plus(dx).minus(dy);
            Vector3f bl = center.minus(dx).minus(dy);
 
-      System.out.format("Adding square [%s][%s][%s][%s]\n",
-              tr,tl,br,bl);
-
-           Triangle2 t1 = new Triangle2();
-           Triangle2 t2 = new Triangle2();
-           t1.setPositions(bl,tl,br);
-           t2.setPositions(tl,br,tr);
-
-           t1.setTexCoords(new Vector2f(0.0f, 1.0f), 1.0f,
-                           new Vector2f(0.0f, 0.0f), 1.0f,
-                           new Vector2f(1.0f, 1.0f), 1.0f);
-
-           t2.setTexCoords(new Vector2f(0.0f, 0.0f), 1.0f,
-                           new Vector2f(1.0f, 1.0f), 1.0f,
-                           new Vector2f(1.0f, 0.0f), 1.0f);
-
-           t1.setColors(new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
-                        new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
-                        new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff));
-   
-           t2.setColors(new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
-                        new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
-                        new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff));
-
-           addTriangle(t1);
-           addTriangle(t2);
+           addTriangle(bl, br, tl, 
+                 new Vector2f(0.0f, 1.0f), 1.0f,
+                 new Vector2f(1.0f, 1.0f), 1.0f,
+                 new Vector2f(0.0f, 0.0f), 1.0f);
+                 
+           addTriangle(tl, br, tr,
+                 new Vector2f(0.0f, 0.0f), 1.0f,
+                 new Vector2f(1.0f, 1.0f), 1.0f,
+                 new Vector2f(1.0f, 0.0f), 1.0f);
        }
 
        // -- -- -- -- -- -- -- --
@@ -940,47 +951,44 @@ public class GLMath {
 
        public Arrays getArrays() {
            Arrays result = new Arrays();
-           int n = triangles.size();
+           int n = numTriangles();
 
-           result.positions = new float[n*3*4];
-           { int c = 0;
-             for (int i = 0; i < n; ++i) {
-                Triangle2 t = triangles.get(i);
-                c = copyVector3fAs4(result.positions, c, t.v1);
-                c = copyVector3fAs4(result.positions, c, t.v2);
-                c = copyVector3fAs4(result.positions, c, t.v3);
-             }
-           }
-
+           result.positions  = new float[n*3*4];
            result.baryCoords = new float[n*3*2];
-           { int c = 0;
-             for (int i = 0; i < n; ++i) {
-                 c = copyVector2f(result.baryCoords, c, new Vector2f(0.0f, 0.0f));
-                 c = copyVector2f(result.baryCoords, c, new Vector2f(0.0f, 1.0f));
-                 c = copyVector2f(result.baryCoords, c, new Vector2f(1.0f, 1.0f));
-             }
-           }
-
-           result.texCoords = new float[n*3*4];
-           { int c = 0;
-             for (int i = 0; i < n; ++i) {
-                 Triangle2 t = triangles.get(i);
-                 c = copyVector2fAs4(result.texCoords, c, t.t1, t.t1w);
-                 c = copyVector2fAs4(result.texCoords, c, t.t2, t.t2w);
-                 c = copyVector2fAs4(result.texCoords, c, t.t3, t.t3w);
-             }
-           }
-
-           result.colors = new float[n*3*4];
-           { int c = 0;
-             for (int i = 0; i < n; ++i) {
-                Triangle2 t = triangles.get(i);
-                c = copyColor(result.colors, c, t.c1);
-                c = copyColor(result.colors, c, t.c2);
-                c = copyColor(result.colors, c, t.c3);
-             }
-           }
+           result.texCoords  = new float[n*3*4];
+           result.colors     = new float[n*3*4];
            
+           int pPos = 0;
+           int pBary = 0;
+           int pTex = 0;
+           int pCol = 0;
+           
+           for (Mesh.Triangle<Vector3f,TexInfo> t : mesh.interiorTriangles) {
+              Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
+              Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
+              Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
+              TexInfo ti = t.getData();
+
+              // pos
+              pPos = copyVector3fAs4(result.positions, pPos, v0Pos);
+              pPos = copyVector3fAs4(result.positions, pPos, v1Pos);
+              pPos = copyVector3fAs4(result.positions, pPos, v2Pos);
+              
+              // bary
+              pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(0.0f, 0.0f));
+              pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(0.0f, 1.0f));
+              pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(1.0f, 1.0f));
+              
+              // tex
+              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t1, ti.t1w);
+              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t2, ti.t2w);
+              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t3, ti.t3w);
+              
+              // col
+              pCol = copyColor(result.colors, pCol, ti.c1);
+              pCol = copyColor(result.colors, pCol, ti.c2);
+              pCol = copyColor(result.colors, pCol, ti.c3);
+           }
            return result;
        }
 
@@ -1010,5 +1018,24 @@ public class GLMath {
            arr[base+3] = ((float)(c.a&0xff))/255.0f;
            return base+4;
        }
+   }
+   
+
+   // -----------------------------------------------------------------------
+   // HashCodeMaker
+   // -----------------------------------------------------------------------
+   
+   private static class HashCodeMaker {
+      public HashCodeMaker()    { code = 1;    }
+      public int getHashCode()  { return code; }
+      
+      public HashCodeMaker addInt(int i)         { code = 37 * code + i;  return this;         }
+      public HashCodeMaker addBoolean(boolean b) { return addInt(b?1:0);                       }
+      public HashCodeMaker addByte(byte b)       { return addInt((int)b);                      }
+      public HashCodeMaker addLong(long l)       { return addInt((int)(l ^ (l >>> 32)));       }
+      public HashCodeMaker addFloat(float f)     { return addInt(Float.floatToIntBits(f));     }
+      public HashCodeMaker addDouble(double d)   { return addLong(Double.doubleToLongBits(d)); }
+      
+      private int code;
    }   
 }

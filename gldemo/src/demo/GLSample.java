@@ -31,10 +31,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    private GLCanvas glCanvas;
   
-   boolean cube = false;
-   boolean ico = false;
-   boolean ball = true;
+//   boolean cube = false;
+//   boolean ico = false;
+//   boolean ball = true;
+//   int subdivide = 0;
 
+   boolean cube = false;
+   boolean ico = true;
+   boolean ball = false;
+   int subdivide = 3;
    
    // -----------------------------------------------------------
    // -----------------------------------------------------------
@@ -323,6 +328,42 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       return new Vector2f( (float) (lon / (2.0 * Math.PI)),
                            1.0f - (float) (((Math.PI/2.0) + lat) / Math.PI) );
    }
+   
+   
+   private void addTriangleAndSubdivide(int level, 
+         Vector3f a, Vector3f b, Vector3f c,
+         Vector2f aT, float aW,
+         Vector2f bT, float bW,
+         Vector2f cT, float cW) {
+      
+      if (level == 0) {
+         m.addTriangle(a, b, c, aT,aW, bT,bW, cT,cW);
+      } else {
+         Vector3f ab = a.plus(b).times(0.5f);
+         Vector3f bc = b.plus(c).times(0.5f);
+         Vector3f ac = a.plus(c).times(0.5f);
+         Vector2f abT = aT.plus(bT).times(0.5f);
+         Vector2f bcT = bT.plus(cT).times(0.5f);
+         Vector2f acT = aT.plus(cT).times(0.5f);
+         float abW = (aW+bW)/2.0f;
+         float bcW = (bW+cW)/2.0f;
+         float acW = (aW+cW)/2.0f;
+         
+         addTriangleAndSubdivide(level-1, a,   ab,  ac,   aT,aW,   abT,abW, acT,acW);
+         addTriangleAndSubdivide(level-1, ab,  b,   bc,   abT,abW, bT,bW,   bcT,bcW);
+         addTriangleAndSubdivide(level-1, bc,  c,   ac,   bcT,bcW, cT,cW,   acT,acW);
+         addTriangleAndSubdivide(level-1, ab,  bc,  ac,   abT,abW, bcT,bcW, acT,acW);
+      }
+   }
+      
+   private void addTriangle(Vector3f a, Vector3f b, Vector3f c,
+         Vector2f aT, float aW,
+         Vector2f bT, float bW,
+         Vector2f cT, float cW) {
+      
+      addTriangleAndSubdivide(subdivide, a,b,c, aT,aW, bT,bW, cT,cW);
+   }
+   
    private void initModel() {
        m = new Model();
        
@@ -350,8 +391,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
        }
        if (ball) {
           
-          int numLat = 10;
-          int numLon = 10;
+          int numLat = 20;
+          int numLon = 20;
           double globalLatMin = -Math.PI/2;
           double globalLatMax =  Math.PI/2;
           double globalLonMin = 0;
@@ -374,13 +415,13 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                 Vector3f bL = pos(latMin, lonMin);
                 
                 if (lat > 0) {
-                   m.addTriangle(tL,bL,bR,
+                   addTriangle(tL,bL,bR,
                          x(new Vector2f(latMax, lonMin)), wMax,
                          x(new Vector2f(latMin, lonMin)), wMin,
                          x(new Vector2f(latMin, lonMax)), wMin);
                 }
                 if (lat < numLat-1) {
-                   m.addTriangle(tL,bR,tR,
+                   addTriangle(tL,bR,tR,
                          x(new Vector2f(latMax, lonMin)), wMax,
                          x(new Vector2f(latMin, lonMax)), wMin,
                          x(new Vector2f(latMax, lonMax)), wMax);
@@ -400,11 +441,18 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
           Vector3f t0,t1,t2,t3,t4;
           Vector3f b0,b1,b2,b3,b4;
           
-          float northPoleLat = (float) Math.PI/2 - .00000001f;
-          float tLat = (float) Math.atan(0.5);
           float lonDelta = (float) (Math.PI / 5.0) - .000000001f;
+          
+          float nLat = (float) Math.PI/2 - .00000001f;
+          float tLat = (float) Math.atan(0.5);
           float bLat = -tLat;
-          float southPoleLat = - northPoleLat;
+          float sLat = -nLat;
+          
+          float nLatW = (float) Math.cos(nLat) + .000001f;
+          float tLatW = (float) Math.cos(tLat) + .000001f;
+          float bLatW = (float) Math.cos(bLat) + .000001f;
+          float sLatW = (float) Math.cos(sLat) + .000001f;
+
           
           t0 = new Vector3f((float)(2.0/Math.sqrt(5)), (float)(1.0/Math.sqrt(5)), 0f);
           b0 = t0.rotated(Vector3f.Y, (float)(1 * Math.PI/5.0));
@@ -426,96 +474,138 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
           Vector3f bottom = new Vector3f(0f,-1f,0f);
           
           // TOP FIVE "CAP" TRIANGLES:
-          m.addTriangle(top, t0,t1,
-                x(new Vector2f(northPoleLat, 1 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         0 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         2 * lonDelta)), 1.0f);
-          m.addTriangle(top, t1,t2,
-                x(new Vector2f(northPoleLat, 3 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         2 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         4 * lonDelta)), 1.0f);
-          m.addTriangle(top, t2,t3,
-                x(new Vector2f(northPoleLat, 5 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         4 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         6 * lonDelta)), 1.0f);
-          m.addTriangle(top, t3,t4,
-                x(new Vector2f(northPoleLat, 7 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         6 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         8 * lonDelta)), 1.0f);
+          addTriangle(top, t0,t1,
+                x(new Vector2f(nLat, 1 * lonDelta)), nLatW,
+                x(new Vector2f(tLat, 0 * lonDelta)), tLatW,
+                x(new Vector2f(tLat, 2 * lonDelta)), tLatW);
+          addTriangle(top, t1,t2,
+                x(new Vector2f(nLat, 3 * lonDelta)), nLatW,
+                x(new Vector2f(tLat, 2 * lonDelta)), tLatW,
+                x(new Vector2f(tLat, 4 * lonDelta)), tLatW);
+          addTriangle(top, t2,t3,
+                x(new Vector2f(nLat, 5 * lonDelta)), nLatW,
+                x(new Vector2f(tLat, 4 * lonDelta)), tLatW,
+                x(new Vector2f(tLat, 6 * lonDelta)), tLatW);
+          addTriangle(top, t3,t4,
+                x(new Vector2f(nLat, 7 * lonDelta)), nLatW,
+                x(new Vector2f(tLat, 6 * lonDelta)), tLatW,
+                x(new Vector2f(tLat, 8 * lonDelta)), tLatW);
 
-          m.addTriangle(top, t4,t0,
-                x(new Vector2f(northPoleLat, 9  * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         8  * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,         10  * lonDelta)), 1.0f);
+          addTriangle(top, t4,t0,
+                x(new Vector2f(nLat, 9  * lonDelta)), nLatW,
+                x(new Vector2f(tLat, 8  * lonDelta)), tLatW,
+                x(new Vector2f(tLat, 10  * lonDelta)), tLatW);
 
           // MIDDLE "INTERIOR" TRIANGLES:
-          m.addTriangle(t0, b0, t1,
-                x(new Vector2f(tLat,  0 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  1 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,  2 * lonDelta)), 1.0f);
-          m.addTriangle(t1, b0, b1,
-                x(new Vector2f(tLat,  2 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  1 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  3 * lonDelta)), 1.0f);
+          addTriangle(t0, b0, t1,
+                x(new Vector2f(tLat,  0 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  1 * lonDelta)), bLatW,
+                x(new Vector2f(tLat,  2 * lonDelta)), tLatW);
+          addTriangle(t1, b0, b1,
+                x(new Vector2f(tLat,  2 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  1 * lonDelta)), bLatW,
+                x(new Vector2f(bLat,  3 * lonDelta)), bLatW);
           
-          m.addTriangle(t1, b1, t2,
-                x(new Vector2f(tLat,  2 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  3 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,  4 * lonDelta)), 1.0f);
-          m.addTriangle(t2, b1, b2,
-                x(new Vector2f(tLat,  4 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  3 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  5 * lonDelta)), 1.0f);
+          addTriangle(t1, b1, t2,
+                x(new Vector2f(tLat,  2 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  3 * lonDelta)), bLatW,
+                x(new Vector2f(tLat,  4 * lonDelta)), tLatW);
+          addTriangle(t2, b1, b2,
+                x(new Vector2f(tLat,  4 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  3 * lonDelta)), bLatW,
+                x(new Vector2f(bLat,  5 * lonDelta)), bLatW);
           
-          m.addTriangle(t2, b2, t3,
-                x(new Vector2f(tLat,  4 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  5 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,  6 * lonDelta)), 1.0f);
-          m.addTriangle(t3, b2, b3,
-                x(new Vector2f(tLat,  6 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  5 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  7 * lonDelta)), 1.0f);
+          addTriangle(t2, b2, t3,
+                x(new Vector2f(tLat,  4 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  5 * lonDelta)), bLatW,
+                x(new Vector2f(tLat,  6 * lonDelta)), tLatW);
+          addTriangle(t3, b2, b3,
+                x(new Vector2f(tLat,  6 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  5 * lonDelta)), bLatW,
+                x(new Vector2f(bLat,  7 * lonDelta)), bLatW);
           
-          m.addTriangle(t3, b3, t4,
-                x(new Vector2f(tLat,  6 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  7 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,  8 * lonDelta)), 1.0f);
-          m.addTriangle(t4, b3, b4,
-                x(new Vector2f(tLat,  8 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  7 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  9 * lonDelta)), 1.0f);
+          addTriangle(t3, b3, t4,
+                x(new Vector2f(tLat,  6 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  7 * lonDelta)), bLatW,
+                x(new Vector2f(tLat,  8 * lonDelta)), tLatW);
+          addTriangle(t4, b3, b4,
+                x(new Vector2f(tLat,  8 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  7 * lonDelta)), bLatW,
+                x(new Vector2f(bLat,  9 * lonDelta)), bLatW);
           
-          m.addTriangle(t4, b4, t0,
-                x(new Vector2f(tLat,  8 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  9 * lonDelta)), 1.0f,
-                x(new Vector2f(tLat,  10 * lonDelta)), 1.0f);
-          m.addTriangle(t0, b4, b0,
-                x(new Vector2f(tLat,  10 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  9 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,  11 * lonDelta)), 1.0f);    
+          addTriangle(t4, b4, t0,
+                x(new Vector2f(tLat,  8 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  9 * lonDelta)), bLatW,
+                x(new Vector2f(tLat,  10 * lonDelta)), tLatW);
+          addTriangle(t0, b4, b0,
+                x(new Vector2f(tLat,  10 * lonDelta)), tLatW,
+                x(new Vector2f(bLat,  9 * lonDelta)), bLatW,
+                x(new Vector2f(bLat,  11 * lonDelta)), bLatW);    
           
           // BOTTOM FIVE "CAP" TRIANGLES:
-          m.addTriangle(b0, bottom, b1,
-                x(new Vector2f(bLat,         1 * lonDelta)), 1.0f,
-                x(new Vector2f(southPoleLat, 2 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,         3 * lonDelta)), 1.0f);
-          m.addTriangle(b1, bottom, b2,
-                x(new Vector2f(bLat,         3 * lonDelta)), 1.0f,
-                x(new Vector2f(southPoleLat, 4 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,         5 * lonDelta)), 1.0f);
-          m.addTriangle(b2, bottom, b3,
-                x(new Vector2f(bLat,         5 * lonDelta)), 1.0f,
-                x(new Vector2f(southPoleLat, 6 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,         7 * lonDelta)), 1.0f);
-          m.addTriangle(b3, bottom, b4,
-                x(new Vector2f(bLat,         7 * lonDelta)), 1.0f,
-                x(new Vector2f(southPoleLat, 8 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,         9 * lonDelta)), 1.0f);
-          m.addTriangle(b4, bottom, b0,
-                x(new Vector2f(bLat,         9  * lonDelta)), 1.0f,
-                x(new Vector2f(southPoleLat, 10 * lonDelta)), 1.0f,
-                x(new Vector2f(bLat,         11  * lonDelta)), 1.0f);
+          addTriangle(b0, bottom, b1,
+                x(new Vector2f(bLat,  1 * lonDelta)), bLatW,
+                x(new Vector2f(sLat,  2 * lonDelta)), sLatW,
+                x(new Vector2f(bLat,  3 * lonDelta)), bLatW);
+          addTriangle(b1, bottom, b2,
+                x(new Vector2f(bLat,  3 * lonDelta)), bLatW,
+                x(new Vector2f(sLat,  4 * lonDelta)), sLatW,
+                x(new Vector2f(bLat,  5 * lonDelta)), bLatW);
+          addTriangle(b2, bottom, b3,
+                x(new Vector2f(bLat,  5 * lonDelta)), bLatW,
+                x(new Vector2f(sLat,  6 * lonDelta)), sLatW,
+                x(new Vector2f(bLat,  7 * lonDelta)), bLatW);
+          addTriangle(b3, bottom, b4,
+                x(new Vector2f(bLat,  7 * lonDelta)), bLatW,
+                x(new Vector2f(sLat,  8 * lonDelta)), sLatW,
+                x(new Vector2f(bLat,  9 * lonDelta)), bLatW);
+          addTriangle(b4, bottom, b0,
+                x(new Vector2f(bLat,   9  * lonDelta)), bLatW,
+                x(new Vector2f(sLat,  10 * lonDelta)), sLatW,
+                x(new Vector2f(bLat,  11  * lonDelta)), bLatW);
           
+          for (Mesh.Vertex<Vector3f,TexInfo> v : m.mesh.vertices) {
+             v.setData(v.getData().normalized());
+          }
+          for (Mesh.Triangle<Vector3f,TexInfo> t : m.mesh.interiorTriangles) {
+             Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
+             Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
+             Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
+             TexInfo ti = t.getData();
+             
+             float v0Lat = (float) Math.asin(v0Pos.y);
+             float v0Lon = (float) (Math.PI + Math.atan2(v0Pos.x, v0Pos.z));
+             float v1Lat = (float) Math.asin(v1Pos.y);
+             float v1Lon = (float) (Math.PI + Math.atan2(v1Pos.x, v1Pos.z));
+             float v2Lat = (float) Math.asin(v2Pos.y);
+             float v2Lon = (float) (Math.PI + Math.atan2(v2Pos.x, v2Pos.z));
+             
+             if ((v0Lon>=v1Lon) && (v0Lon>=v2Lon)) {
+                if (v0Lon-v1Lon>Math.PI) v1Lon+=(float)(Math.PI*2);
+                if (v0Lon-v2Lon>Math.PI) v2Lon+=(float)(Math.PI*2);
+             } else
+                if ((v1Lon>=v0Lon) && (v1Lon>=v2Lon)) {
+                   if (v1Lon-v0Lon>Math.PI) v0Lon+=(float)(Math.PI*2);
+                   if (v1Lon-v2Lon>Math.PI) v2Lon+=(float)(Math.PI*2);
+                } else
+                   if ((v2Lon>=v0Lon) && (v2Lon>=v1Lon)) {
+                      if (v2Lon-v0Lon>Math.PI) v0Lon+=(float)(Math.PI*2);
+                      if (v2Lon-v1Lon>Math.PI) v1Lon+=(float)(Math.PI*2);
+                   }
+                
+             if ((v0Pos.y==1.0)||(v0Pos.y==-1.0)) { v0Lon = (v1Lon+v2Lon)/2.0f; }
+             if ((v1Pos.y==1.0)||(v1Pos.y==-1.0)) { v1Lon = (v0Lon+v2Lon)/2.0f; }
+             if ((v2Pos.y==1.0)||(v2Pos.y==-1.0)) { v2Lon = (v0Lon+v1Lon)/2.0f; }
+             
+             ti.t1 = x(new Vector2f(v0Lat,v0Lon));
+             ti.t1w = (float) Math.cos(v0Lat) + .000001f;
+             
+             ti.t2 = x(new Vector2f(v1Lat,v1Lon));
+             ti.t2w = (float) Math.cos(v1Lat) + .000001f;
+
+             ti.t3 = x(new Vector2f(v2Lat,v2Lon));
+             ti.t3w = (float) Math.cos(v2Lat) + .000001f;
+          }
        }
        
    }
