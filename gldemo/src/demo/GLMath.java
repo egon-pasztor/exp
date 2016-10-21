@@ -1,220 +1,17 @@
 package demo;
 
-import com.jogamp.graph.geom.Triangle;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
+import demo.VectorAlgebra.*;
+import demo.Raster.*;
+
+
 public class GLMath {
-   
-   // -----------------------------------------------------------------------
-   // Vector3f
-   // -----------------------------------------------------------------------
-   
-   public static class Vector3f {
-      
-      public final float x, y, z;
-   
-      public Vector3f(float x_, float y_, float z_) {
-         x = x_;
-         y = y_;
-         z = z_;
-      }
-      
-      public String toString() {
-         return String.format("(%g,%g,%g)", x,y,z);
-      }
-      public boolean equals(Vector3f v) {
-         return (x == v.x) && (y == v.y) && (z == v.z);
-      }
-      public int hashCode() {
-         return (new HashCodeMaker())
-            .addFloat(x).addFloat(y).addFloat(z)
-            .getHashCode();
-      }
-       
-      public Vector3f plus(Vector3f v) {
-         return new Vector3f(x + v.x, y + v.y, z + v.z);
-      }
-      public Vector3f minus(Vector3f v) {
-         return new Vector3f(x - v.x, y - v.y, z - v.z);
-      }
-      public Vector3f times(float s) {   
-         return new Vector3f(x * s, y * s, z * s);
-      }       
-       
-      public static float innerProduct(Vector3f a, Vector3f b) {
-         return a.x * b.x + a.y * b.y + a.z * b.z;
-      }
-      public static Vector3f termwiseProduct(Vector3f a, Vector3f b) {
-         return new Vector3f(a.x * b.x, a.y * b.y, a.z * b.z);
-      }
-      public static Matrix3f outerProduct(Vector3f a, Vector3f b) {
-         return new Matrix3f(
-            a.x * b.x, a.x * b.y, a.x * b.z,
-            a.y * b.x, a.y * b.y, a.y * b.z,
-            a.z * b.x, a.z * b.y, a.z * b.z);
-      }
-       
-      public float dot(Vector3f v) {
-         return Vector3f.innerProduct(this, v);
-      }       
-      public Vector3f cross(Vector3f v) {
-         return new Vector3f(y * v.z - z * v.y, 
-                             z * v.x - x * v.z, 
-                             x * v.y - y * v.x);
-      }
-      
-      public float lengthSq() {
-         return this.dot(this);
-      }
-      public float length() {
-         return (float) Math.sqrt(lengthSq());
-      }
-      public Vector3f normalized() {
-         return this.times(1.0f / length());
-      }
 
-      public Vector3f rotated(Vector3f normalizedAxis, float angle) {
-         Vector3f qv = normalizedAxis.times((float) Math.sin(angle / 2.0f));
-         float    qs = (float) Math.cos(angle / 2.0f);
-         Vector3f mv = qv.cross(this).plus(this.times(qs));
-         return qv.cross(mv).plus(mv.times(qs)).plus(qv.times(this.dot(qv)));
-      }
-      public Vector3f interpolated(Vector3f target, float fraction) {
-         float remainder = 1.0f - fraction;
-         return new Vector3f(x * remainder + target.x * fraction,
-                             y * remainder + target.y * fraction,
-                             z * remainder + target.z * fraction);
-      }
-
-      public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f);
-      public static final Vector3f X      = new Vector3f(1.0f, 0.0f, 0.0f);
-      public static final Vector3f Y      = new Vector3f(0.0f, 1.0f, 0.0f);
-      public static final Vector3f Z      = new Vector3f(0.0f, 0.0f, 1.0f);
-   }
-   
-   // -----------------------------------------------------------------------
-   // Matrix3f
-   // -----------------------------------------------------------------------
-   
-   public static class Matrix3f {
-      
-      public final float xx, xy, xz,
-                         yx, yy, yz,
-                         zx, zy, zz;
-  
-      public Matrix3f(float xx_, float xy_, float xz_,
-                      float yx_, float yy_, float yz_,
-                      float zx_, float zy_, float zz_) {
-         
-          xx = xx_; xy = xy_; xz = xz_;
-          yx = yx_; yy = yy_; yz = yz_;
-          zx = zx_; zy = zy_; zz = zz_;
-      }
-      
-      public String toString() {
-         return String.format("(%g,%g,%g; %g,%g,%g; %g,%g,%g)", xx,xy,xz, yx,yy,yz, zx,zy,zz);
-      }
-      public boolean equals(Matrix3f v) {
-         return (xx == v.xx) && (xy == v.xy) && (xz == v.xz)
-             && (yx == v.yx) && (yy == v.yy) && (yz == v.yz)
-             && (zx == v.zx) && (zy == v.zy) && (zz == v.zz);
-      }
-      public int hashCode() {
-         return (new HashCodeMaker())
-            .addFloat(xx).addFloat(xy).addFloat(xz)
-            .addFloat(yx).addFloat(yy).addFloat(yz)
-            .addFloat(zx).addFloat(zy).addFloat(zz)
-            .getHashCode();
-      }
-      
-      public Matrix3f plus(Matrix3f m) {
-         return new Matrix3f(
-            xx + m.xx, xy + m.xy, xz + m.xz,
-            yx + m.yx, yy + m.yy, yz + m.yz,
-            zx + m.zx, zy + m.zy, zz + m.zz);
-      }
-      public Matrix3f minus(Matrix3f m) {
-         return new Matrix3f(
-            xx - m.xx, xy - m.xy, xz - m.xz,
-            yx - m.yx, yy - m.yy, yz - m.yz,
-            zx - m.zx, zy - m.zy, zz - m.zz);
-      }
-      public Matrix3f times(float s) {
-         return new Matrix3f(
-            xx * s, xy * s, xz * s,
-            yx * s, yy * s, yz * s,
-            zx * s, zy * s, zz * s);
-      }
-      public Matrix3f transposed() {
-         return new Matrix3f(xx, yx, zx,
-                             xy, yy, zy,
-                             xz, yz, zz);
-      }
-
-      public static Vector3f product(Vector3f a, Matrix3f b) {
-         return new Vector3f (
-               a.x * b.xx + a.y * b.yx + a.z * b.zx,
-               a.x * b.xy + a.y * b.yy + a.z * b.zy,
-               a.x * b.xz + a.y * b.yz + a.z * b.zz); 
-      }
-      public static Vector3f product(Matrix3f a, Vector3f b) {
-         return new Vector3f (
-               a.xx * b.x + a.xy * b.y + a.xz * b.z,
-               a.yx * b.x + a.yy * b.y + a.yz * b.z,
-               a.zx * b.x + a.zy * b.y + a.zz * b.z); 
-      }
-      public static Matrix3f product(Matrix3f a, Matrix3f b) {
-         return new Matrix3f (
-               a.xx * b.xx + a.xy * b.yx + a.xz * b.zx,  
-               a.xx * b.xy + a.xy * b.yy + a.xz * b.zy,
-               a.xx * b.xz + a.xy * b.yz + a.xz * b.zz,
-               
-               a.yx * b.xx + a.yy * b.yx + a.yz * b.zx,  
-               a.yx * b.xy + a.yy * b.yy + a.yz * b.zy,
-               a.yx * b.xz + a.yy * b.yz + a.yz * b.zz,
-               
-               a.zx * b.xx + a.zy * b.yx + a.zz * b.zx,  
-               a.zx * b.xy + a.zy * b.yy + a.zz * b.zy,
-               a.zx * b.xz + a.zy * b.yz + a.zz * b.zz);         
-      }
-      
-      public float determinate() {
-         return (yy*zz-zy*yz) * xx
-              - (yx*zz-zx*yz) * xy
-              + (yx*zy-zx*yy) * xz;
-      }
-      public Matrix3f inverse() {
-         final float d = determinate();
-         return new Matrix3f(
-              +(yy*zz-zy*yz)/d, -(xy*zz-zy*xz)/d, +(xy*yz-yy*xz)/d, 
-              -(yx*zz-zx*yz)/d, +(xx*zz-zx*xz)/d, -(xx*yz-yx*xz)/d,  
-              +(yx*zy-zx*yy)/d, -(xx*zy-zx*xy)/d, +(xx*yy-yx*xy)/d);
-      }
-      
-      public static Matrix3f scaling(float s) {
-         return new Matrix3f (   s, 0.0f, 0.0f,
-                              0.0f,    s, 0.0f,
-                              0.0f, 0.0f,    s);
-      }
-      public static Matrix3f rotation(Vector3f normalizedAxis, float angle) {
-         final float sa = (float) Math.sin(angle);
-         final float ca = (float) Math.cos(angle);
-         final float x = normalizedAxis.x, y = normalizedAxis.y, z = normalizedAxis.z;
-         return new Matrix3f ( x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
-                               y*x*(1-ca)+ sa*z, y*y*(1-ca)+ ca,   y*z*(1-ca)- sa*x,
-                               z*x*(1-ca)- sa*y, z*y*(1-ca)+ sa*x, z*z*(1-ca)+ ca    );   
-      }      
-      
-      public static final Matrix3f IDENTITY = new Matrix3f(1.0f, 0.0f, 0.0f,
-                                                           0.0f, 1.0f, 0.0f,
-                                                           0.0f, 0.0f, 1.0f);
-   }
-   
    // -----------------------------------------------------------------------
    // CameraBall
    // -----------------------------------------------------------------------
@@ -222,133 +19,338 @@ public class GLMath {
    public static class CameraBall {
       
       public CameraBall (int windowWidth, int windowHeight,
-                         Vector3f initialLookatPoint,
-                         Vector3f initialCameraPosition,
-                         Vector3f initialCameraUpVector,
-                         float initialVerticalFOV) {         
+                         Vector3f lookAtPoint,
+                         Vector3f cameraPosition,
+                         Vector3f cameraUpVector,
+                         float verticalFovInDegrees) {         
          
          this.width = windowWidth;
          this.height = windowHeight;
-         this.lookatPoint = initialLookatPoint;
-         this.cameraPosition = initialCameraPosition;
+         this.lookAtPoint = lookAtPoint;
+         this.cameraPosition = cameraPosition;
+         this.cameraUpVector = cameraUpVector;         
+         this.verticalFovInDegrees = verticalFovInDegrees;
          
-         Vector3f zVector = initialLookatPoint.minus(initialCameraPosition);
-         Vector3f xVector = zVector.cross(initialCameraUpVector);
-         Vector3f yVector = xVector.cross(zVector);  
-         this.cameraUpVector = yVector.normalized();         
-         
-         this.verticalFOV = initialVerticalFOV;
+         updateDerivedFields();
       }
-
-      public Vector3f getLookatPoint() {
-         return lookatPoint;
-      }      
+      
+      // -----------------------------------------------
+      // These are "free fields" specified by the user:
+      // -----------------------------------------------
+      
+      private Vector3f cameraPosition;
+      private Vector3f cameraUpVector;
+      private Vector3f lookAtPoint;
+      
       public Vector3f getCameraPosition() {
          return cameraPosition;
       }
+      public Vector3f getLookAtPoint() {
+         return lookAtPoint;
+      }      
       public Vector3f getCameraUpVector() {
          return cameraUpVector;
       }
+
+      private int width, height;
+      private float verticalFovInDegrees;
+      
+      public int getWidth() {
+         return width;
+      }
+      public int getHeight() {
+         return height;
+      }
       public float getVerticalFOV() {
-         return verticalFOV;
+         return verticalFovInDegrees;
+      }      
+
+      // ---------------------------------------------
+      // These are "derived fields" computed by update:
+      // ---------------------------------------------
+      
+      private Matrix4f worldToCameraSpace;
+      private Matrix4f cameraToClipSpace;
+      private Vector3f camX, camY, camZ;      
+
+      public Matrix4f getCameraToClipSpace() {
+         return cameraToClipSpace;
       }
-      public float getAspectRatio() {
-         return ((float)width) / height;
+      public Matrix4f getWorldToCameraSpace() {
+         return worldToCameraSpace;
+      }         
+      
+      private void updateDerivedFields() {
+         
+         // The objects in the world are in a right-handed-coordinate system.
+         // In WORLD-SPACE:
+         //    the CAMERA is at "cameraPosition",
+         //    the TARGET is at "lookatPoint".
+         //
+         // The first thing we do is TRANSLATE by "-cameraPosition":
+
+         Matrix4f translateCameraToOrigin = new Matrix4f(
+                1.0f,    0.0f,    0.0f,   -cameraPosition.x,
+                0.0f,    1.0f,    0.0f,   -cameraPosition.y,
+                0.0f,    0.0f,    1.0f,   -cameraPosition.z,
+                0.0f,    0.0f,    0.0f,    1.0f);
+         
+         worldToCameraSpace = translateCameraToOrigin;
+               
+         // Now the CAMERA is at the origin, 
+         // and the TARGET is at "cameraToLookat":
+         
+         Vector3f cameraToLookat = lookAtPoint.minus(cameraPosition);
+         float distanceToTarget = cameraToLookat.length();
+         
+         // We want to ROTATE to put the TARGET on the -Z axis.
+         //
+         // A unit vector pointing in the opposite direction as "cameraToLookat'
+         // will be the new Z axis, and we select X and Y perdendiculer to Z
+         // such that "cameraUpVector" is in the Z-Y plane:
+         
+         camZ = cameraToLookat.times(-1.0f / distanceToTarget);
+         camX = Vector3f.crossProduct(cameraUpVector, camZ).normalized();
+         camY = Vector3f.crossProduct(camZ, camX).normalized();
+               
+         Matrix4f rotateSoTargetIsOnNegativeZ = new Matrix4f(
+               camX.x,     camX.y,      camX.z,    0.0f,
+               camY.x,     camY.y,      camY.z,    0.0f,
+               camZ.x,     camZ.y,      camZ.z,    0.0f,
+               0.0f,       0.0f,        0.0f,      1.0f);
+
+         worldToCameraSpace = Matrix4f.product(rotateSoTargetIsOnNegativeZ, 
+                                               worldToCameraSpace);
+         
+         // Now the CAMERA is at the origin,
+         // and the TARGET is at <0,0,-distanceToTarget>
+         //
+         // The next step is to scale by 1/distanceToTarget:
+         
+         float scale = 1.0f / distanceToTarget;
+         Matrix4f scaleByDistanceToTarget = new Matrix4f(
+               scale,   0.0f,    0.0f,    0.0f,
+               0.0f,    scale,   0.0f,    0.0f,
+               0.0f,    0.0f,    scale,   0.0f,
+               0.0f,    0.0f,    0.0f,    1.0f);
+
+         worldToCameraSpace = Matrix4f.product(scaleByDistanceToTarget, 
+                                               worldToCameraSpace);
+         
+         // Now we're fully in CAMERA-SPACE:
+         // In CAMERA-SPACE:
+         //    the CAMERA is at <0,0,  0>
+         //    the TARGET is at <0,0, -1>
+         
+         float aspect = ((float)width) / height;
+         float fHeight = (float) Math.tan(verticalFovInDegrees * (Math.PI / 180.0) * 0.5);
+         float fWidth  = aspect * fHeight;
+
+         // So  <0, 0, -1>  ... is expected to map to the CENTER of the viewport.
+         //         
+         // Our vertical "field of view in degrees" determines how much
+         // of the <x,y> plane at z=-1 we can see in our viewport:
+         //
+         //    <fWidth,   0, -1>  ... is expected to map to the RIGHT-MIDDLE of the window
+         //    <0,  fHeight, -1>  ... is expected to map to the MIDDLE-TOP of the window
+         //
+         // We're going to scale the x and y dimensions non-linearly so these become +/-1:
+         
+         Matrix4f scaleXYByFieldOfView = new Matrix4f(
+               1/fWidth,   0.0f,        0.0f,    0.0f,
+               0.0f,       1/fHeight,   0.0f,    0.0f,
+               0.0f,       0.0f,        1.0f,    0.0f,
+               0.0f,       0.0f,        0.0f,    1.0f);
+         
+         cameraToClipSpace = scaleXYByFieldOfView;
+               
+         // Now:  
+         //   <0,  0, -1>  ... is expected to map to the CENTER of the window
+         //   <1,  0, -1>  ... is expected to map to the RIGHT-MIDDLE of the window
+         //   <0,  1, -1>  ... is expected to map to the MIDDLE-TOP of the window
+         // 
+         // In this space our "field of view" has become a full 90-degrees,
+         // so any point where y is equal to -z should map to the TOP-MIDDLE, or:
+         //
+         //   y_view  =  y / -z
+         //   x_view  =  x / -z
+         //
+         // so we KNOW we're going to want a final transform like:
+         //
+         //   new Matrix4f(
+         //      1.0f,   0.0f,   0.0f,   0.0f,
+         //      0.0f,   1.0f,   0.0f,   0.0f,
+         //      0.0f,   0.0f,   ????.   ????,
+         //      0.0f,   0.0f,  -1.0f,   0.0f );         
+         //
+         // This sets x_view and y_view so they're (x/-z) and (y/-z) respectively,
+         // determining the (x,y) position of any point on the viewport.
+         // This leaves only two unknown values, call them M and C:
+         //
+         //   new Matrix4f(
+         //      1.0f,   0.0f,   0.0f,   0.0f,
+         //      0.0f,   1.0f,   0.0f,   0.0f,
+         //      0.0f,   0.0f,     M,      C,
+         //      0.0f,   0.0f,  -1.0f,   0.0f );         
+         //
+         // And this will force:
+         //
+         //   z_view  ==  (zM+C) / -z   ==  -C/z -M
+         //
+         // This z_view doesn't affect where the point appears on the viewport,
+         // (we've already got that with x_view and y_view),
+         // but z_view is used for DEPTH-BUFFERING and needs 
+         // to be in the -1 to 1 range to prevent OpenGL from dropping it.
+         //
+         // What we want is:
+         //
+         //   z == NEAR == -.1   -->   z_view == -1
+         //   z == FAR  == -10   -->   z_view == +1
+         //
+         // So:
+         //        -1 == -C/NEAR - M
+         //        +1 == -C/FAR  - M
+         //
+         // Solving for M and C results:
+         //
+         //   M =  - (FAR+NEAR)/(FAR-NEAR)
+         //   C =  (2*FAR*NEAR)/(FAR-NEAR)
+         
+         float nearZ =  -0.1f;
+         float farZ  = -10.0f;
+         
+         float M =   - (farZ + nearZ)    / (farZ - nearZ);
+         float C = (2.0f * farZ * nearZ) / (farZ - nearZ);
+         
+         Matrix4f perspectiveTransform = new Matrix4f(
+               1.0f,   0.0f,   0.0f,   0.0f,
+               0.0f,   1.0f,   0.0f,   0.0f,
+               0.0f,   0.0f,    M,       C,
+               0.0f,   0.0f,  -1.0f,   0.0f);
+         
+         cameraToClipSpace = Matrix4f.product(perspectiveTransform,
+                                              cameraToClipSpace);
       }
+      
+      // -------------------------------------------------------------------
+      // Click-and-Drag the CameraBall
+      // -------------------------------------------------------------------
       
       public enum GrabType { Rotate,   // Move camera around fixed lookat_point
                              Zoom,     // Move camera closer or further from fixed lookat_point
-                             Pan,      // Move camera and lookat_point together
+                             Pan,      // Move both camera and lookat_point by the same amount
                              FOV };
-                             
+         
+      private boolean grabbed;
+      private GrabType grabType;
+      
+      // Some of these fields are set when a grab begins,
+      // and are used to update the free fields after each mouse movement:
+      
+      private float xGrab, yGrab;
+
+      private Vector3f grabLookAtPoint, grabLookAtToCamera;
+      private Vector3f grabCamX, grabCamY, grabCamZ;
+      private float grabFovTangent;
+      
+      // For rotate grabs
+      private boolean roll;
+      private float grabAngle;
+      // For zoom grabs
+      private float tScale;
+      // For pan grabs
+      private float windowScale;
+
       public void grab(int ix, int iy, GrabType grabType) {
-         float y = (iy-height/2) / ((float) (height/2));
-         float x = (ix-width/2)  / ((float) (height/2));
-
-         this.grabType = grabType;
          this.grabbed  = true;
-         this.xGrab = x;
-         this.yGrab = y;
+         this.grabType = grabType;
+         
+         float y = (height/2-iy) / ((float) (height/2));
+         float x = (ix-width/2)  / ((float) (height/2));
+         xGrab = x;
+         yGrab = y;
         
-         grab_lookat_Point     = lookatPoint;
-         grab_lookat_to_camera = cameraPosition.minus(lookatPoint);
-
-         grab_zVector = grab_lookat_to_camera.normalized();
-         grab_xVector = grab_zVector.cross(cameraUpVector).normalized();
-         grab_yVector = grab_xVector.cross(grab_zVector);
-
+         grabLookAtPoint    = lookAtPoint;
+         grabLookAtToCamera = cameraPosition.minus(lookAtPoint);
+         grabCamX           = camX;
+         grabCamY           = camY;
+         grabCamZ           = camZ;
+         grabFovTangent     = ((float) Math.tan(verticalFovInDegrees * (Math.PI / 180.0) * 0.5f));
+         
          if (grabType == GrabType.Rotate) {
-
             roll = (x*x+y*y) > 1;
             if (roll) grabAngle = (float) Math.atan2(y,x);
-
+            
          } else if (grabType == GrabType.Zoom) {
-
             tScale = (y < 0.5) ? (1-y) : (y);
 
          } else if (grabType == GrabType.FOV) {
-
-            tScale     = (y < 0.5) ? (1-y) : (y);
-            fovTangent = ((float) Math.tan(verticalFOV * Math.PI / 360.0));
+            tScale = (y < 0.5) ? (1-y) : (y);
 
          } else if (grabType == GrabType.Pan) {
-       
-            windowScale = ((float) Math.tan(verticalFOV * Math.PI / 360.0))
-                        * grab_lookat_to_camera.length();
+            windowScale = grabFovTangent * grabLookAtToCamera.length();
          }
       }
       public void moveTo(int ix, int iy) {
          if (!grabbed) return;
          
-         float y = (iy-height/2) / ((float) (height/2));
-         float x = (ix-width/2)  / ((float) (height/2));
-
+         float y  = (height/2-iy) / ((float) (height/2));
+         float x  = (ix-width/2)  / ((float) (height/2));         
          float dx = x-xGrab;
          float dy = y-yGrab; 
-         if ((dx==0) && (dy==0)) return;
 
          if (grabType == GrabType.Rotate) {
             
-            Vector3f axis;
-            float amount;
-
-            if (roll) {
-          axis = Vector3f.Z; 
-               amount = (float) (Math.atan2(y,x) - grabAngle) * Scale2DRotation;
-
-            } else { 
-               axis = new Vector3f ((float) dy,(float) -dx, 0).normalized();
-               amount = ((float) Math.sqrt(dx*dx+dy*dy)) * Scale3DRotation;
+            if ((dx == 0) && (dy == 0)) {               
+               cameraPosition = grabLookAtToCamera.plus(grabLookAtPoint);
+               cameraUpVector = grabCamY;
+               
+            } else {
+               Vector3f cameraSpaceAxis;
+               float angle;
+   
+               if (roll) {
+                  cameraSpaceAxis = Vector3f.Z; 
+                  angle = - (float) (Math.atan2(y,x) - grabAngle) * Scale2DRotation;
+               } else { 
+                  cameraSpaceAxis = new Vector3f ((float) -dy,(float) dx, 0).normalized();
+                  angle = - ((float) Math.sqrt(dx*dx+dy*dy)) * Scale3DRotation;
+               }
+               Vector3f rotationAxis = grabCamX.times(cameraSpaceAxis.x)
+                                 .plus(grabCamY.times(cameraSpaceAxis.y))
+                                 .plus(grabCamZ.times(cameraSpaceAxis.z))
+                                 .normalized();
+               
+               cameraPosition = grabLookAtToCamera.rotated(rotationAxis, angle).plus(grabLookAtPoint);
+               cameraUpVector = grabCamY.rotated(rotationAxis, angle);
             }
             
-            Vector3f rotationAxis = grab_xVector.times(axis.x)
-                              .plus(grab_yVector.times(axis.y))
-                              .plus(grab_zVector.times(axis.z))
-                              .normalized();
-            
-            cameraPosition = grab_lookat_to_camera.rotated(rotationAxis, amount).plus(lookatPoint);
-            cameraUpVector = grab_yVector.rotated(rotationAxis, amount);
-            
-         } else if (grabType == GrabType.Zoom) {
-
-            cameraPosition = grab_lookat_to_camera.times((float) Math.pow(ScaleZoom, dy/tScale)).plus(lookatPoint);
-
          } else if (grabType == GrabType.Pan) {
 
-            Vector3f translation = grab_xVector.times(dx)
-                             .plus(grab_yVector.times(dy))
+            Vector3f translation = grabCamX.times(-dx)
+                             .plus(grabCamY.times(-dy))
                              .times(windowScale);
 
-            lookatPoint = grab_lookat_Point.plus(translation);
-
-
-         } else if (grabType == GrabType.FOV) {
-
-            float newFovTangent = fovTangent * (float) Math.pow(ScaleZoom,dy/tScale);
-            verticalFOV = (float) ((360.0f / Math.PI) * Math.atan(newFovTangent));
-
+            lookAtPoint    = grabLookAtPoint.plus(translation);
+            cameraPosition = grabLookAtToCamera.plus(lookAtPoint);
+            
+         } else {            
+            // Either "ZOOM" or "FOV", two ways or making the target look bigger or smaller,
+            // either by moving the camera closer to the target or by changing the field of view:
+            
+            float scale = (float) Math.pow(ScaleZoom, dy/tScale);
+            
+            if (grabType == GrabType.Zoom) {
+               cameraPosition = grabLookAtToCamera.times(scale).plus(grabLookAtPoint);
+            } else {
+               float newFovTangent = grabFovTangent * scale;
+               verticalFovInDegrees = (float) (2.0f * (180.0f / Math.PI) * Math.atan(newFovTangent));
+            }
          }
+         
+         updateDerivedFields();
       }
+      
       public void release() {
          grabbed = false;
       }
@@ -356,114 +358,11 @@ public class GLMath {
          return grabbed;
       }
       
-      // ----------------------------------------------------------
-      
-      private int width, height;
-      private Vector3f lookatPoint;
-      private Vector3f cameraPosition;
-      private Vector3f cameraUpVector;
-      private float verticalFOV;
-      
-      private boolean grabbed;
-      private GrabType grabType;
-      private float xGrab, yGrab;
-
-      private Vector3f grab_lookat_Point, grab_lookat_to_camera;
-      private Vector3f grab_zVector, grab_xVector, grab_yVector;
-
-      // For rotate grabs
-      private boolean roll;
-      private float grabAngle;
-
-      // For zoom grabs
-      private float tScale;
-
-      // For pan grabs
-      private float windowScale;
-
-      // For fovAdjust grabs
-      private float fovTangent;
-
       private static final float ScaleZoom       = 3.0f;
       private static final float Scale2DRotation = 1.5f;
       private static final float Scale3DRotation = 2.0f;
    }
    
-   // -----------------------------------------------------------------------
-   // Vector2f
-   // -----------------------------------------------------------------------
-   
-   public static class Vector2f {
-      
-      public final float x, y;
-
-      public Vector2f(float x, float y) {
-          this.x = x;
-          this.y = y;
-      }
-      
-      public String toString() {
-         return String.format("(%g,%g)", x,y);
-      }
-      public boolean equals(Vector3f v) {
-         return (x == v.x) && (y == v.y);
-      }
-      public int hashCode() {
-         return (new HashCodeMaker())
-            .addFloat(x).addFloat(y)
-            .getHashCode();
-      }
-      
-      public Vector2f plus(Vector2f v) {
-          return new Vector2f(x + v.x, y + v.y);
-      }
-      public Vector2f minus(Vector2f v) {
-          return new Vector2f(x - v.x, y - v.y);
-      }
-      public Vector2f times(float s) {   
-          return new Vector2f(x * s, y * s);
-      }       
-      
-      public float dot(Vector2f v) {
-         return x * v.x + y * v.y;
-      }
-
-      public float lengthSq() {
-         return this.dot(this);
-      }
-      public float length() {
-         return (float) Math.sqrt(lengthSq());
-      }
-      public Vector2f normalized() {
-         return this.times(1.0f / length());
-      }
-      
-      public static final Vector2f ORIGIN = new Vector2f(0.0f, 0.0f);
-      public static final Vector2f X      = new Vector2f(1.0f, 0.0f);
-      public static final Vector2f Y      = new Vector2f(0.0f, 1.0f);
-   }
-
-   // -----------------------------------------------------------------------
-   // Misc
-   // -----------------------------------------------------------------------
-   
-   public static class ColorRGBA {
-       public final byte r,g,b,a;
-   
-       public ColorRGBA(byte r, byte g, byte b, byte a) {
-           this.r = r;
-           this.g = g;
-           this.b = b;
-           this.a = a;
-       }       
-
-       public int toInteger() {
-          return ((int)r)<<24 | ((int)g)<<16 | ((int)b)<<8 | ((int)a);
-       }
-       public String toString() {
-          return String.format("#%02x%02x%02x%02x", r,g,b,a);
-       }
-   }
 
    // -----------------------------------------------------------------------
    // Mesh Structure
@@ -845,8 +744,9 @@ public class GLMath {
    public static class TexInfo {
 
        public Vector2f  t1,t2,t3;
+       public float ext;
        public float t1w,t2w,t3w;
-       public ColorRGBA c1,c2,c3;
+       public ColorARGB c1,c2,c3;
 
        public TexInfo() {
           t1=t2=t3=null;
@@ -854,15 +754,16 @@ public class GLMath {
           c1=c2=c3=null;
        }
        
-       public void setTexCoords(Vector2f t1, float t1w, Vector2f t2,float t2w, Vector2f t3, float t3w) {
+       public void setTexCoords(Vector2f t1, float t1w, Vector2f t2,float t2w, Vector2f t3, float t3w, float ext) {
           this.t1 = t1;
           this.t2 = t2;
           this.t3 = t3;
           this.t1w = t1w;
           this.t2w = t2w;
           this.t3w = t3w;
+          this.ext = ext;
        }         
-       public void setColors(ColorRGBA c1, ColorRGBA c2, ColorRGBA c3) {
+       public void setColors(ColorARGB c1, ColorARGB c2, ColorARGB c3) {
            this.c1 = c1;
            this.c2 = c2;
            this.c3 = c3;
@@ -900,9 +801,13 @@ public class GLMath {
        // -- -- -- -- -- -- -- --
 
        public void addTriangle (Vector3f a, Vector3f b, Vector3f c, Vector2f aTex,
-                                float aTexW, Vector2f bTex, float bTexW, Vector2f cTex, float cTexW) {
+                               float aTexW, Vector2f bTex, float bTexW, Vector2f cTex, float cTexW) {
+          addTriangle (a,b,c, aTex,aTexW, bTex,bTexW, cTex,cTexW, 0.0f);
+       }
+       public void addTriangle (Vector3f a, Vector3f b, Vector3f c, Vector2f aTex,
+                                float aTexW, Vector2f bTex, float bTexW, Vector2f cTex, float cTexW, float ext) {
 
-          System.out.format("Adding triangle:  POS (%s,%s,%s)\nTEX (%s,%s,%s)\n--\n",
+          System.out.format("Adding triangle: POS ==\n%s--\n%s--\n%s\nTEX ==\n%s--\n%s--\n%s######\n",
                 a.toString(), b.toString(), c.toString(),
                 aTex.toString(), bTex.toString(), cTex.toString());
                 
@@ -912,10 +817,11 @@ public class GLMath {
           Mesh.Triangle<Vector3f,TexInfo> t = mesh.addTriangle(va, vb, vc);
           
           TexInfo ti = new TexInfo();
-          ti.setTexCoords(aTex,aTexW, bTex, bTexW, cTex,cTexW);
-          ti.setColors(new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff),
-                       new ColorRGBA((byte)0x00, (byte)0xff, (byte)0x00, (byte)0xff),
-                       new ColorRGBA((byte)0x00, (byte)0x00, (byte)0xff, (byte)0xff));
+          ti.setTexCoords(aTex,aTexW, bTex, bTexW, cTex,cTexW, ext);
+          
+          ColorARGB col = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
+          
+          ti.setColors(col,col,col);
           t.setData(ti);
              
           System.out.format("MESH has %d vertices, %d interior triangles and %d boundary edges\n", mesh.vertices.size(),
@@ -923,7 +829,7 @@ public class GLMath {
           mesh.checkMesh();
        }
        
-       public void addSquare (Vector3f center, Vector3f dx, Vector3f dy) {
+       public void addSquare (Vector3f center, Vector3f dx, Vector3f dy, float ext) {
            Vector3f tr = center.plus(dx).plus(dy);
            Vector3f tl = center.minus(dx).plus(dy);
            Vector3f br = center.plus(dx).minus(dy);
@@ -932,13 +838,14 @@ public class GLMath {
            addTriangle(bl, br, tl, 
                  new Vector2f(0.0f, 1.0f), 1.0f,
                  new Vector2f(1.0f, 1.0f), 1.0f,
-                 new Vector2f(0.0f, 0.0f), 1.0f);
-                 
+                 new Vector2f(0.0f, 0.0f), 1.0f, ext);
+                
            addTriangle(tl, br, tr,
                  new Vector2f(0.0f, 0.0f), 1.0f,
                  new Vector2f(1.0f, 1.0f), 1.0f,
-                 new Vector2f(1.0f, 0.0f), 1.0f);
+                 new Vector2f(1.0f, 0.0f), 1.0f, ext);
        }
+       
 
        // -- -- -- -- -- -- -- --
 
@@ -980,9 +887,9 @@ public class GLMath {
               pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(1.0f, 1.0f));
               
               // tex
-              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t1, ti.t1w);
-              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t2, ti.t2w);
-              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t3, ti.t3w);
+              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t1, ti.t1w, ti.ext);
+              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t2, ti.t2w, ti.ext);
+              pTex = copyVector2fAs4(result.texCoords, pTex, ti.t3, ti.t3w, ti.ext);
               
               // col
               pCol = copyColor(result.colors, pCol, ti.c1);
@@ -1004,14 +911,14 @@ public class GLMath {
            arr[base+1] = v.y;
            return base+2;
        }
-       private int copyVector2fAs4(float[] arr, int base, Vector2f v, float w) {
+       private int copyVector2fAs4(float[] arr, int base, Vector2f v, float w, float ext) {
           arr[base+0] = v.x * w;
           arr[base+1] = v.y;
-          arr[base+2] = 0.0f;
+          arr[base+2] = ext;
           arr[base+3] = w;
           return base+4;
       }
-       private int copyColor(float[] arr, int base, ColorRGBA c) {
+       private int copyColor(float[] arr, int base, ColorARGB c) {
            arr[base+0] = ((float)(c.r&0xff))/255.0f;
            arr[base+1] = ((float)(c.g&0xff))/255.0f;
            arr[base+2] = ((float)(c.b&0xff))/255.0f;
@@ -1021,21 +928,4 @@ public class GLMath {
    }
    
 
-   // -----------------------------------------------------------------------
-   // HashCodeMaker
-   // -----------------------------------------------------------------------
-   
-   private static class HashCodeMaker {
-      public HashCodeMaker()    { code = 1;    }
-      public int getHashCode()  { return code; }
-      
-      public HashCodeMaker addInt(int i)         { code = 37 * code + i;  return this;         }
-      public HashCodeMaker addBoolean(boolean b) { return addInt(b?1:0);                       }
-      public HashCodeMaker addByte(byte b)       { return addInt((int)b);                      }
-      public HashCodeMaker addLong(long l)       { return addInt((int)(l ^ (l >>> 32)));       }
-      public HashCodeMaker addFloat(float f)     { return addInt(Float.floatToIntBits(f));     }
-      public HashCodeMaker addDouble(double d)   { return addLong(Double.doubleToLongBits(d)); }
-      
-      private int code;
-   }   
 }
