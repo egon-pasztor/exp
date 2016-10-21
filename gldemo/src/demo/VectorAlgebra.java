@@ -255,8 +255,8 @@ public class VectorAlgebra {
       }
       
       public String toString() {
-         return String.format("( %10.3f %10.3f %10.3f )\n( %10.3f %10.3f %10.3f )\n( %10.3f %10.3f %10.3f )\n", 
-               xx,xy,xz, yx,yy,yz, zx,zy,zz);
+         return String.format("( %10.3f %10.3f %10.3f )\n( %10.3f %10.3f %10.3f )\n"
+                    +"( %10.3f %10.3f %10.3f )\n", xx,xy,xz, yx,yy,yz, zx,zy,zz);
       }
       public boolean equals(Matrix3f m) {
          return (xx == m.xx) && (xy == m.xy) && (xz == m.xz)
@@ -327,11 +327,18 @@ public class VectorAlgebra {
               -(yx*zz-zx*yz)/d, +(xx*zz-zx*xz)/d, -(xx*yz-yx*xz)/d,  
               +(yx*zy-zx*yy)/d, -(xx*zy-zx*xy)/d, +(xx*yy-yx*xy)/d);
       }
-      
+
+      // -------------------------------------------------------
+
       public static Matrix3f scaling(float s) {
-         return new Matrix3f (   s, 0.0f, 0.0f,
-                              0.0f,    s, 0.0f,
-                              0.0f, 0.0f,    s);
+         return new Matrix3f (   s,  0.0f,  0.0f,
+                              0.0f,     s,  0.0f,
+                              0.0f,  0.0f,    s);
+      }
+      public static Matrix3f nonuniformScaling(Vector3f s) {
+         return new Matrix3f ( s.x,  0.0f,  0.0f,
+                              0.0f,   s.y,  0.0f,
+                              0.0f,  0.0f,   s.z);
       }
       public static Matrix3f rotation(Vector3f normalizedAxis, float angle) {
          final float sa = (float) Math.sin(angle);
@@ -340,12 +347,33 @@ public class VectorAlgebra {
          return new Matrix3f ( x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
                                y*x*(1-ca)+ sa*z, y*y*(1-ca)+ ca,   y*z*(1-ca)- sa*x,
                                z*x*(1-ca)- sa*y, z*y*(1-ca)+ sa*x, z*z*(1-ca)+ ca    );   
-      }      
+      }
+      public static Matrix3f fromRowVectors(Vector3f x, Vector3f y, Vector3f z) {
+	  return new Matrix3f (x.x, x.y, x.z,
+                               y.x, y.y, y.z,
+                               z.x, z.y, z.z);
+      }
+      public static Matrix3f fromColumnVectors(Vector3f x, Vector3f y, Vector3f z) {
+	  return new Matrix3f (x.x, y.x, z.x,
+                               x.y, y.y, z.y,
+                               x.z, y.z, z.z);
+      }
+
+      // -------------------------------------------------------
       
       public static final Matrix3f IDENTITY = new Matrix3f(1.0f, 0.0f, 0.0f,
                                                            0.0f, 1.0f, 0.0f,
                                                            0.0f, 0.0f, 1.0f);
    }
+
+
+    /*
+   LTrs *LTrsPerspectiveTransform (LTrs *t, double f, double d,
+                                 double xh, double yh)
+    { Mat4Set(&t->trs,f/xh,0,0,0,0,f/yh,0,0,0,0,f/(f-d),1,0,0,-d*f/(f-d),0);
+      Mat4Set(&t->itrs,xh/f,0,0,0,0,yh/f,0,0,0,0,0,-(f-d)/(d*f),0,0,1,1/d);  
+     return t; }
+    */
 
    // -----------------------------------------------------------------------
    // Vector4f
@@ -415,6 +443,14 @@ public class VectorAlgebra {
       public Vector3f toVector3f() {
          return new Vector3f(x / w, y / w, z / w);
       }
+
+      // -------------------------------------------------------
+
+      public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f, 0.0f);
+      public static final Vector3f X      = new Vector3f(1.0f, 0.0f, 0.0f, 0.0f);
+      public static final Vector3f Y      = new Vector3f(0.0f, 1.0f, 0.0f, 0.0f);
+      public static final Vector3f Z      = new Vector3f(0.0f, 0.0f, 1.0f, 0.0f);
+      public static final Vector3f W      = new Vector3f(0.0f, 0.0f, 0.0f, 1.0f);
    }
    
    // -----------------------------------------------------------------------
@@ -518,9 +554,15 @@ public class VectorAlgebra {
       
       // --------------------
       
-      public static Matrix4f translation(Vector3f v) {
-         // TODO...
-         return null;
+      public static Matrix4f fromComponents(Matrix3f m, Vector3f t, Vector4f w) {
+	  return new Matrix4f (m.xx, m.xy, m.xz, t.x,
+			       m.yx, m.yy, m.yz, t.y,
+			       m.zx, m.zy, m.zz, t.z,
+			       w.x,  w.y,  w.z,  w.w);
+      }
+
+      public static Matrix4f translation(Vector3f t) {
+	  return Natrix4f.fromComponents(Matrix3f.IDENTITY, t, Vector4f.W);
       }
    }
    
