@@ -344,19 +344,19 @@ public class VectorAlgebra {
          final float sa = (float) Math.sin(angle);
          final float ca = (float) Math.cos(angle);
          final float x = normalizedAxis.x, y = normalizedAxis.y, z = normalizedAxis.z;
-         return new Matrix3f ( x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
-                               y*x*(1-ca)+ sa*z, y*y*(1-ca)+ ca,   y*z*(1-ca)- sa*x,
-                               z*x*(1-ca)- sa*y, z*y*(1-ca)+ sa*x, z*z*(1-ca)+ ca    );   
+         return new Matrix3f (x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
+                              y*x*(1-ca)+ sa*z, y*y*(1-ca)+ ca,   y*z*(1-ca)- sa*x,
+                              z*x*(1-ca)- sa*y, z*y*(1-ca)+ sa*x, z*z*(1-ca)+ ca    );   
       }
       public static Matrix3f fromRowVectors(Vector3f x, Vector3f y, Vector3f z) {
-	  return new Matrix3f (x.x, x.y, x.z,
-                               y.x, y.y, y.z,
-                               z.x, z.y, z.z);
+	      return new Matrix3f (x.x, x.y, x.z,
+                              y.x, y.y, y.z,
+                              z.x, z.y, z.z);
       }
       public static Matrix3f fromColumnVectors(Vector3f x, Vector3f y, Vector3f z) {
-	  return new Matrix3f (x.x, y.x, z.x,
-                               x.y, y.y, z.y,
-                               x.z, y.z, z.z);
+	      return new Matrix3f (x.x, y.x, z.x,
+                              x.y, y.y, z.y,
+                              x.z, y.z, z.z);
       }
 
       // -------------------------------------------------------
@@ -446,11 +446,11 @@ public class VectorAlgebra {
 
       // -------------------------------------------------------
 
-      public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f, 0.0f);
-      public static final Vector3f X      = new Vector3f(1.0f, 0.0f, 0.0f, 0.0f);
-      public static final Vector3f Y      = new Vector3f(0.0f, 1.0f, 0.0f, 0.0f);
-      public static final Vector3f Z      = new Vector3f(0.0f, 0.0f, 1.0f, 0.0f);
-      public static final Vector3f W      = new Vector3f(0.0f, 0.0f, 0.0f, 1.0f);
+      public static final Vector4f ORIGIN = new Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
+      public static final Vector4f X      = new Vector4f(1.0f, 0.0f, 0.0f, 0.0f);
+      public static final Vector4f Y      = new Vector4f(0.0f, 1.0f, 0.0f, 0.0f);
+      public static final Vector4f Z      = new Vector4f(0.0f, 0.0f, 1.0f, 0.0f);
+      public static final Vector4f W      = new Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
    }
    
    // -----------------------------------------------------------------------
@@ -555,14 +555,252 @@ public class VectorAlgebra {
       // --------------------
       
       public static Matrix4f fromComponents(Matrix3f m, Vector3f t, Vector4f w) {
-	  return new Matrix4f (m.xx, m.xy, m.xz, t.x,
-			       m.yx, m.yy, m.yz, t.y,
-			       m.zx, m.zy, m.zz, t.z,
-			       w.x,  w.y,  w.z,  w.w);
+         return new Matrix4f (m.xx, m.xy, m.xz, t.x,
+			                     m.yx, m.yy, m.yz, t.y,
+			                     m.zx, m.zy, m.zz, t.z,
+			                     w.x,  w.y,  w.z,  w.w);
+      }
+      public static Matrix4f fromMatrix3f(Matrix3f m) {
+         return Matrix4f.fromComponents(m, Vector3f.ORIGIN, Vector4f.W);
+      }
+      public static Matrix4f translation(Vector3f t) {
+         return Matrix4f.fromComponents(Matrix3f.IDENTITY, t, Vector4f.W);
       }
 
-      public static Matrix4f translation(Vector3f t) {
-	  return Natrix4f.fromComponents(Matrix3f.IDENTITY, t, Vector4f.W);
+      public static final Matrix4f IDENTITY = new Matrix4f(1.0f, 0.0f, 0.0f, 0.0f,
+                                                           0.0f, 1.0f, 0.0f, 0.0f,
+                                                           0.0f, 0.0f, 1.0f, 0.0f,
+                                                           0.0f, 0.0f, 0.0f, 1.0f);
+   }
+
+   // -----------------------------------------------------------------------
+   // Camera
+   // -----------------------------------------------------------------------
+
+   public static class Camera {
+      
+      public Camera (int windowWidth, int windowHeight,
+                     Vector3f lookAtPoint,
+                     Vector3f cameraPosition,
+                     Vector3f cameraUpVector,
+                     float verticalFovInDegrees) {         
+
+         this.width = windowWidth;
+         this.height = windowHeight;
+         setupCamera(lookAtPoint, cameraPosition, cameraUpVector, verticalFovInDegrees);
+      }
+         
+      private final int width, height;
+      
+      public int getWidth() {
+         return width;
+      }
+      public int getHeight() {
+         return height;
+      }
+      
+      // -----------------------------------------------
+      // These are "free fields" specified by the user:
+      // -----------------------------------------------
+         
+      private Vector3f cameraPosition;
+      private Vector3f cameraUpVector;
+      private Vector3f lookAtPoint;
+      private float verticalFovInDegrees;
+         
+      public Vector3f getCameraPosition() {
+         return cameraPosition;
+      }
+      public Vector3f getLookAtPoint() {
+         return lookAtPoint;
+      }      
+      public Vector3f getCameraUpVector() {
+         return cameraUpVector;
+      }
+      public float getVerticalFOV() {
+         return verticalFovInDegrees;
+      }
+      
+      public void setupCamera(Vector3f lookAtPoint,
+                              Vector3f cameraPosition,
+                              Vector3f cameraUpVector,
+                              float verticalFovInDegrees) { 
+         
+         this.lookAtPoint = lookAtPoint;
+         this.cameraPosition = cameraPosition;
+         this.cameraUpVector = cameraUpVector;         
+         this.verticalFovInDegrees = verticalFovInDegrees;
+         updateDerivedFields();
+      }
+      
+      // ---------------------------------------------
+      // These are "derived fields" computed by update:
+      // ---------------------------------------------
+         
+      private Matrix4f worldToCameraSpace;
+      private Matrix4f cameraToClipSpace;
+      private Vector3f camX, camY, camZ;      
+         
+      public Matrix4f getCameraToClipSpace() {
+         return cameraToClipSpace;
+      }
+      public Matrix4f getWorldToCameraSpace() {
+         return worldToCameraSpace;
+      }
+      public Vector3f getCamX() { return camX; }
+      public Vector3f getCamY() { return camY; }
+      public Vector3f getCamZ() { return camZ; }
+
+      private void updateDerivedFields() {
+         
+         // The objects in the world are in a right-handed-coordinate system.
+         // In WORLD-SPACE:
+         //    the CAMERA is at "cameraPosition",
+         //    the TARGET is at "lookatPoint".
+         //
+         // The first thing we do is TRANSLATE by "-cameraPosition":
+         
+         Matrix4f translateCameraToOrigin = new Matrix4f(
+            1.0f,    0.0f,    0.0f,   -cameraPosition.x,
+            0.0f,    1.0f,    0.0f,   -cameraPosition.y,
+            0.0f,    0.0f,    1.0f,   -cameraPosition.z,
+            0.0f,    0.0f,    0.0f,    1.0f);
+         
+         worldToCameraSpace = translateCameraToOrigin;
+           
+         // Now the CAMERA is at the origin, 
+         // and the TARGET is at "cameraToLookat":
+         
+         Vector3f cameraToLookat = lookAtPoint.minus(cameraPosition);
+         float distanceToTarget = cameraToLookat.length();
+         
+         // We want to ROTATE to put the TARGET on the -Z axis.
+         //
+         // A unit vector pointing in the opposite direction as "cameraToLookat'
+         // will be the new Z axis, and we select X and Y perdendiculer to Z
+         // such that "cameraUpVector" is in the Z-Y plane:
+         
+         camZ = cameraToLookat.times(-1.0f / distanceToTarget);
+         camX = Vector3f.crossProduct(cameraUpVector, camZ).normalized();
+         camY = Vector3f.crossProduct(camZ, camX).normalized();
+           
+         Matrix4f rotateSoTargetIsOnNegativeZ = new Matrix4f(
+           camX.x,     camX.y,      camX.z,    0.0f,
+           camY.x,     camY.y,      camY.z,    0.0f,
+           camZ.x,     camZ.y,      camZ.z,    0.0f,
+           0.0f,       0.0f,        0.0f,      1.0f);
+         
+         worldToCameraSpace = Matrix4f.product(rotateSoTargetIsOnNegativeZ, 
+                                           worldToCameraSpace);
+         
+         // Now the CAMERA is at the origin,
+         // and the TARGET is at <0,0,-distanceToTarget>
+         //
+         // The next step is to scale by 1/distanceToTarget:
+         
+         float scale = 1.0f / distanceToTarget;
+         Matrix4f scaleByDistanceToTarget = new Matrix4f(
+           scale,   0.0f,    0.0f,    0.0f,
+           0.0f,    scale,   0.0f,    0.0f,
+           0.0f,    0.0f,    scale,   0.0f,
+           0.0f,    0.0f,    0.0f,    1.0f);
+         
+         worldToCameraSpace = Matrix4f.product(scaleByDistanceToTarget, 
+                                           worldToCameraSpace);
+         
+         // Now we're fully in CAMERA-SPACE:
+         // In CAMERA-SPACE:
+         //    the CAMERA is at <0,0,  0>
+         //    the TARGET is at <0,0, -1>
+         
+         float aspect = ((float)width) / height;
+         float fHeight = (float) Math.tan(verticalFovInDegrees * (Math.PI / 180.0) * 0.5);
+         float fWidth  = aspect * fHeight;
+         
+         // So  <0, 0, -1>  ... is expected to map to the CENTER of the viewport.
+         //         
+         // Our vertical "field of view in degrees" determines how much
+         // of the <x,y> plane at z=-1 we can see in our viewport:
+         //
+         //    <fWidth,   0, -1>  ... is expected to map to the RIGHT-MIDDLE of the window
+         //    <0,  fHeight, -1>  ... is expected to map to the MIDDLE-TOP of the window
+         //
+         // We're going to scale the x and y dimensions non-linearly so these become +/-1:
+         
+         Matrix4f scaleXYByFieldOfView = new Matrix4f(
+           1/fWidth,   0.0f,        0.0f,    0.0f,
+           0.0f,       1/fHeight,   0.0f,    0.0f,
+           0.0f,       0.0f,        1.0f,    0.0f,
+           0.0f,       0.0f,        0.0f,    1.0f);
+         
+         cameraToClipSpace = scaleXYByFieldOfView;
+           
+         // Now:  
+         //   <0,  0, -1>  ... is expected to map to the CENTER of the window
+         //   <1,  0, -1>  ... is expected to map to the RIGHT-MIDDLE of the window
+         //   <0,  1, -1>  ... is expected to map to the MIDDLE-TOP of the window
+         // 
+         // In this space our "field of view" has become a full 90-degrees,
+         // so any point where y is equal to -z should map to the TOP-MIDDLE, or:
+         //
+         //   y_view  =  y / -z
+         //   x_view  =  x / -z
+         //
+         // so we KNOW we're going to want a final transform like:
+         //
+         //   new Matrix4f(
+         //      1.0f,   0.0f,   0.0f,   0.0f,
+         //      0.0f,   1.0f,   0.0f,   0.0f,
+         //      0.0f,   0.0f,   ????.   ????,
+         //      0.0f,   0.0f,  -1.0f,   0.0f );         
+         //
+         // This sets x_view and y_view so they're (x/-z) and (y/-z) respectively,
+         // determining the (x,y) position of any point on the viewport.
+         // This leaves only two unknown values, call them M and C:
+         //
+         //   new Matrix4f(
+         //      1.0f,   0.0f,   0.0f,   0.0f,
+         //      0.0f,   1.0f,   0.0f,   0.0f,
+         //      0.0f,   0.0f,     M,      C,
+         //      0.0f,   0.0f,  -1.0f,   0.0f );         
+         //
+         // And this will force:
+         //
+         //   z_view  ==  (zM+C) / -z   ==  -C/z -M
+         //
+         // This z_view doesn't affect where the point appears on the viewport,
+         // (we've already got that with x_view and y_view),
+         // but z_view is used for DEPTH-BUFFERING and needs 
+         // to be in the -1 to 1 range to prevent OpenGL from dropping it.
+         //
+         // What we want is:
+         //
+         //   z == NEAR == -.1   -->   z_view == -1
+         //   z == FAR  == -10   -->   z_view == +1
+         //
+         // So:
+         //        -1 == -C/NEAR - M
+         //        +1 == -C/FAR  - M
+         //
+         // Solving for M and C results:
+         //
+         //   M =  - (FAR+NEAR)/(FAR-NEAR)
+         //   C =  (2*FAR*NEAR)/(FAR-NEAR)
+         
+         float nearZ =  -0.1f;
+         float farZ  = -10.0f;
+         
+         float M =   - (farZ + nearZ)    / (farZ - nearZ);
+         float C = (2.0f * farZ * nearZ) / (farZ - nearZ);
+         
+         Matrix4f perspectiveTransform = new Matrix4f(
+           1.0f,   0.0f,   0.0f,   0.0f,
+           0.0f,   1.0f,   0.0f,   0.0f,
+           0.0f,   0.0f,    M,       C,
+           0.0f,   0.0f,  -1.0f,   0.0f);
+         
+         cameraToClipSpace = Matrix4f.product(perspectiveTransform,
+                                          cameraToClipSpace);
       }
    }
    

@@ -32,7 +32,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
       
-      world = new GLWorld(/* cube */ false, /* ico */ true, /* ball */ false, /* subdivide */ 1);
+      world = new GLWorld(/* cube */ false, /* ico */ true, /* ball */ false, /* subdivide */ 3);
       //world = new GLWorld(/* cube */ true, /* ico */ false, /* ball */ false, /* subdivide */ 0);
       
       GLProfile glProfile = GLProfile.get(GLProfile.GL3);
@@ -93,12 +93,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
       System.out.format("GLSample.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
       
-      world.cameraBall = new CameraBall(width, height,
-                                  new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
-                                  new Vector3f(0.0f, 0.0f, 10.0f),   // camera-pos
-                                  new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
-                                  53.13f);
-      
+      world.setWindowSize(width, height);
+
       GL3 gl = drawable.getGL().getGL3();
       //gl.glViewport(0, 0,  width,  height);
    }
@@ -146,15 +142,22 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    @Override
    public void mousePressed(MouseEvent e) {
       //System.out.format("GLSample.mousePressed() called\n");
-      world.cameraBall.grab(e.getX(), e.getY(),
-            e.isShiftDown()   ? (e.isControlDown() ? CameraBall.GrabType.FOV : CameraBall.GrabType.Zoom)
-                              : (e.isControlDown() ? CameraBall.GrabType.Pan : CameraBall.GrabType.Rotate));
+      world.cameraController.grab(e.getX(), e.getY(),
+            e.isShiftDown()   ? (e.isControlDown() ? CameraController.GrabType.FOV : CameraController.GrabType.Zoom)
+                              : (e.isControlDown() ? CameraController.GrabType.Pan : CameraController.GrabType.Rotate));
    }
 
    @Override
+   public void mouseDragged(MouseEvent e) {
+      //System.out.format("GLSample.mouseDragged(%d,%d) called\n", e.getX(), e.getY());
+      world.cameraController.moveTo(e.getX(), e.getY());
+      glCanvas.display();
+   }
+   
+   @Override
    public void mouseReleased(MouseEvent e) {
       //System.out.format("GLSample.mouseReleased() called\n");
-      world.cameraBall.release();
+      world.cameraController.release();
    }
 
    @Override
@@ -162,13 +165,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       //System.out.format("GLSample.mouseMoved(%d,%d) called\n", e.getX(), e.getY());
    }
 
-   @Override
-   public void mouseDragged(MouseEvent e) {
-      //System.out.format("GLSample.mouseDragged(%d,%d) called\n", e.getX(), e.getY());
-      world.cameraBall.moveTo(e.getX(), e.getY());
-      glCanvas.display();
-   }
-   
    // -----------------------------------------------------------
    // MAIN
    // -----------------------------------------------------------

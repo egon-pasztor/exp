@@ -19,6 +19,7 @@ import javax.imageio.ImageIO;
 import demo.GLMath.*;
 import demo.VectorAlgebra.*;
 import demo.Raster.*;
+import demo.Geometry.*;
 
 
 public class GLWorld {
@@ -36,9 +37,19 @@ public class GLWorld {
       initModel();
       updateTranslations(0.0f);
    }
-      
-   public CameraBall cameraBall;
+   
+   public void setWindowSize(int width, int height) {
+      camera = new Camera(width, height,
+            new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
+            new Vector3f(0.0f, 0.0f, 10.0f),   // camera-pos
+            new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
+            53.13f);
 
+      cameraController = new CameraController(camera);
+   }
+      
+   private Camera camera;
+   public CameraController cameraController;
    
    // -------------------------------------------------------------------
    // RENDER-STRATEGY
@@ -280,7 +291,7 @@ public class GLWorld {
    // a SINGLE "Model" and a vector of Vector3f's to render them at:
     
 
-   private Model m;
+   private Model2 m;
    private ArrayList<Vector3f> modelTranslations;
    
    private Vector3f pos(float lat, float lon) {
@@ -297,7 +308,8 @@ public class GLWorld {
       return new Vector2f( (float) (lon / (2.0 * Math.PI)),
                            1.0f - (float) (((Math.PI/2.0) + lat) / Math.PI) );
    }
-   
+
+
    private void addTriangleAndSubdivide(int level, 
          Vector3f a, Vector3f b, Vector3f c,
          Vector2f aT, float aW,
@@ -316,6 +328,11 @@ public class GLWorld {
          float abW = (aW+bW)/2.0f;
          float bcW = (bW+cW)/2.0f;
          float acW = (aW+cW)/2.0f;
+         
+         // okay critical lat is aTan(0.5)
+         float critW = (float) Math.atan(0.5);
+         // 
+         float angW = (float) Math.acos(aW);
          
          addTriangleAndSubdivide(level-1, a,   ab,  ac,   aT,aW,   abT,abW, acT,acW);
          addTriangleAndSubdivide(level-1, ab,  b,   bc,   abT,abW, bT,bW,   bcT,bcW);
@@ -344,7 +361,7 @@ public class GLWorld {
    }
    
    private void initModel() {
-       m = new Model();
+       m = new Model2();
        
        if (cube) {
           Vector3f center = Vector3f.Z;
@@ -421,7 +438,7 @@ public class GLWorld {
           float lonDelta = (float) (Math.PI / 5.0) - .000000001f;
           
           float nLat = (float) Math.PI/2 - .00000001f;
-          float tLat = (float) Math.atan(0.5);
+          float tLat = (float) Math.PI/4; //(float) Math.PI/6; //(float) Math.atan(0.5);//(float) Math.atan(0.5);
           float bLat = -tLat;
           float sLat = -nLat;
           
@@ -431,7 +448,9 @@ public class GLWorld {
           float sLatW = (float) Math.cos(sLat) + .000001f;
 
           
-          t0 = new Vector3f((float)(2.0/Math.sqrt(5)), (float)(1.0/Math.sqrt(5)), 0f);
+          t0 = //new Vector3f((float)(2.0/Math.sqrt(5)), (float)(1.0/Math.sqrt(5)), 0f);
+          t0 = new Vector3f(1,0,0).rotated(Vector3f.Z, tLat);
+          
           b0 = t0.rotated(Vector3f.Y, (float)(1 * Math.PI/5.0));
           t1 = t0.rotated(Vector3f.Y, (float)(2 * Math.PI/5.0));
           b1 = t0.rotated(Vector3f.Y, (float)(3 * Math.PI/5.0));
@@ -541,8 +560,32 @@ public class GLWorld {
                 x(new Vector2f(sLat,  10 * lonDelta)), sLatW,
                 x(new Vector2f(bLat,  11  * lonDelta)), bLatW);
           
+
+          float critW = tLat;
           for (Mesh.Vertex<Vector3f,TexInfo> v : m.mesh.vertices) {
-             v.setData(v.getData().normalized());
+             Vector3f pos = v.getData();
+             float y = pos.y;
+             float lat = (float) Math.asin(y);
+             
+             Vector2f xz2f = ((y<.9999) && (y>-.9999)) ? 
+                   new Vector2f(pos.x, pos.z).normalized().times((float)Math.cos(lat)) : Vector2f.ORIGIN;
+                   
+             Vector3f pA = new Vector3f(xz2f.x, pos.y, xz2f.y);
+             Vector3f pB = pos.normalized();
+                   
+             float fragB = 0.0f;
+             if (lat > critW + .0001) { 
+                fragB = (float) ((lat-critW)/((Math.PI/2)-critW));
+                //fragB = 1.0f;
+             }
+             if (lat <= -critW - .0001) { 
+                fragB = (float) ((-lat-critW)/((Math.PI/2)-critW));
+                //fragB = 1.0f;
+             }
+             fragB = (float) Math.sqrt(Math.sqrt(fragB));
+             
+             Vector3f pC = pA.interpolated(pB, fragB).normalized();
+             v.setData(pC);
           }
           for (Mesh.Triangle<Vector3f,TexInfo> t : m.mesh.interiorTriangles) {
              Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
@@ -606,7 +649,7 @@ public class GLWorld {
    
       // bind the buffers
 
-      Model.Arrays ma = m.getArrays();
+      Model2.Arrays ma = m.getArrays();
       this.bindBuffer(gl, positionBufferId,   ma.positions,  4, vsPositionLoc);
       this.bindBuffer(gl, colorBufferId,      ma.colors,     4, vsColorLoc);
       this.bindBuffer(gl, texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
@@ -670,8 +713,8 @@ public class GLWorld {
    }
    
    public void render(GL3 gl) {
-      int width = cameraBall.getWidth();
-      int height = cameraBall.getHeight();
+      int width = camera.getWidth();
+      int height = camera.getHeight();
       
       gl.glViewport(0,0,width, height);
       gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -697,8 +740,8 @@ public class GLWorld {
       
       // set the view and the projection matrix 
       
-      Matrix4f projMatrix = cameraBall.getCameraToClipSpace();
-      Matrix4f baseView = cameraBall.getWorldToCameraSpace();
+      Matrix4f projMatrix = camera.getCameraToClipSpace();
+      Matrix4f baseView = camera.getWorldToCameraSpace();
       
       copyMatrix4f(projMatrixArr, projMatrix);
       gl.glUniformMatrix4fv(projMatrixLoc, 1, false, projMatrixArr, 0);      
