@@ -1,20 +1,23 @@
 package demo;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 
-import demo.GLMath.TexInfo;
-import demo.Geometry.Mesh;
-import demo.Raster.ColorARGB;
+import demo.Raster.*;   // for ColorARGB
 import demo.VectorAlgebra.*;
 
 public class Geometry {
-
+   
+   public static void check(boolean cond, String err) {
+      if (!cond) throw new RuntimeException("FAILED: " + err);
+   }
+   
    // -----------------------------------------------------------------------
    // Mesh Structure
    // -----------------------------------------------------------------------
    
-   public static class Mesh<V,T> {
+   private static class Mesh<V,T> {
             
       public Mesh() {
          boundaryTriangles = new HashSet<Triangle<V,T>>();
@@ -118,9 +121,6 @@ public class Geometry {
       // Validation -- is this mesh actually hooked up right?
       // --------------------------------------------------------
 
-      public static void check(boolean cond, String err) {
-         if (!cond) throw new RuntimeException("FAILED: " + err);
-      }
       public void checkEdge(Triangle<V,T>.Edge e) {
          check(e.oppositeEdge != null, "Edge.oppositeEdge is set");
          check(e != e.oppositeEdge, "Edge.oppositeEdge is different from this Edge");
@@ -326,8 +326,8 @@ public class Geometry {
                 Triangle<V,T>.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)    
                 if (oldBoundaryPrev.getOppositeEdge() != oldBoundaryNext) {
                    
-                   // The old boundaries are not adjacent.  However, we can fix this, and there's no problem,
-                   // if the vertex v has two consecutive boundary triangles elsewhere:
+                   // The old boundaries are not adjacent.  However, we can fix this, there's no topology problem,
+                   // so long as the vertex v also has another two consecutive boundary triangles.
                    
                    Triangle<V,T>.Edge outFromV = oppositePrevEdge.ccwAroundStart();
                    Triangle<V,T>.Edge outFromVEnd = nextEdge.cwAroundStart();
@@ -385,124 +385,413 @@ public class Geometry {
    // -----------------------------------------------------------------------
    // A Concrete Geometry Class...
    // -----------------------------------------------------------------------
+ 
+   public static class Model {
 
-   public static class Piece {      
-      public static class VertexInfo {
-         public Vector3f position;
-         public Vector3f normal;
-         public Vector2f tex;
+      public static class TexCoords {
+         int piece;
+         Vector2f t0,t1,t2;
+         float t0w,t1w,t2w;
+         float ext;
+         ColorARGB c0,c1,c2;
+         
+         public TexCoords(int piece, 
+                          Vector2f t0,Vector2f t1,Vector2f t2,
+                          float t0w, float t1w, float t2w) {
+            this.piece = piece; 
+            this.t0 = t0; this.t1 = t1; this.t2 = t2;
+            this.t0w = t0w; this.t1w = t1w; this.t2w = t2w;
+            ext = 0.0f;
+            c0 = c1 = c2 = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
+         }
       }
-      public static class TriangleInfo {
-         public Vector3f normal;
-         public Vector2f t1,t2,t3;
-         public float t1W,t2W,t3W;
-         public float ext;
-      }
-
+      
       public final String name;
-      public final Mesh<VertexInfo,TriangleInfo> mesh;
-         
-      public Piece(String name, Mesh<VertexInfo,TriangleInfo> mesh) {
+      
+      public boolean hasTextureCoords;
+      public Mesh<Vector3f,TexCoords> mesh;
+      public float maxRadius;
+
+      public Model(String name, boolean hasTextureCoords) {
          this.name = name;
-         this.mesh = mesh;
-      }
-
-      
-      // -----------------------------------------------------------------------
-      // Geometry Builder ... umm.. base class..
-      // -----------------------------------------------------------------------
-      
-      public static class Builder {
-         public final Mesh<VertexInfo,TriangleInfo> mesh;
          
-         public Builder() {
-            mesh = new Mesh<VertexInfo,TriangleInfo>();
+         this.hasTextureCoords = hasTextureCoords;
+         this.mesh = new Mesh<Vector3f,TexCoords>();
+         this.maxRadius = 0.0f;
+      }
+   
+      // ------------------------------------------------------------------------
+      // Building Models
+      // ------------------------------------------------------------------------
+      
+      public Mesh.Vertex<Vector3f,TexCoords> getOrAddVertex(Vector3f position) {         
+         // Search to see if we already have a Vertex at this position
+         // TODO:  Use a 3D index for this...
+         for (Mesh.Vertex<Vector3f,TexCoords> v : mesh.vertices) {
+            Vector3f vPosition = v.getData();
+            if (vPosition.minus(position).lengthSq() < .00000001f) return v;
          }
+         
+         // Create a new vertex
+         Mesh.Vertex<Vector3f,TexCoords> v = new Mesh.Vertex<Vector3f,TexCoords>();
+         v.setData(position);
+         mesh.vertices.add(v);
+         
+         float radius = position.length();
+         if (radius > maxRadius) maxRadius = radius;
+         return v;
+      }
+      
+      public void addTriangle (Vector3f a, Vector3f b, Vector3f c, TexCoords ti) {
+         Mesh.Vertex<Vector3f,TexCoords> va = getOrAddVertex(a);
+         Mesh.Vertex<Vector3f,TexCoords> vb = getOrAddVertex(b);
+         Mesh.Vertex<Vector3f,TexCoords> vc = getOrAddVertex(c);
+         Mesh.Triangle<Vector3f,TexCoords> t = mesh.addTriangle(va, vb, vc);
+         check(hasTextureCoords == (ti != null), "Texture Mismatch");
+         t.setData(ti);
+      }
+      public void addTriangle (Vector3f a, Vector3f b, Vector3f c) {
+         addTriangle (a,b,c,null);
+      }
+      
+      // ------------------------------------------------------------------------
+      // Producing Arrays For Rendering
+      // ------------------------------------------------------------------------
 
-         public Mesh.Vertex<VertexInfo,TriangleInfo> getOrAddVertex(Vector3f position) {
-            for (Mesh.Vertex<VertexInfo,TriangleInfo> v : mesh.vertices) {
-               Vector3f vPosition = v.getData().position;
-               if (vPosition.minus(position).lengthSq() < .00000001f) return v;
-            }
-            Mesh.Vertex<VertexInfo,TriangleInfo> v = new Mesh.Vertex<VertexInfo,TriangleInfo>();
-            
-            VertexInfo vi = new VertexInfo();
-            v.setData(vi);
-            vi.position = position;
-            mesh.vertices.add(v);
-            return v;
-         }
-         public void addTriangle (Vector3f a, Vector3f b, Vector3f c, 
-                                  Vector2f aTex, float aTexW, 
-                                  Vector2f bTex, float bTexW, 
-                                  Vector2f cTex, float cTexW, 
-                                  float ext) {
+      public String getName() {
+         return name;
+      }
+      
+      public float getMaxRadius() {
+         return maxRadius;
+      }
+      
+      public int getNumTriangles() {
+         return mesh.interiorTriangles.size();
+      }
 
-            System.out.format("Adding triangle: POS ==\n%s--\n%s--\n%s\nTEX ==\n%s--\n%s--\n%s######\n",
-                       a.toString(), b.toString(), c.toString(),
-                       aTex.toString(), bTex.toString(), cTex.toString());
+      public static class Arrays {
+          float[] positions;
+          float[] texCoords;
+          float[] baryCoords;
+          float[] colors;
+      }
 
-            Mesh.Vertex<VertexInfo,TriangleInfo> va = getOrAddVertex(a);
-            Mesh.Vertex<VertexInfo,TriangleInfo> vb = getOrAddVertex(b);
-            Mesh.Vertex<VertexInfo,TriangleInfo> vc = getOrAddVertex(c);
-            Mesh.Triangle<VertexInfo,TriangleInfo> t = mesh.addTriangle(va, vb, vc);
+      public Arrays getArrays() {
+          Arrays result = new Arrays();
+          int n = getNumTriangles();
 
-            TriangleInfo ti = new TriangleInfo();
-            t.setData(ti);
-            ti.t1 = aTex;  ti.t1W = aTexW;
-            ti.t2 = bTex;  ti.t2W = bTexW;
-            ti.t3 = cTex;  ti.t3W = cTexW;
-            ti.ext = ext;
+          result.positions  = new float[n*3*4];
+          result.baryCoords = new float[n*3*2];
+          result.texCoords  = new float[n*3*4];
+          result.colors     = new float[n*3*4];
+          
+          int pPos = 0;
+          int pBary = 0;
+          int pTex = 0;
+          int pCol = 0;
+          
+          for (Mesh.Triangle<Vector3f,TexCoords> t : mesh.interiorTriangles) {
+             Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
+             Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
+             Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
+             TexCoords ti = t.getData();
 
-            System.out.format("MESH has %d vertices, %d interior triangles and %d boundary edges\n",
-                  mesh.vertices.size(), mesh.interiorTriangles.size(), mesh.boundaryTriangles.size());
-            mesh.checkMesh();
-         }
-         public void addSquare (Vector3f center, Vector3f dx, Vector3f dy, float ext) {
-             Vector3f tr = center.plus(dx).plus(dy);
-             Vector3f tl = center.minus(dx).plus(dy);
-             Vector3f br = center.plus(dx).minus(dy);
-             Vector3f bl = center.minus(dx).minus(dy);
+             // pos
+             pPos = copyVector3fAs4(result.positions, pPos, v0Pos);
+             pPos = copyVector3fAs4(result.positions, pPos, v1Pos);
+             pPos = copyVector3fAs4(result.positions, pPos, v2Pos);
+             
+             // bary
+             pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(0.0f, 0.0f));
+             pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(0.0f, 1.0f));
+             pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(1.0f, 1.0f));
+             
+             // tex
+             pTex = copyVector2fAs4(result.texCoords, pTex, ti.t0, ti.t0w, ti.ext);
+             pTex = copyVector2fAs4(result.texCoords, pTex, ti.t1, ti.t1w, ti.ext);
+             pTex = copyVector2fAs4(result.texCoords, pTex, ti.t2, ti.t2w, ti.ext);
+             
+             // col
+             pCol = copyColor(result.colors, pCol, ti.c0);
+             pCol = copyColor(result.colors, pCol, ti.c1);
+             pCol = copyColor(result.colors, pCol, ti.c2);
+          }
+          return result;
+      }
 
-             addTriangle(bl, br, tl, 
-                   new Vector2f(0.0f, 1.0f), 1.0f,
-                   new Vector2f(1.0f, 1.0f), 1.0f,
-                   new Vector2f(0.0f, 0.0f), 1.0f, ext);
-                  
-             addTriangle(tl, br, tr,
-                   new Vector2f(0.0f, 0.0f), 1.0f,
-                   new Vector2f(1.0f, 1.0f), 1.0f,
-                   new Vector2f(1.0f, 0.0f), 1.0f, ext);
-         }
+      private int copyVector3fAs4(float[] arr, int base, Vector3f v) {
+          arr[base+0] = v.x;
+          arr[base+1] = v.y;
+          arr[base+2] = v.z;
+          arr[base+3] = 1.0f;
+          return base+4;
+      }
+      private int copyVector2f(float[] arr, int base, Vector2f v) {
+          arr[base+0] = v.x;
+          arr[base+1] = v.y;
+          return base+2;
+      }
+      private int copyVector2fAs4(float[] arr, int base, Vector2f v, float w, float ext) {
+         arr[base+0] = v.x * w;
+         arr[base+1] = v.y;
+         arr[base+2] = ext;
+         arr[base+3] = w;
+         return base+4;
+      }
+      private int copyColor(float[] arr, int base, ColorARGB c) {
+          arr[base+0] = ((float)(c.r&0xff))/255.0f;
+          arr[base+1] = ((float)(c.g&0xff))/255.0f;
+          arr[base+2] = ((float)(c.b&0xff))/255.0f;
+          arr[base+3] = ((float)(c.a&0xff))/255.0f;
+          return base+4;
       }
    }
-   
-   
-   public static Piece createUnitCube() {
-      Piece.Builder builder = new Piece.Builder();
-      
-      Vector3f center = Vector3f.Z;
-      Vector3f dx     = Vector3f.X;
-      Vector3f dy     = Vector3f.Y;
 
-      float ninety = (float) (Math.PI/2);
+   // -----------------------------------------------------------------------
+   // CUBE
+   // -----------------------------------------------------------------------
+
+   public static Model createUnitCube() {
+      Model m = new Model("UnitCube", true);
       
+      final Vector3f cntr = Vector3f.Z;
+      final Vector3f dX   = Vector3f.X;
+      final Vector3f dY   = Vector3f.Y;
+      final float halfpi = (float) (Math.PI/2);
+      
+      addSquare(m, cntr.rotated(Vector3f.X, -halfpi),
+                     dX.rotated(Vector3f.X, -halfpi),
+                     dY.rotated(Vector3f.X, -halfpi), 0);
+
       for (int i = 0; i < 4; ++i) {
-         float angle = i * ninety;
-         builder.addSquare(center.rotated(Vector3f.Y,angle),
-                      dx.rotated(Vector3f.Y,angle),
-                      dy.rotated(Vector3f.Y,angle), 0.0f);
+         float angle = i * halfpi;
+         addSquare(m, cntr.rotated(Vector3f.Y, angle),
+                        dX.rotated(Vector3f.Y, angle),
+                        dY.rotated(Vector3f.Y, angle), 1+i);
       }
       
-      builder.addSquare(center.rotated(Vector3f.X,ninety),
-                  dx.rotated(Vector3f.X,ninety),
-                  dy.rotated(Vector3f.X,ninety), 0.0f);
+      addSquare(m, cntr.rotated(Vector3f.X, halfpi),
+                     dX.rotated(Vector3f.X, halfpi),
+                     dY.rotated(Vector3f.X, halfpi), 5);
      
-      builder.addSquare(center.rotated(Vector3f.X,-ninety),
-                  dx.rotated(Vector3f.X,-ninety),
-                  dy.rotated(Vector3f.X,-ninety), 1.0f);
+      return m;
+   }
+
+   private static void addSquare (Model m, Vector3f center, Vector3f dx, Vector3f dy, int piece) {
+
+      Model.TexCoords texBL = null;
+      Model.TexCoords texTR = null;
+      if (m.hasTextureCoords) {
+         final Vector2f uv00 = new Vector2f(0.0f, 0.0f);
+         final Vector2f uv10 = new Vector2f(1.0f, 0.0f);
+         final Vector2f uv01 = new Vector2f(0.0f, 1.0f);
+         final Vector2f uv11 = new Vector2f(1.0f, 1.0f);
+         
+         // TexCoord class has w's.. annoying we have to specify them when we don't need them here
+         texBL = new Model.TexCoords(piece, uv01,uv11,uv00, 1.0f,1.0f,1.0f);
+         texTR = new Model.TexCoords(piece, uv00,uv11,uv10, 1.0f,1.0f,1.0f);
+      }
       
-      return new Piece("UnitCube", builder.mesh);
+      Vector3f tr = center.plus(dx).plus(dy);
+      Vector3f tl = center.minus(dx).plus(dy);
+      Vector3f br = center.plus(dx).minus(dy);
+      Vector3f bl = center.minus(dx).minus(dy);
+
+      m.addTriangle(bl, br, tl, texBL);
+      m.addTriangle(tl, br, tr, texTR);
    }
    
+   
+   // -----------------------------------------------------------------------
+   // SPHERE
+   // -----------------------------------------------------------------------
+
+   public static Model createUnitSphere(int numLatDivisions, int numLonDivisions) {
+      Model m = new Model("UnitCube", true);
+
+      double globalLatMin = -Math.PI/2;
+      double globalLatMax =  Math.PI/2;
+      double globalLonMin = 0;
+      double globalLonMax = 2*Math.PI;
+      
+      for (int lat = 0; lat < numLatDivisions; lat++) {
+         for (int lon = 0; lon < numLonDivisions; lon++) {
+            
+            float latMin = (float) (globalLatMin + ((lat * (globalLatMax - globalLatMin)) / numLatDivisions));
+            float latMax = (float) (globalLatMin + (((lat+1) * (globalLatMax - globalLatMin)) / numLatDivisions));
+            float lonMin = (float) (globalLonMin + ((lon * (globalLonMax - globalLonMin)) / numLonDivisions));
+            float lonMax = (float) (globalLonMin + (((lon+1) * (globalLonMax - globalLonMin)) / numLonDivisions));
+            
+            Vector2f tR = new Vector2f(latMax, lonMax);
+            Vector2f tL = new Vector2f(latMax, lonMin);
+            Vector2f bR = new Vector2f(latMin, lonMax);
+            Vector2f bL = new Vector2f(latMin, lonMin);
+            
+            if (lat > 0) {
+               addLatLonTriangle(m, tL,bL,bR);
+            }
+            if (lat < numLatDivisions-1) {
+               addLatLonTriangle(m, tL,bR,tR);
+            }
+         }
+      }
+      
+      return m;
+   }
+   
+   private static Model.TexCoords getLatLonTexCoords(Vector2f tex0, Vector2f tex1, Vector2f tex2) {
+      float eps = .000001f;
+      
+      { float d1 = (float) Math.abs(tex1.x     -tex0.x);
+        float d2 = (float) Math.abs(tex1.x+1.0f-tex0.x);
+        if (d2 < d1) {
+           tex1 = tex1.plus(Vector2f.X);
+        } else {
+           float d3 = (float) Math.abs(tex1.x-1.0f-tex0.x);
+           if (d3 < d1) {
+              tex1 = tex1.minus(Vector2f.X);
+           }
+        }
+      }
+      { float d1 = (float) Math.abs(tex2.x    -tex1.x);
+        float d2 = (float) Math.abs(tex2.x+1.0f-tex1.x);
+        if (d2 < d1) {
+           tex2 = tex2.plus(Vector2f.X);
+        } else {
+           float d3 = (float) Math.abs(tex2.x-1.0f-tex1.x);
+           if (d3 < d1) {
+              tex2 = tex2.minus(Vector2f.X);
+           }
+        }
+      }
+      
+      return new Model.TexCoords(0,tex0,tex1,tex2,
+              (float) Math.cos((tex0.y-0.5)*Math.PI) +eps,
+              (float) Math.cos((tex1.y-0.5)*Math.PI) +eps,
+              (float) Math.cos((tex2.y-0.5)*Math.PI) +eps);
+      
+   }
+
+   private static void addLatLonTriangle (Model m, Vector2f latlon0, Vector2f latlon1, Vector2f latlon2) {
+      Model.TexCoords tex  = null;
+      if (m.hasTextureCoords) {
+         float eps = .000001f;
+         Vector2f tex0 = latLonToTexCoord(latlon0.x, latlon0.y);
+         Vector2f tex1 = latLonToTexCoord(latlon1.x, latlon1.y);
+         Vector2f tex2 = latLonToTexCoord(latlon2.x, latlon2.y);
+         tex = getLatLonTexCoords(tex0,tex1,tex2);
+      }
+      m.addTriangle(
+            latLonToPosition(latlon0.x, latlon0.y),
+            latLonToPosition(latlon1.x, latlon1.y),
+            latLonToPosition(latlon2.x, latlon2.y), tex);
+   }
+   
+   private static Vector3f latLonToPosition(float lat, float lon) {
+      float cosLat = (float) Math.cos(lat);
+      float sinLat = (float) Math.sin(lat);
+      float cosLon = (float) Math.cos(lon);
+      float sinLon = (float) Math.sin(lon);
+      return new Vector3f(cosLat * cosLon, cosLat * sinLon, sinLat);
+   }
+   private static Vector2f positionToLatLon(Vector3f pos) {
+      float lat = (float) Math.asin(pos.z);
+      float lon = (float) Math.atan2(pos.y,pos.x);
+      if (lon < 0) lon += (float)(2 * Math.PI);
+      return new Vector2f(lat,lon);
+   }
+   private static Vector2f latLonToTexCoord(float lat, float lon) {
+      while (lon < 0)         lon += (float) (2 * Math.PI);
+      while (lon > 2*Math.PI) lon -= (float) (2 * Math.PI);
+      float x = (float) (lon / (2.0 * Math.PI));
+      float y = 1.0f - (float) (((Math.PI/2.0) + lat) / Math.PI);
+      return new Vector2f(x,y);
+   }
+
+   
+   // -----------------------------------------------------------------------
+   // ICO
+   // -----------------------------------------------------------------------
+
+   public static Model createIco (int subdivisions) {
+      Model m = new Model("Ico", true);
+      
+      float pi   = (float)Math.PI;
+      float lat0 = pi/2;
+      float lat1 = (float) Math.atan(0.5);
+      float lat2 = -lat1;
+      float lat3 = -lat0;
+      
+      for (int i = 0; i < 5; ++i) {
+         float lon0 = 2*i*(pi/5);
+         float lon1 = lon0+(pi/5);
+         float lon2 = lon1+(pi/5);
+         float lon3 = lon2+(pi/5);
+         
+         // Top
+         addLatLonTriangles(m, new Vector2f(lat0,lon1),
+                               new Vector2f(lat1,lon0),
+                               new Vector2f(lat1,lon2), subdivisions);
+         // "interior"
+         addLatLonTriangles(m, new Vector2f(lat1,lon0),
+                               new Vector2f(lat2,lon1),
+                               new Vector2f(lat1,lon2), subdivisions);
+         
+         addLatLonTriangles(m, new Vector2f(lat1,lon2),
+                               new Vector2f(lat2,lon1),
+                               new Vector2f(lat2,lon3), subdivisions);
+
+         // Bottom
+         addLatLonTriangles(m, new Vector2f(lat2,lon1),
+                               new Vector2f(lat3,lon2),
+                               new Vector2f(lat2,lon3), subdivisions);
+      }      
+      return m;
+   }
+   
+   private static void addLatLonTriangles (Model m, Vector2f latlon0, Vector2f latlon1, Vector2f latlon2, int subdivisions) {
+      
+      if (subdivisions == 0) {
+         addLatLonTriangle(m, latlon0, latlon1, latlon2);
+         
+      } else {
+         Vector2f mid01 = latLonMidpoint(latlon0, latlon1);
+         Vector2f mid12 = latLonMidpoint(latlon1, latlon2);
+         Vector2f mid02 = latLonMidpoint(latlon0, latlon2);
+         addLatLonTriangles(m, latlon0,   mid01,  mid02,    subdivisions-1);
+         addLatLonTriangles(m, mid01,   latlon1,  mid12,    subdivisions-1);
+         addLatLonTriangles(m, mid02,     mid12,  latlon2,  subdivisions-1);
+         addLatLonTriangles(m, mid12,     mid02,  mid01,    subdivisions-1);
+      }
+   }
+   private static Vector2f latLonMidpoint (Vector2f a, Vector2f b) {
+      Vector3f ap = latLonToPosition(a.x,a.y);
+      Vector3f bp = latLonToPosition(b.x,b.y);
+      Vector3f midP = ap.plus(bp).times(0.5f).normalized();
+      return positionToLatLon(midP);
+   }
+   
+   // -----------------------------------------------------------------------
+   // BEZIER
+   // -----------------------------------------------------------------------
+
+   // todo...
+   
+   //public Geometry bezierPatchMaker(Vector3f[] sixteenCtrlPoints, float minCurvature, Shader s) {
+   //   return null;
+   //}
+   
+   // -----------------------------------------------------------------------
+   // CYLINDER
+   // -----------------------------------------------------------------------
+
+
+   // -----------------------------------------------------------------------
+   // UVCoordinateProvider ... Hmm...
+   // -----------------------------------------------------------------------
+   
+   interface Extractor {
+      public Vector4f extract(Mesh.Triangle<Vector3f,?> t);
+   }
 }
