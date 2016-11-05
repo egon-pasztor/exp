@@ -1,6 +1,7 @@
 package demo;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import demo.VectorAlgebra.*;
 import demo.Raster.*;
@@ -91,7 +92,10 @@ public class World {
       public Vector3f getCamZ() { return camZ; }
 
       private void updateDerivedFields() {
-         
+         System.out.format("CAMERA position\n%s\nLOOKAT position\n%s\nUP %s\n%d x %d\n%g degrees",
+                           cameraPosition, lookAtPoint, cameraUpVector,
+                           width, height, verticalFovInDegrees);
+
          // The objects in the world are in a right-handed-coordinate system.
          // In WORLD-SPACE:
          //    the CAMERA is at "cameraPosition",
@@ -417,12 +421,12 @@ public class World {
    // ----------------------------------
    
    public Model getRootModel() {
-      return root;
+      return rootModel;
    }      
-   public void setRootModel(Model root) {
-      this.root = root;
+   public void setRootModel(Model rootModel) {
+      this.rootModel = rootModel;
    }
-   private Model root;
+   private Model rootModel;
 
    
    // ----------------------------------
@@ -472,4 +476,66 @@ public class World {
       public Geometry.Model geometry;
       public Image texture;
    }
+
+   // ---------------------------------------------
+   // Gathering the textures and models in use..
+   // ---------------------------------------------
+
+   public HashSet<Image> getTextures() {
+      HashSet<Image> textures = new HashSet<Image>();
+      addTextures(rootModel, textures);
+      return textures;
+   }
+   public HashSet<Geometry.Model> getModels() {
+      HashSet<Geometry.Model> models = new HashSet<Geometry.Model>();
+      addModels(rootModel, models);
+      return models;
+   }
+
+   private void addTextures(Model m, HashSet<Image> textures) {
+      if (m instanceof CompoundModel) {
+         for (Model child : ((CompoundModel) m).children) {
+            addTextures(child, textures);
+         }
+      }
+      if (m instanceof TexturedMeshModel) {
+         Image texture = ((TexturedMeshModel) m).texture;
+         textures.add(texture);
+      }
+   }
+   private void addModels(Model m, HashSet<Geometry.Model> models) {
+      if (m instanceof CompoundModel) {
+         for (Model child : ((CompoundModel) m).children) {
+            addModels(child, models);
+         }
+      }
+      if (m instanceof TexturedMeshModel) {
+         Geometry.Model model = ((TexturedMeshModel) m).geometry;
+         models.add(model);
+      }
+   }
+
+   // ---------------------------------------------
+   // First attempt at picking...
+   // ---------------------------------------------
+
+   /*
+   public HashSet<Model> getIntersectingModels(Vector3f start, Vector3f end) {
+      HashSet<Model> results = new HashSet<Model>();
+      getIntersectingModels(rootModel, results, start, end);
+      return results;
+   }
+   private void getIntersectingModels(....) {
+      if (m instanceof CompoundModel) {
+         for (Model child : ((CompoundModel) m).children) {
+            addModels(child, models);
+         }
+      }
+      if (m instanceof TexturedMeshModel) {
+         Geometry.Model model = ((TexturedMeshModel) m).geometry;
+         models.add(model);
+      }
+   }
+   */
+
 }

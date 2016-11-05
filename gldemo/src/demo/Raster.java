@@ -12,32 +12,38 @@ public class Raster {
    // -------------------------------------------------------------------
 
    public static class Image {
-       public Image (int width, int height) {
-           this.width = width;
-           this.height = height;
-           pixels = new int[width*height];
-       }
+      public Image (String name, int width, int height) {
+         this.name = name;
+         this.width = width;
+         this.height = height;
+         pixels = new int[width*height];
+      }
+      
+      public void clear() {
+         int n=width*height;
+         for (int i=0; i < n; ++i) {
+            pixels[i] = 0;
+         }
+      }
+      public void set(int x, int y, int color) {
+         pixels[x+y*width] = color;
+      }
+      public void fillRect(int startX, int startY, int w, int h, int color) {
+         for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+               set(startX+x, startY+y, color);
+            }
+         }
+      }
+      
+      public String getName() {
+         return name;
+      }
 
-       public void clear() {
-           int n=width*height;
-           for (int i=0; i < n; ++i) {
-               pixels[i] = 0;
-           }
-       }
-       public void set(int x, int y, int color) {
-          pixels[x+y*width] = color;
-       }
-       public void fillRect(int startX, int startY, int w, int h, int color) {
-          for (int x = 0; x < w; x++) {
-              for (int y = 0; y < h; y++) {
-                  set(startX+x, startY+y, color);
-              }
-          }
-       }
-       
-       public final int[] pixels;
-       public final int width;
-       public final int height;
+      public String name;       
+      public final int[] pixels;
+      public final int width;
+      public final int height;
    }
    
    // -------------------------------------------------------------------
@@ -55,7 +61,7 @@ public class Raster {
           return null;
       }
 
-      Image res = new Image(im.getWidth(), im.getHeight());
+      Image res = new Image(name, im.getWidth(), im.getHeight());
       for (int row = 0; row < res.height; row++) {
          for (int col = 0; col < res.width; col++) {
             int val = im.getRGB(col, row);

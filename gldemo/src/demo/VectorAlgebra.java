@@ -579,7 +579,66 @@ public class VectorAlgebra {
                                                            0.0f, 0.0f, 1.0f, 0.0f,
                                                            0.0f, 0.0f, 0.0f, 1.0f);
    }
-   
+
+   // -----------------------------------------------------------------------
+   // Intersections
+   // -----------------------------------------------------------------------
+
+   public static class Segment {
+      public final Vector3f p0;
+      public final Vector3f p1;
+      public Segment(Vector3f p0, Vector3f p1) {
+         this.p0 = p0;
+         this.p1 = p1;
+      }
+   }
+   public static class Triangle {
+      public final Vector3f v0;
+      public final Vector3f v1;
+      public final Vector3f v2;
+      public Triangle(Vector3f v0, Vector3f v1, Vector3f v2) {
+         this.v0 = v0;
+         this.v1 = v1;
+         this.v2 = v2;
+      }
+   }
+   public static boolean intersects(Triangle t, Segment s) {
+      Vector3f u = t.v1.minus(t.v0);
+      Vector3f v = t.v2.minus(t.v0);
+      Vector3f n = u.cross(v).normalized();
+
+      // http://geomalgorithms.com/a06-_intersect-2.html
+
+      float den = n.dot(s.p1.minus(s.p0));
+      if (den == 0) return false;
+
+      float r1 = n.dot(t.v0.minus(s.p0)) / den;
+      //System.out.format("Intersection f=%g\n", r1);
+
+      Vector3f i = s.p0.plus(s.p1.minus(s.p0).times(r1));
+
+      //System.out.format("Plane intersection at\n%s", i.toString());
+
+      Vector3f w = i.minus(t.v0);
+ 
+      float den2 = u.dot(v) * u.dot(v)
+                 - u.dot(u) * v.dot(v);
+      if (den2 == 0) return false;
+
+      float snum = u.dot(v) * w.dot(v)
+                 - v.dot(v) * w.dot(u);
+
+      float tnum = u.dot(v) * w.dot(u)
+                 - u.dot(u) * w.dot(v);
+
+      float sc = snum/den2;
+      float tc = tnum/den2;
+      if (sc<0) return false;
+      if (tc<0) return false;
+      if (sc+tc>1) return false;
+      return true;
+   }
+
    // -----------------------------------------------------------------------
    // TESTING
    // -----------------------------------------------------------------------

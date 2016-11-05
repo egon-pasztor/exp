@@ -12,6 +12,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HashMap;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
@@ -25,6 +27,7 @@ import com.jogamp.opengl.awt.GLCanvas;
 import javax.swing.JFrame;
 
 import demo.World.*;
+import demo.Raster.*;
 import demo.VectorAlgebra.*;
 
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
@@ -63,8 +66,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
       
-      demoWorld = new DemoWorld(/* cube */ false, /* ico */ true, /* ball */ false, /* subdivide */ 2);
-      //demoWorld = new DemoWorld(/* cube */ true, /* ico */ false, /* ball */ false, /* subdivide */ 0);
+      //demoWorld = new DemoWorld(/* cube */ false, /* ico */ true, /* ball */ false, /* subdivide */ 2);
+      demoWorld = new DemoWorld(/* cube */ true, /* ico */ false, /* ball */ false, /* subdivide */ 0);
       //demoWorld = new DemoWorld(/* cube */ false, /* ico */ false, /* ball */ true, /* subdivide */ 0);
       
       GLProfile glProfile = GLProfile.get(GLProfile.GL3);
@@ -110,9 +113,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    @Override
    public void init(GLAutoDrawable drawable) {
       System.out.format("GLSample.init called\n");
+      System.out.format("----------------------\n");
       
       GL3 gl = drawable.getGL().getGL3();
       initGL(gl);
+      System.out.format("----------------------\n");
    }
 
    /** GL Window Reshape */
@@ -132,8 +137,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    /** GL Render loop */
    @Override
    public void display(GLAutoDrawable drawable) {
-      System.out.format("GLSample.display() called\n");
-      
       demoWorld.updateDemoWorld(System.currentTimeMillis() - startTimeMillis);      
       GL3 gl = drawable.getGL().getGL3();
       renderGL(gl);
@@ -148,6 +151,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // -----------------------------------------------------------
    // Implementing MouseListener & MouseMotionListener
    // -----------------------------------------------------------
+
+   int hoverX, hoverY;
 
    @Override
    public void mouseClicked(MouseEvent e) {
@@ -174,6 +179,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    @Override
    public void mouseDragged(MouseEvent e) {
+      hoverX = e.getX();
+      hoverY = e.getY();
+
       //System.out.format("GLSample.mouseDragged(%d,%d) called\n", e.getX(), e.getY());
       cameraController.moveTo(e.getX(), e.getY());
       glCanvas.display();
@@ -187,6 +195,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    @Override
    public void mouseMoved(MouseEvent e) {
+      hoverX = e.getX();
+      hoverY = e.getY();
+
       //System.out.format("GLSample.mouseMoved(%d,%d) called\n", e.getX(), e.getY());
    }
    
@@ -211,14 +222,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // TODO -- this is sending one program (for texture-mapped-surfaces) to GL
       //    but the different models in the model tree might use different programs
       setupProgram(gl);
-      
-      // TODO -- this is sending one texture to GL,
-      //    but the different models in the model tree might want different textures!
-      setupTexture(gl);
-      
-      // TODO -- this is sending one geometry model to GL
-      //    but the different models in the model tree might have different shapes!
-      setupBuffers(gl);
+      setupTextures(gl);
+      setupModels(gl);
    }
    
    //    "renderGL" (GL3)  -- set camera-ball perspective matrix
@@ -228,6 +233,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    //                              render
    
    public void renderGL(GL3 gl) {
+      updateModifiedModels(gl);
+
       Camera camera = demoWorld.getCamera();
       
       int width = camera.getWidth();
@@ -259,9 +266,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // Save Camera-To-Clip-Space Matrix
       sendMatrixToGL(gl, camera.getCameraToClipSpace(), projMatrixLoc);
       
-      // Bind geometry arrays for ONE TEXTURED MODEL
-      gl.glBindVertexArray(this.triangleVAO);
-
       renderSubmodels(gl, demoWorld.getRootModel(), camera.getWorldToCameraSpace());
 
       // Check out error
@@ -276,11 +280,37 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          }
       }
       if (m instanceof TexturedMeshModel) {
+         TexturedMeshModel tm = (TexturedMeshModel) m;
+
          // Save Model-To-Camera-Space Matrix
          sendMatrixToGL(gl, modelToCamera, viewMatrixLoc);
+
+         // Bind texture -- 
+         //    we're binding the GL_TEXTURE2D field in GL_TEXTURE0,
+         //       because GL_TEXTURE0 is the "active" texture
+         //    and the SHADER uses GL_TEXTURE0 
+         //       because the shader "myTexture" field is bound to "0".
+         //
+         // We could set it up differently... right?            
+         //  
+         int textureId = imageToGLId.get(tm.texture); 
+         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId); 
+
+         // Bind model
+         GeometryBindings modelId = modelToBindings.get(tm.geometry);
+         gl.glBindVertexArray(modelId.vaoID);
+
+         //System.out.format("Testing intersection with [%s]\n", tm.geometry.getName());
+
+         if (intersects(tm.geometry, modelToCamera, demoWorld.getCamera(), hoverX, hoverY)) {
+            gl.glUniform1i(highlightBoolLoc, 1);
+         } else {
+            gl.glUniform1i(highlightBoolLoc, 0);
+         }
+
          
          // Draw the bound arrays...
-         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * ((TexturedMeshModel)m).geometry.getNumTriangles());
+         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * tm.geometry.getNumTriangles());
       }
    }
    
@@ -289,7 +319,118 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       m.copyToFloatArray(arr);
       gl.glUniformMatrix4fv(glLoc, 1, false, arr, 0);     
    }
-   
+
+   // --------------------------------------------------------------
+   // PICKING VERSION 0 -- let's just answer the question here...
+
+   private boolean intersects(Geometry.Model geometry,  // does this geometry...
+                              Matrix4f modelToCamera,   // transformed by this matrix into camera space...
+                              Camera camera,            // where this is the camera,
+                              int x, int y) {           // intersect this point in the view?
+
+      int width = camera.getWidth();
+      int height = camera.getHeight();
+
+      float aspect = ((float)width) / height;
+      float fHeight = (float) Math.tan(camera.getVerticalFOV() * (Math.PI / 180.0) * 0.5);
+      float fWidth  = aspect * fHeight;
+
+      // In camera space...
+      //   camera is at (0,0,0)
+      //   looking at (0,0,1),
+      // 
+      // in the z=1 plane,
+      //   the window top-left  is (-fWidth,fHeight,1)
+      //   the window top-right is (+fWidth,fHeight,1)
+     
+      float pixelWidth  = (float) ((2*fWidth) / width);
+      float pixelHeight = (float) ((2*fHeight) / height);
+
+      float xPos = -fWidth + pixelWidth*x    + pixelWidth  * 0.5f;
+      float yPos = fHeight - pixelHeight*y   + pixelHeight * 0.5f;
+
+      // WAIT-CONFUSING SIGN ERROR???
+      Vector3f camPos = new Vector3f(xPos,yPos,-1.0f);
+      //System.out.format("At %d,%d in %dx%d window -- fWidth %g x fHeight %g\n",
+      //                  x,y,width,height,fWidth,fHeight);
+      //System.out.format("PixelPos is\n%s\n", camPos.toString());
+
+      Segment s = new Segment(Vector3f.ORIGIN, camPos);
+      // --------------------
+  
+      for (Geometry.Mesh.Triangle<Vector3f,Geometry.Model.TexCoords> t : geometry.mesh.interiorTriangles) {
+         Vector3f v0 = t.edge0.getOppositeVertex().getData();
+         Vector3f v1 = t.edge1.getOppositeVertex().getData();
+         Vector3f v2 = t.edge2.getOppositeVertex().getData();
+
+         Vector3f camV0 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v0)).toVector3f();
+         Vector3f camV1 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v1)).toVector3f();
+         Vector3f camV2 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v2)).toVector3f();
+
+         //System.out.format("Triangle is\n%s---\n%s---\n%s---\n", camV0.toString(), camV1.toString(), camV2.toString());
+
+         Triangle t2 = new Triangle(camV0, camV1, camV2);
+         if (intersects(t2,s)) return true;      
+      }
+      return false;
+   }
+
+   public static class Segment {
+      public final Vector3f p0;
+      public final Vector3f p1;
+      public Segment(Vector3f p0, Vector3f p1) {
+         this.p0 = p0;
+         this.p1 = p1;
+      }
+   }
+   public static class Triangle {
+      public final Vector3f v0;
+      public final Vector3f v1;
+      public final Vector3f v2;
+      public Triangle(Vector3f v0, Vector3f v1, Vector3f v2) {
+         this.v0 = v0;
+         this.v1 = v1;
+         this.v2 = v2;
+      }
+   }
+   public static boolean intersects(Triangle t, Segment s) {
+      Vector3f u = t.v1.minus(t.v0);
+      Vector3f v = t.v2.minus(t.v0);
+      Vector3f n = u.cross(v).normalized();
+
+      // http://geomalgorithms.com/a06-_intersect-2.html
+
+      float den = n.dot(s.p1.minus(s.p0));
+      if (den == 0) return false;
+
+      float r1 = n.dot(t.v0.minus(s.p0)) / den;
+      //System.out.format("Intersection f=%g\n", r1);
+
+      Vector3f i = s.p0.plus(s.p1.minus(s.p0).times(r1));
+
+      //System.out.format("Plane intersection at\n%s", i.toString());
+
+      Vector3f w = i.minus(t.v0);
+ 
+      float den2 = u.dot(v) * u.dot(v)
+                 - u.dot(u) * v.dot(v);
+      if (den2 == 0) return false;
+
+      float snum = u.dot(v) * w.dot(v)
+                 - v.dot(v) * w.dot(u);
+
+      float tnum = u.dot(v) * w.dot(u)
+                 - u.dot(u) * w.dot(v);
+
+      float sc = snum/den2;
+      float tc = tnum/den2;
+      if (sc<0) return false;
+      if (tc<0) return false;
+      if (sc+tc>1) return false;
+      return true;
+   }
+
+
 
    // -------------------------------------------------------------------
    // SENDING SHADER PROGRAM to GL
@@ -304,12 +445,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private int vsTexCoordsLoc;
    private int vsBaryCoordsLoc;
 
-   // Uniform variable Locations
+   // Uniform (vertex-shader) variable Locations
    private int projMatrixLoc;
    private int viewMatrixLoc;
    
-   // Texture Locations
+   // Uniform (fragment-shader) variable Locations
    private int textureLoc;
+   private int highlightBoolLoc;
+
    
    enum ShaderType{ VertexShader, FragmentShader }
    
@@ -320,7 +463,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       int v = this.newShaderFromCurrentClass(gl, "vertex.shader", ShaderType.VertexShader);
       int f = this.newShaderFromCurrentClass(gl, "fragment.shader", ShaderType.FragmentShader);
 
-      System.out.format("Vertex Shader Info Log: [%s] WHAT??\n", getShaderInfoLog(gl, v));
+      System.out.format("Vertex Shader Info Log: [%s]\n", getShaderInfoLog(gl, v));
       System.out.format("Fragent Shader Info Log: [%s]\n", getShaderInfoLog(gl, f));
 
       // Complete the "shader program"
@@ -329,7 +472,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glAttachShader(programID, f);
       gl.glLinkProgram(programID);
       
-      gl.glUseProgram(this.programID);
+      gl.glUseProgram(programID);
       
       gl.glBindFragDataLocation(programID, 0, "outColor");
       System.out.format("Program Info Log: [%s]\n", getProgramInfoLog(gl, programID));
@@ -347,8 +490,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             
       this.projMatrixLoc = gl.glGetUniformLocation(programID, "projMatrix");
       this.viewMatrixLoc = gl.glGetUniformLocation(programID, "viewMatrix");
-      
-      this.textureLoc = gl.glGetUniformLocation(programID, "myTexture");
+
+      this.textureLoc       = gl.glGetUniformLocation(programID, "myTexture");
+      this.highlightBoolLoc = gl.glGetUniformLocation(programID, "highlight");
+
       gl.glUniform1i(textureLoc, 0);
    }
 
@@ -356,7 +501,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // load the source
       String shaderSource = this.loadStringFileFromCurrentPackage( fileName);
       // define the shaper type from the enum
-      int shaderType = type==ShaderType.VertexShader?GL3.GL_VERTEX_SHADER:GL3.GL_FRAGMENT_SHADER;
+      int shaderType = (type == ShaderType.VertexShader) ? GL3.GL_VERTEX_SHADER : GL3.GL_FRAGMENT_SHADER;
       // create the shader id
       int id = gl.glCreateShader(shaderType);
       //  link the id and the source
@@ -442,19 +587,26 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // -------------------------------------------------------------------
    // SENDING TEXTURE to GL
    // -------------------------------------------------------------------
-   
-   private void setupTexture(GL3 gl) {
-      System.out.format("SETUP-texture called\n");
-   
-      // myTexture.fillRect(0,  0, 10, 128, 0x00ff0000);
-      // myTexture.fillRect(10, 0, 10, 128, 0x0000ff00);
-      // myTexture.fillRect(20, 0, 10, 128, 0x000000ff);
-      
-      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(demoWorld.myTexture.pixels.length * 4);
+
+   private HashMap<Image, Integer> imageToGLId;
+
+   private void setupTextures(GL3 gl) {
+      System.out.format("SETUP-textures called \n");
+      imageToGLId = new HashMap<Image, Integer>();
+
+      for(Image image : demoWorld.getTextures()) {
+         int id = setupTexture(gl, image);
+         System.out.format("BOUND texture [%s] to id [%d]\n", image.getName(), id);
+         imageToGLId.put(image, id);
+      }
+   }
+
+   private int setupTexture(GL3 gl, Image image) {
+      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(image.pixels.length * 4);
       byteBuffer.order(ByteOrder.nativeOrder());
-      IntBuffer colormapBuffer = byteBuffer.asIntBuffer();
-      colormapBuffer.put(demoWorld.myTexture.pixels);
-      colormapBuffer.position(0);
+      IntBuffer intBuffer = byteBuffer.asIntBuffer();
+      intBuffer.put(image.pixels);
+      intBuffer.position(0);
       
       int textureId = this.generateTextureId(gl);
       gl.glActiveTexture(GL.GL_TEXTURE0);
@@ -463,12 +615,12 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
       gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);
       
-      gl.glTexImage2D (
-              GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
-              demoWorld.myTexture.width, demoWorld.myTexture.height, 0, GL.GL_BGRA,
-              GL.GL_UNSIGNED_BYTE, byteBuffer);
+      gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
+                      image.width, image.height, 0, GL.GL_BGRA,
+                      GL.GL_UNSIGNED_BYTE, intBuffer);
       
-      checkError(gl, "savedTexture");            
+      checkError(gl, "savedTexture");
+      return textureId;         
    }
    private int generateTextureId(GL3 gl) {
       // allocate an array of one element in order to store the generated id
@@ -486,32 +638,71 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // -------------------------------------------------------------------
    
    // Vertex Array Object ID
-   int triangleVAO;
-   
-   void setupBuffers(GL3 gl) {
-      System.out.format("SETUP-buffers called\n");
-      
+   // TODO: shold be a "map" from Geom to int...
+   private HashMap<Geometry.Model, GeometryBindings> modelToBindings;
+
+   private static class GeometryBindings {
+      public int vaoID;
+
+      public int positionBufferId;
+      public int colorBufferId;
+      public int texCoordsBufferId;
+      public int baryCoordsBufferId;
+   };
+
+   private void setupModels(GL3 gl) {
+      System.out.format("SETUP-models called \n");
+      modelToBindings = new HashMap<Geometry.Model, GeometryBindings>();
+
+      for(Geometry.Model model : demoWorld.getModels()) {
+         GeometryBindings b = setupModel(gl, model);
+         System.out.format("BOUND model [%s] to id [%d]\n", model.getName(), b.vaoID);
+         modelToBindings.put(model, b);
+      }
+   }
+   private void updateModifiedModels(GL3 gl) {
+      // What about new (unregistered) or lost (but still registered) Models?
+      // We need a "delete Vertex Array" object..
+
+      for(Geometry.Model model : demoWorld.getModels()) {
+         if (model.isModified()) {
+            GeometryBindings b = modelToBindings.get(model);
+            updateModel(gl, model, b);
+         }
+      }
+   }
+   private GeometryBindings setupModel(GL3 gl, Geometry.Model model) {
       // generate the IDs
-      this.triangleVAO = this.generateVAOId(gl);
-      gl.glBindVertexArray(triangleVAO);
+      GeometryBindings b = new GeometryBindings();
+      b.vaoID = generateVAOId(gl);
+      gl.glBindVertexArray(b.vaoID);
       
       // Generate slots
       checkError(gl, "bufferIdCreation");
-      int positionBufferId = this.generateBufferId(gl);
-      int colorBufferId = this.generateBufferId(gl);
-      int texCoordsBufferId = this.generateBufferId(gl);
-      int baryCoordsBufferId = this.generateBufferId(gl);
+      b.positionBufferId = this.generateBufferId(gl);
+      b.colorBufferId = this.generateBufferId(gl);
+      b.texCoordsBufferId = this.generateBufferId(gl);
+      b.baryCoordsBufferId = this.generateBufferId(gl);
    
       // bind the buffers
+      Geometry.Model.Arrays ma = model.getArrays();
+      bindBuffer(gl, b.positionBufferId,   ma.positions,  4, vsPositionLoc);
+      bindBuffer(gl, b.colorBufferId,      ma.colors,     4, vsColorLoc);
+      bindBuffer(gl, b.texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
+      bindBuffer(gl, b.baryCoordsBufferId, ma.baryCoords, 2, vsBaryCoordsLoc);
+      return b;
+   }
+   private void updateModel(GL3 gl, Geometry.Model model, GeometryBindings b) {
+      gl.glBindVertexArray(b.vaoID);
 
-      Geometry.Model.Arrays ma = demoWorld.geom.getArrays();
-      this.bindBuffer(gl, positionBufferId,   ma.positions,  4, vsPositionLoc);
-      this.bindBuffer(gl, colorBufferId,      ma.colors,     4, vsColorLoc);
-      this.bindBuffer(gl, texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
-      this.bindBuffer(gl, baryCoordsBufferId, ma.baryCoords, 2, vsBaryCoordsLoc);
+      Geometry.Model.Arrays ma = model.getArrays();
+      updateBuffer(gl, b.positionBufferId,   ma.positions,  4, vsPositionLoc);
+      updateBuffer(gl, b.colorBufferId,      ma.colors,     4, vsColorLoc);
+      updateBuffer(gl, b.texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
+      updateBuffer(gl, b.baryCoordsBufferId, ma.baryCoords, 2, vsBaryCoordsLoc);
    }
    
-   void bindBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
+   private void bindBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
       // bind buffer for vertices and copy data into buffer
       gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
       gl.glBufferData(GL.GL_ARRAY_BUFFER, dataArray.length * Float.SIZE / 8,
@@ -519,8 +710,13 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glEnableVertexAttribArray(dataLoc);
       gl.glVertexAttribPointer(dataLoc, componentsPerAttribute, GL.GL_FLOAT, false, 0, 0);
    }
-
-   protected int generateVAOId(GL3 gl) {
+   private void updateBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
+      gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
+      gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
+            dataArray.length * Float.SIZE / 8,
+            Buffers.newDirectFloatBuffer(dataArray));
+   }
+   private int generateVAOId(GL3 gl) {
       // allocate an array of one element in order to store the generated id
       int[] idArray = new int[1];
       // let's generate
@@ -528,8 +724,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // return the id
       return idArray[0];
    }
-
-   protected int generateBufferId(GL3 gl) {
+   private int generateBufferId(GL3 gl) {
       // allocate an array of one element in order to store the generated id
       int[] idArray = new int[1];
       // let's generate
@@ -538,7 +733,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // return the id
       return idArray[0];
    }
-
 
    // -------------------------------------------------------------------
    // GL Error

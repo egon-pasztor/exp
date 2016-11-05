@@ -17,7 +17,7 @@ public class Geometry {
    // Mesh Structure
    // -----------------------------------------------------------------------
    
-   private static class Mesh<V,T> {
+   public static class Mesh<V,T> {
             
       public Mesh() {
          boundaryTriangles = new HashSet<Triangle<V,T>>();
@@ -418,6 +418,19 @@ public class Geometry {
          this.hasTextureCoords = hasTextureCoords;
          this.mesh = new Mesh<Vector3f,TexCoords>();
          this.maxRadius = 0.0f;
+         modified = true;
+      }
+
+      // ------------------------------------------------------------------------
+      // Modified bool
+      // ------------------------------------------------------------------------
+
+      private boolean modified;
+      public boolean isModified() {
+         return modified;
+      }
+      public void setModified(boolean modified) {
+         this.modified = modified;
       }
    
       // ------------------------------------------------------------------------
@@ -560,21 +573,22 @@ public class Geometry {
       final Vector3f dY   = Vector3f.Y;
       final float halfpi = (float) (Math.PI/2);
       
+      ///*
       addSquare(m, cntr.rotated(Vector3f.X, -halfpi),
                      dX.rotated(Vector3f.X, -halfpi),
                      dY.rotated(Vector3f.X, -halfpi), 0);
-
+      //*/
       for (int i = 0; i < 4; ++i) {
          float angle = i * halfpi;
          addSquare(m, cntr.rotated(Vector3f.Y, angle),
                         dX.rotated(Vector3f.Y, angle),
                         dY.rotated(Vector3f.Y, angle), 1+i);
       }
-      
+      ///*      
       addSquare(m, cntr.rotated(Vector3f.X, halfpi),
                      dX.rotated(Vector3f.X, halfpi),
                      dY.rotated(Vector3f.X, halfpi), 5);
-     
+      //*/
       return m;
    }
 
@@ -588,7 +602,8 @@ public class Geometry {
          final Vector2f uv01 = new Vector2f(0.0f, 1.0f);
          final Vector2f uv11 = new Vector2f(1.0f, 1.0f);
          
-         // TexCoord class has w's.. annoying we have to specify them when we don't need them here
+         // TexCoord class has w's.. 
+         // annoying we have to specify them as 1.0f when we don't need them at all in cubes
          texBL = new Model.TexCoords(piece, uv01,uv11,uv00, 1.0f,1.0f,1.0f);
          texTR = new Model.TexCoords(piece, uv00,uv11,uv10, 1.0f,1.0f,1.0f);
       }
@@ -793,5 +808,23 @@ public class Geometry {
    
    interface Extractor {
       public Vector4f extract(Mesh.Triangle<Vector3f,?> t);
+   }
+
+
+   // -----------------------------------------------------------------------
+   // Apply modifications..
+   // -----------------------------------------------------------------------
+
+   public static void sphereWarp (Model src, float phase, float mag) {
+      for (Mesh.Vertex<Vector3f,Model.TexCoords> v : src.mesh.vertices) {
+         Vector3f p = v.getData().normalized();
+ 
+         Vector2f p2 = positionToLatLon(p);
+         float phase2 = (float)(6.0 * p2.y);
+         
+         p = p.times((float)(1.0 - mag * Math.sin(phase) * Math.sin(phase2)));
+         v.setData(p);
+      }
+      src.setModified(true);
    }
 }

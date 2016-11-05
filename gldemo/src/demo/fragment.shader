@@ -1,7 +1,8 @@
 #version 330
 
 uniform sampler2D myTexture;
- 
+uniform bool highlight;
+
 in vec3 fragColor;
 in vec4 fragTexCoords;
 in vec2 fragBaryCoords;
@@ -28,14 +29,20 @@ void main()
     if (d5 < lowestD) lowestD = d5;
     
     if (lowestD < 0.02) {
-       if (fragTexCoords.z < 0.5) {
-         outColor.r = fragColor.r;
-         outColor.g = fragColor.g;
-         outColor.b = fragColor.b;
-       } else {
+       if (highlight) {
          outColor.r = 0.0;
-         outColor.g = 0.0;
-         outColor.b = 1.0;
+         outColor.g = 1.0;
+         outColor.b = 0.0;
+       } else {
+         if (fragTexCoords.z < 0.5) {
+           outColor.r = fragColor.r;
+           outColor.g = fragColor.g;
+           outColor.b = fragColor.b;
+         } else {
+           outColor.r = 0.0;
+           outColor.g = 0.0;
+           outColor.b = 1.0;
+         }
        }
     }
        
