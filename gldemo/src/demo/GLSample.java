@@ -124,14 +124,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    @Override
    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
       System.out.format("GLSample.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
-      
-      demoWorld.setCamera(new Camera(width, height,
-            new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
-            new Vector3f(0.0f, 0.0f, 10.0f),   // camera-pos
-            new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
-            53.13f));
-      
-      cameraController = new Camera.Controller(demoWorld.getCamera());
+
+      Camera initialCamera = new Camera(width, height,
+         new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
+         new Vector3f(0.0f, 0.0f, 18.0f),   // camera-pos
+         new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
+         53.13f/2.0f);
+
+      cameraController = new Camera.Controller(initialCamera);
    }
 
    /** GL Render loop */
@@ -173,8 +173,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public void mousePressed(MouseEvent e) {
       //System.out.format("GLSample.mousePressed() called\n");
       cameraController.grab(e.getX(), e.getY(),
-            e.isShiftDown()   ? (e.isControlDown() ? Camera.Controller.GrabType.FOV : Camera.Controller.GrabType.Zoom)
-                              : (e.isControlDown() ? Camera.Controller.GrabType.Pan : Camera.Controller.GrabType.Rotate));
+            e.isShiftDown()   ? (e.isControlDown() ? Camera.Controller.GrabState.FOV : Camera.Controller.GrabState.Zoom)
+                              : (e.isControlDown() ? Camera.Controller.GrabState.Pan : Camera.Controller.GrabState.Rotate));
    }
 
    @Override
@@ -235,10 +235,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public void renderGL(GL3 gl) {
       updateModifiedModels(gl);
 
-      Camera camera = demoWorld.getCamera();
+      Camera camera = cameraController.getCamera();
       
-      int width = camera.getWidth();
-      int height = camera.getHeight();
+      int width = camera.width;
+      int height = camera.height;
       
       gl.glViewport(0,0,width, height);
       gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -264,9 +264,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // RENDERING -------
       
       // Save Camera-To-Clip-Space Matrix
-      sendMatrixToGL(gl, camera.getCameraToClipSpace(), projMatrixLoc);
+      sendMatrixToGL(gl, camera.cameraToClipSpace, projMatrixLoc);
       
-      renderSubmodels(gl, demoWorld.getRootModel(), camera.getWorldToCameraSpace());
+      renderSubmodels(gl, demoWorld.getRootModel(), camera.worldToCameraSpace);
 
       // Check out error
       checkError(gl, "render");
@@ -302,7 +302,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
          //System.out.format("Testing intersection with [%s]\n", tm.geometry.getName());
 
-         if (intersects(tm.geometry, modelToCamera, demoWorld.getCamera(), hoverX, hoverY)) {
+         if (intersects(tm.geometry, modelToCamera, cameraController.getCamera(), hoverX, hoverY)) {
             gl.glUniform1i(highlightBoolLoc, 1);
          } else {
             gl.glUniform1i(highlightBoolLoc, 0);
@@ -328,11 +328,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                               Camera camera,            // where this is the camera,
                               int x, int y) {           // intersect this point in the view?
 
-      int width = camera.getWidth();
-      int height = camera.getHeight();
+      int width = camera.width;
+      int height = camera.height;
 
       float aspect = ((float)width) / height;
-      float fHeight = (float) Math.tan(camera.getVerticalFOV() * (Math.PI / 180.0) * 0.5);
+      float fHeight = (float) Math.tan(camera.verticalFovInDegrees * (Math.PI / 180.0) * 0.5);
       float fWidth  = aspect * fHeight;
 
       // In camera space...
