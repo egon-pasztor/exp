@@ -2,7 +2,9 @@ package demo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 
 import demo.Raster.*;   // for ColorARGB
 import demo.VectorAlgebra.*;
@@ -381,46 +383,67 @@ public class Geometry {
       }
    }
    
-   
    // -----------------------------------------------------------------------
    // A Concrete Geometry Class...
    // -----------------------------------------------------------------------
  
-   public static class Model {
-
-      public static class TexCoords {
-         int piece;
-         Vector2f t0,t1,t2;
-         float t0w,t1w,t2w;
-         float ext;
-         ColorARGB c0,c1,c2;
-         
-         public TexCoords(int piece, 
-                          Vector2f t0,Vector2f t1,Vector2f t2,
-                          float t0w, float t1w, float t2w) {
-            this.piece = piece; 
-            this.t0 = t0; this.t1 = t1; this.t2 = t2;
-            this.t0w = t0w; this.t1w = t1w; this.t2w = t2w;
-            ext = 0.0f;
-            c0 = c1 = c2 = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
-         }
-      }
-      
+   public static class MeshModel {
       public final String name;
-      
-      public boolean hasTextureCoords;
-      public Mesh<Vector3f,TexCoords> mesh;
+      public final Mesh<Vector3f,Object> mesh;
       public float maxRadius;
-
-      public Model(String name, boolean hasTextureCoords) {
+      
+      public int getNumTriangles() {
+         return mesh.interiorTriangles.size();
+      }
+      public int getNumVertices() {
+         return mesh.vertices.size();
+      }
+      public String getName() {
+         return name;
+      }
+      
+      public MeshModel(String name) {
          this.name = name;
+         this.mesh = new Mesh<Vector3f,Object>();
          
-         this.hasTextureCoords = hasTextureCoords;
-         this.mesh = new Mesh<Vector3f,TexCoords>();
-         this.maxRadius = 0.0f;
-         modified = true;
+         builders = new HashMap<String,FloatArrayBuilder>();
+         builders.put(GEOMETRY_ARRAY_NAME, DEFAULT_GEOMETRY_ARRAY_BUILDER);
+         builders.put(BARY_COORDS_ARRAY_NAME, DEFAULT_BARY_COORDS_ARRAY_BUILDER);
+         builders.put(COLOR_ARRAY_NAME, EMPTY_COLOR_ARRAY_BUILDER);
       }
 
+      // ------------------------------------------------------------------------
+      // Building Models
+      // ------------------------------------------------------------------------
+      
+      public Mesh.Vertex<Vector3f,Object> getOrAddVertex(Vector3f position) {         
+         // Search to see if we already have a Vertex at this position
+         // TODO:  Use a 3D index for this...
+         for (Mesh.Vertex<Vector3f,Object> v : mesh.vertices) {
+            Vector3f vPosition = v.getData();
+            if (vPosition.minus(position).lengthSq() < .00000001f) return v;
+         }
+         
+         // Create a new vertex
+         Mesh.Vertex<Vector3f,Object> v = new Mesh.Vertex<Vector3f,Object>();
+         v.setData(position);
+         mesh.vertices.add(v);
+         updateMaxRadius(position.length());
+         return v;
+      }
+      
+      public void updateMaxRadius(float radius) {
+         if (radius > maxRadius) maxRadius = radius;
+      }
+      
+      public void addTriangle (Vector3f a, Vector3f b, Vector3f c, Object ti) {
+         Mesh.Vertex<Vector3f,Object> va = getOrAddVertex(a);
+         Mesh.Vertex<Vector3f,Object> vb = getOrAddVertex(b);
+         Mesh.Vertex<Vector3f,Object> vc = getOrAddVertex(c);
+         Mesh.Triangle<Vector3f,Object> t = mesh.addTriangle(va, vb, vc);
+         t.setData(ti);
+      }
+      
       // ------------------------------------------------------------------------
       // Modified bool
       // ------------------------------------------------------------------------
@@ -432,125 +455,95 @@ public class Geometry {
       public void setModified(boolean modified) {
          this.modified = modified;
       }
-   
-      // ------------------------------------------------------------------------
-      // Building Models
-      // ------------------------------------------------------------------------
       
-      public Mesh.Vertex<Vector3f,TexCoords> getOrAddVertex(Vector3f position) {         
-         // Search to see if we already have a Vertex at this position
-         // TODO:  Use a 3D index for this...
-         for (Mesh.Vertex<Vector3f,TexCoords> v : mesh.vertices) {
-            Vector3f vPosition = v.getData();
-            if (vPosition.minus(position).lengthSq() < .00000001f) return v;
+      // for any number of "keys", we want to be able to return a "float array"
+      
+      public static class FloatArray {
+         public final int numElements; 
+         public final int numComponentsPerElement;
+         public final float[] array;
+         
+         public FloatArray(int numElements, int numComponentsPerElement) {
+            this.numElements = numElements;
+            this.numComponentsPerElement = numComponentsPerElement;
+            this.array = new float[numElements * numComponentsPerElement];
          }
+      }
+      public interface FloatArrayBuilder {
+         public FloatArray build(Mesh<Vector3f,Object> mesh);
+      }
+      
+      private HashMap<String,FloatArrayBuilder> builders;
+      public void setFloatArrayBuilder(String name,FloatArrayBuilder builder) {
+         builders.put(name,builder);
+      }
+      public HashMap<String,FloatArray> getArrays() {
+         HashMap<String,FloatArray> arrays = new HashMap<String,FloatArray>();
+         for (Map.Entry<String,FloatArrayBuilder> builder : builders.entrySet()) {
+            arrays.put(builder.getKey(), builder.getValue().build(mesh));
+         }
+         return arrays;
+      }
+      
+
+      public static final String GEOMETRY_ARRAY_NAME    = "geometry";
+      public static final String TEX_COORDS_ARRAY_NAME  = "texCoords";
+      public static final String BARY_COORDS_ARRAY_NAME = "baryCoords";
+      public static final String COLOR_ARRAY_NAME       = "colors";
+   }
+   
+   // -------------------------------------------------------------------------
+   // Basic Array Builders for Geometry / BaryCoords
+   //    .. and an "empty" one for Colors
+   // -------------------------------------------------------------------------
+
+   private static class GeometryArrayBuilder implements MeshModel.FloatArrayBuilder {
+      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
+         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
          
-         // Create a new vertex
-         Mesh.Vertex<Vector3f,TexCoords> v = new Mesh.Vertex<Vector3f,TexCoords>();
-         v.setData(position);
-         mesh.vertices.add(v);
+         int pPos = 0;
+         for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
+            Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
+            Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
+            Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
+            pPos = Vector4f.fromVector3f(v0Pos).copyToFloatArray(result.array, pPos);
+            pPos = Vector4f.fromVector3f(v1Pos).copyToFloatArray(result.array, pPos);
+            pPos = Vector4f.fromVector3f(v2Pos).copyToFloatArray(result.array, pPos);
+         }
+         return result;
+      }
+   }
+   
+   private static final GeometryArrayBuilder DEFAULT_GEOMETRY_ARRAY_BUILDER = new GeometryArrayBuilder();
+
+   private static class BaryCoordsArrayBuilder implements MeshModel.FloatArrayBuilder {
+      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
+         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 2);
          
-         float radius = position.length();
-         if (radius > maxRadius) maxRadius = radius;
-         return v;
+         int pPos = 0;
+         for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
+            pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(result.array,  pPos);
+            pPos = (new Vector2f(0.0f,1.0f)).copyToFloatArray(result.array,  pPos);
+            pPos = (new Vector2f(1.0f,1.0f)).copyToFloatArray(result.array,  pPos);
+         }
+         return result;
       }
-      
-      public void addTriangle (Vector3f a, Vector3f b, Vector3f c, TexCoords ti) {
-         Mesh.Vertex<Vector3f,TexCoords> va = getOrAddVertex(a);
-         Mesh.Vertex<Vector3f,TexCoords> vb = getOrAddVertex(b);
-         Mesh.Vertex<Vector3f,TexCoords> vc = getOrAddVertex(c);
-         Mesh.Triangle<Vector3f,TexCoords> t = mesh.addTriangle(va, vb, vc);
-         check(hasTextureCoords == (ti != null), "Texture Mismatch");
-         t.setData(ti);
-      }
-      public void addTriangle (Vector3f a, Vector3f b, Vector3f c) {
-         addTriangle (a,b,c,null);
-      }
-      
-      // ------------------------------------------------------------------------
-      // Producing Arrays For Rendering
-      // ------------------------------------------------------------------------
+   }
+   
+   private static final BaryCoordsArrayBuilder DEFAULT_BARY_COORDS_ARRAY_BUILDER = new BaryCoordsArrayBuilder();
 
-      public String getName() {
-         return name;
-      }
-      
-      public float getMaxRadius() {
-         return maxRadius;
-      }
-      
-      public int getNumTriangles() {
-         return mesh.interiorTriangles.size();
-      }
-
-      public static class Arrays {
-          float[] positions;
-          float[] texCoords;
-          float[] baryCoords;
-          float[] colors;
-      }
-
-      public Arrays getArrays() {
-          Arrays result = new Arrays();
-          int n = getNumTriangles();
-
-          result.positions  = new float[n*3*4];
-          result.baryCoords = new float[n*3*2];
-          result.texCoords  = new float[n*3*4];
-          result.colors     = new float[n*3*4];
-          
-          int pPos = 0;
-          int pBary = 0;
-          int pTex = 0;
-          int pCol = 0;
-          
-          for (Mesh.Triangle<Vector3f,TexCoords> t : mesh.interiorTriangles) {
-             Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
-             Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
-             Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
-             TexCoords ti = t.getData();
-
-             // pos
-             pPos = copyVector3fAs4(result.positions, pPos, v0Pos);
-             pPos = copyVector3fAs4(result.positions, pPos, v1Pos);
-             pPos = copyVector3fAs4(result.positions, pPos, v2Pos);
-             
-             // bary
-             pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(0.0f, 0.0f));
-             pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(0.0f, 1.0f));
-             pBary = copyVector2f(result.baryCoords, pBary, new Vector2f(1.0f, 1.0f));
-             
-             // tex
-             pTex = copyVector2fAs4(result.texCoords, pTex, ti.t0, ti.t0w, ti.ext);
-             pTex = copyVector2fAs4(result.texCoords, pTex, ti.t1, ti.t1w, ti.ext);
-             pTex = copyVector2fAs4(result.texCoords, pTex, ti.t2, ti.t2w, ti.ext);
-             
-             // col
-             pCol = copyColor(result.colors, pCol, ti.c0);
-             pCol = copyColor(result.colors, pCol, ti.c1);
-             pCol = copyColor(result.colors, pCol, ti.c2);
-          }
-          return result;
-      }
-
-      private int copyVector3fAs4(float[] arr, int base, Vector3f v) {
-          arr[base+0] = v.x;
-          arr[base+1] = v.y;
-          arr[base+2] = v.z;
-          arr[base+3] = 1.0f;
-          return base+4;
-      }
-      private int copyVector2f(float[] arr, int base, Vector2f v) {
-          arr[base+0] = v.x;
-          arr[base+1] = v.y;
-          return base+2;
-      }
-      private int copyVector2fAs4(float[] arr, int base, Vector2f v, float w, float ext) {
-         arr[base+0] = v.x * w;
-         arr[base+1] = v.y;
-         arr[base+2] = ext;
-         arr[base+3] = w;
-         return base+4;
+   private static class EmptyColorArrayBuilder implements MeshModel.FloatArrayBuilder {
+      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
+         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
+         
+         int pPos = 0;
+         for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
+            ColorARGB color = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
+            pPos = copyColor(result.array, pPos, color);
+            pPos = copyColor(result.array, pPos, color);
+            pPos = copyColor(result.array, pPos, color);
+         }
+         return result;
       }
       private int copyColor(float[] arr, int base, ColorARGB c) {
           arr[base+0] = ((float)(c.r&0xff))/255.0f;
@@ -560,70 +553,95 @@ public class Geometry {
           return base+4;
       }
    }
-
+   
+   private static final EmptyColorArrayBuilder EMPTY_COLOR_ARRAY_BUILDER = new EmptyColorArrayBuilder();
+   
+   
    // -----------------------------------------------------------------------
    // CUBE
    // -----------------------------------------------------------------------
-
-   public static Model createUnitCube() {
-      Model m = new Model("UnitCube", true);
+   
+   public static MeshModel createUnitCube () {
+      MeshModel m = new MeshModel("UnitCube");
+      m.setFloatArrayBuilder(MeshModel.TEX_COORDS_ARRAY_NAME, CUBE_TEXTURE_ARRAY_BUILDER);
       
       final Vector3f cntr = Vector3f.Z;
       final Vector3f dX   = Vector3f.X;
       final Vector3f dY   = Vector3f.Y;
       final float halfpi = (float) (Math.PI/2);
       
-      ///*
       addSquare(m, cntr.rotated(Vector3f.X, -halfpi),
                      dX.rotated(Vector3f.X, -halfpi),
                      dY.rotated(Vector3f.X, -halfpi), 0);
-      //*/
+
       for (int i = 0; i < 4; ++i) {
          float angle = i * halfpi;
          addSquare(m, cntr.rotated(Vector3f.Y, angle),
                         dX.rotated(Vector3f.Y, angle),
                         dY.rotated(Vector3f.Y, angle), 1+i);
       }
-      ///*      
+      
       addSquare(m, cntr.rotated(Vector3f.X, halfpi),
                      dX.rotated(Vector3f.X, halfpi),
-                     dY.rotated(Vector3f.X, halfpi), 5);
-      //*/
+                     dY.rotated(Vector3f.X, halfpi), 5);      
       return m;
    }
-
-   private static void addSquare (Model m, Vector3f center, Vector3f dx, Vector3f dy, int piece) {
-
-      Model.TexCoords texBL = null;
-      Model.TexCoords texTR = null;
-      if (m.hasTextureCoords) {
+   
+   private static void addSquare (MeshModel m, Vector3f center, Vector3f dx, Vector3f dy, int face) {
+      CubeFaceInfo texBL = null;
+      CubeFaceInfo texTR = null;
+      if (face >= 0) {
          final Vector2f uv00 = new Vector2f(0.0f, 0.0f);
          final Vector2f uv10 = new Vector2f(1.0f, 0.0f);
          final Vector2f uv01 = new Vector2f(0.0f, 1.0f);
          final Vector2f uv11 = new Vector2f(1.0f, 1.0f);
          
-         // TexCoord class has w's.. 
-         // annoying we have to specify them as 1.0f when we don't need them at all in cubes
-         texBL = new Model.TexCoords(piece, uv01,uv11,uv00, 1.0f,1.0f,1.0f);
-         texTR = new Model.TexCoords(piece, uv00,uv11,uv10, 1.0f,1.0f,1.0f);
+         texBL = new CubeFaceInfo(face, uv01,uv11,uv00);
+         texTR = new CubeFaceInfo(face, uv00,uv11,uv10);
       }
       
       Vector3f tr = center.plus(dx).plus(dy);
       Vector3f tl = center.minus(dx).plus(dy);
       Vector3f br = center.plus(dx).minus(dy);
       Vector3f bl = center.minus(dx).minus(dy);
-
       m.addTriangle(bl, br, tl, texBL);
       m.addTriangle(tl, br, tr, texTR);
    }
-   
-   
+
+   private static class CubeFaceInfo {
+      public final int face;
+      public final Vector2f tex0,tex1,tex2;
+      public CubeFaceInfo(int face, Vector2f tex0, Vector2f tex1, Vector2f tex2) {
+         this.face = face; this.tex0 = tex0; this.tex1 = tex1; this.tex2 = tex2;
+      }
+   }
+   private static class CubeTextureArrayBuilder implements MeshModel.FloatArrayBuilder {
+      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
+         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
+         
+         int pPos = 0;
+         for (Mesh.Triangle<Vector3f,Object> t : mesh.interiorTriangles) {
+            CubeFaceInfo faceInfo = (CubeFaceInfo) t.getData();
+            pPos = toVector4f(faceInfo.tex0).copyToFloatArray(result.array, pPos);
+            pPos = toVector4f(faceInfo.tex1).copyToFloatArray(result.array, pPos);
+            pPos = toVector4f(faceInfo.tex2).copyToFloatArray(result.array, pPos);
+         }
+         return result;
+      }
+      private Vector4f toVector4f(Vector2f tex1) {
+         return new Vector4f(tex1.x, tex1.y, 0.0f, 1.0f);
+      }
+   }
+   private static final CubeTextureArrayBuilder CUBE_TEXTURE_ARRAY_BUILDER = new CubeTextureArrayBuilder();
+
+
    // -----------------------------------------------------------------------
    // SPHERE
    // -----------------------------------------------------------------------
 
-   public static Model createUnitSphere(int numLatDivisions, int numLonDivisions) {
-      Model m = new Model("UnitCube", true);
+   public static MeshModel createUnitSphere(int numLatDivisions, int numLonDivisions) {
+      MeshModel m = new MeshModel("UnitSphere");
+      m.setFloatArrayBuilder(MeshModel.TEX_COORDS_ARRAY_NAME, SPHERE_TEXTURE_ARRAY_BUILDER);
 
       double globalLatMin = -Math.PI/2;
       double globalLatMax =  Math.PI/2;
@@ -651,58 +669,16 @@ public class Geometry {
             }
          }
       }
-      
       return m;
    }
    
-   private static Model.TexCoords getLatLonTexCoords(Vector2f tex0, Vector2f tex1, Vector2f tex2) {
-      float eps = .000001f;
-      
-      { float d1 = (float) Math.abs(tex1.x     -tex0.x);
-        float d2 = (float) Math.abs(tex1.x+1.0f-tex0.x);
-        if (d2 < d1) {
-           tex1 = tex1.plus(Vector2f.X);
-        } else {
-           float d3 = (float) Math.abs(tex1.x-1.0f-tex0.x);
-           if (d3 < d1) {
-              tex1 = tex1.minus(Vector2f.X);
-           }
-        }
-      }
-      { float d1 = (float) Math.abs(tex2.x    -tex1.x);
-        float d2 = (float) Math.abs(tex2.x+1.0f-tex1.x);
-        if (d2 < d1) {
-           tex2 = tex2.plus(Vector2f.X);
-        } else {
-           float d3 = (float) Math.abs(tex2.x-1.0f-tex1.x);
-           if (d3 < d1) {
-              tex2 = tex2.minus(Vector2f.X);
-           }
-        }
-      }
-      
-      return new Model.TexCoords(0,tex0,tex1,tex2,
-              (float) Math.cos((tex0.y-0.5)*Math.PI) +eps,
-              (float) Math.cos((tex1.y-0.5)*Math.PI) +eps,
-              (float) Math.cos((tex2.y-0.5)*Math.PI) +eps);
-      
-   }
-
-   private static void addLatLonTriangle (Model m, Vector2f latlon0, Vector2f latlon1, Vector2f latlon2) {
-      Model.TexCoords tex  = null;
-      if (m.hasTextureCoords) {
-         float eps = .000001f;
-         Vector2f tex0 = latLonToTexCoord(latlon0.x, latlon0.y);
-         Vector2f tex1 = latLonToTexCoord(latlon1.x, latlon1.y);
-         Vector2f tex2 = latLonToTexCoord(latlon2.x, latlon2.y);
-         tex = getLatLonTexCoords(tex0,tex1,tex2);
-      }
+   private static void addLatLonTriangle(MeshModel m, Vector2f latlon0, Vector2f latlon1, Vector2f latlon2) {
       m.addTriangle(
             latLonToPosition(latlon0.x, latlon0.y),
             latLonToPosition(latlon1.x, latlon1.y),
-            latLonToPosition(latlon2.x, latlon2.y), tex);
+            latLonToPosition(latlon2.x, latlon2.y), 
+            new SphereFaceInfo(latlon0, latlon1, latlon2));
    }
-   
    private static Vector3f latLonToPosition(float lat, float lon) {
       float cosLat = (float) Math.cos(lat);
       float sinLat = (float) Math.sin(lat);
@@ -724,14 +700,75 @@ public class Geometry {
       return new Vector2f(x,y);
    }
 
+   private static class SphereFaceInfo {
+      public final Vector2f latlon0, latlon1, latlon2;
+      public SphereFaceInfo(Vector2f latlon0, Vector2f latlon1, Vector2f latlon2) {
+         this.latlon0 = latlon0; this.latlon1 = latlon1; this.latlon2 = latlon2;
+      }
+   }
+   private static class SphereTextureArrayBuilder implements MeshModel.FloatArrayBuilder {
+      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
+         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
+         
+         int pPos = 0;
+         for (Mesh.Triangle<Vector3f,Object> t : mesh.interiorTriangles) {
+            SphereFaceInfo faceInfo = (SphereFaceInfo) t.getData();
+            Vector2f tex0 = latLonToTexCoord(faceInfo.latlon0.x, faceInfo.latlon0.y);
+            Vector2f tex1 = latLonToTexCoord(faceInfo.latlon1.x, faceInfo.latlon1.y);
+            Vector2f tex2 = latLonToTexCoord(faceInfo.latlon2.x, faceInfo.latlon2.y);
+            
+            // adjusting the trio of tex0/tex1/tex2 to be nearby in longitude
+            float eps = .000001f;
+            
+            { float d1 = (float) Math.abs(tex1.x     -tex0.x);
+              float d2 = (float) Math.abs(tex1.x+1.0f-tex0.x);
+              if (d2 < d1) {
+                 tex1 = tex1.plus(Vector2f.X);
+              } else {
+                 float d3 = (float) Math.abs(tex1.x-1.0f-tex0.x);
+                 if (d3 < d1) {
+                    tex1 = tex1.minus(Vector2f.X);
+                 }
+              }
+            }
+            { float d1 = (float) Math.abs(tex2.x    -tex1.x);
+              float d2 = (float) Math.abs(tex2.x+1.0f-tex1.x);
+              if (d2 < d1) {
+                 tex2 = tex2.plus(Vector2f.X);
+              } else {
+                 float d3 = (float) Math.abs(tex2.x-1.0f-tex1.x);
+                 if (d3 < d1) {
+                    tex2 = tex2.minus(Vector2f.X);
+                 }
+              }
+            }
+
+            // emit the 3 texture coords:
+            float tex0w = (float) Math.cos((tex0.y-0.5)*Math.PI) +eps;
+            float tex1w = (float) Math.cos((tex1.y-0.5)*Math.PI) +eps;
+            float tex2w = (float) Math.cos((tex2.y-0.5)*Math.PI) +eps;
+            
+            pPos = toVector4f(tex0,tex0w).copyToFloatArray(result.array, pPos);
+            pPos = toVector4f(tex1,tex1w).copyToFloatArray(result.array, pPos);
+            pPos = toVector4f(tex2,tex2w).copyToFloatArray(result.array, pPos);
+         }
+         return result;
+      }
+      private Vector4f toVector4f(Vector2f tex1, float w) {
+         return new Vector4f(tex1.x*w, tex1.y*w, 0.0f, w);
+      }
+   }
+   private static final SphereTextureArrayBuilder SPHERE_TEXTURE_ARRAY_BUILDER = new SphereTextureArrayBuilder();
+
    
    // -----------------------------------------------------------------------
    // ICO
    // -----------------------------------------------------------------------
 
-   public static Model createIco (int subdivisions) {
-      Model m = new Model("Ico", true);
-      
+   public static MeshModel createIco(int subdivisions) {
+      MeshModel m = new MeshModel(String.format("Ico-Subdivided-%d", subdivisions));
+      m.setFloatArrayBuilder(MeshModel.TEX_COORDS_ARRAY_NAME, SPHERE_TEXTURE_ARRAY_BUILDER);
+
       float pi   = (float)Math.PI;
       float lat0 = pi/2;
       float lat1 = (float) Math.atan(0.5);
@@ -765,7 +802,7 @@ public class Geometry {
       return m;
    }
    
-   private static void addLatLonTriangles (Model m, Vector2f latlon0, Vector2f latlon1, Vector2f latlon2, int subdivisions) {
+   private static void addLatLonTriangles(MeshModel m, Vector2f latlon0, Vector2f latlon1, Vector2f latlon2, int subdivisions) {
       
       if (subdivisions == 0) {
          addLatLonTriangle(m, latlon0, latlon1, latlon2);
@@ -815,8 +852,8 @@ public class Geometry {
    // Apply modifications..
    // -----------------------------------------------------------------------
 
-   public static void sphereWarp (Model src, float phase, float mag) {
-      for (Mesh.Vertex<Vector3f,Model.TexCoords> v : src.mesh.vertices) {
+   public static void sphereWarp (MeshModel src, float phase, float mag) {
+      for (Mesh.Vertex<Vector3f,?> v : src.mesh.vertices) {
          Vector3f p = v.getData().normalized();
  
          Vector2f p2 = positionToLatLon(p);

@@ -3,9 +3,6 @@ package demo;
 import java.util.ArrayList;
 import java.util.HashSet;
 
-import demo.VectorAlgebra.*;
-import demo.Raster.*;
-
 import demo.VectorAlgebra.*;   // vectors/matrices
 import demo.Geometry.*;        // meshes(cube,sphere,ico)
 import demo.Raster.*;          // texture image
@@ -476,13 +473,13 @@ public class World {
    // ------- "Mesh" models
    
    public static class TexturedMeshModel extends Model {
-      public TexturedMeshModel(Geometry.Model geometry,
+      public TexturedMeshModel(MeshModel geometry,
                                Image texture) {
          this.geometry = geometry;
          this.texture = texture;
       }
       
-      public Geometry.Model geometry;
+      public MeshModel geometry;
       public Image texture;
    }
 
@@ -495,8 +492,8 @@ public class World {
       addTextures(rootModel, textures);
       return textures;
    }
-   public HashSet<Geometry.Model> getModels() {
-      HashSet<Geometry.Model> models = new HashSet<Geometry.Model>();
+   public HashSet<MeshModel> getMeshModels() {
+      HashSet<MeshModel> models = new HashSet<MeshModel>();
       addModels(rootModel, models);
       return models;
    }
@@ -512,14 +509,14 @@ public class World {
          textures.add(texture);
       }
    }
-   private void addModels(Model m, HashSet<Geometry.Model> models) {
+   private void addModels(Model m, HashSet<MeshModel> models) {
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel) m).children) {
             addModels(child, models);
          }
       }
       if (m instanceof TexturedMeshModel) {
-         Geometry.Model model = ((TexturedMeshModel) m).geometry;
+         MeshModel model = ((TexturedMeshModel) m).geometry;
          models.add(model);
       }
    }

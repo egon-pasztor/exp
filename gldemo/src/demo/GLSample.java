@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -28,6 +29,8 @@ import javax.swing.JFrame;
 
 import demo.World.*;
 import demo.Raster.*;
+import demo.Geometry.*;
+import demo.Geometry.MeshModel.FloatArray;
 import demo.VectorAlgebra.*;
 
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
@@ -323,7 +326,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // --------------------------------------------------------------
    // PICKING VERSION 0 -- let's just answer the question here...
 
-   private boolean intersects(Geometry.Model geometry,  // does this geometry...
+   private boolean intersects(MeshModel geometry,  // does this geometry...
                               Matrix4f modelToCamera,   // transformed by this matrix into camera space...
                               Camera camera,            // where this is the camera,
                               int x, int y) {           // intersect this point in the view?
@@ -349,16 +352,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       float xPos = -fWidth + pixelWidth*x    + pixelWidth  * 0.5f;
       float yPos = fHeight - pixelHeight*y   + pixelHeight * 0.5f;
 
-      // WAIT-CONFUSING SIGN ERROR???
       Vector3f camPos = new Vector3f(xPos,yPos,-1.0f);
-      //System.out.format("At %d,%d in %dx%d window -- fWidth %g x fHeight %g\n",
-      //                  x,y,width,height,fWidth,fHeight);
-      //System.out.format("PixelPos is\n%s\n", camPos.toString());
-
       Segment s = new Segment(Vector3f.ORIGIN, camPos);
       // --------------------
   
-      for (Geometry.Mesh.Triangle<Vector3f,Geometry.Model.TexCoords> t : geometry.mesh.interiorTriangles) {
+      for (Geometry.Mesh.Triangle<Vector3f,?> t : geometry.mesh.interiorTriangles) {
          Vector3f v0 = t.edge0.getOppositeVertex().getData();
          Vector3f v1 = t.edge1.getOppositeVertex().getData();
          Vector3f v2 = t.edge2.getOppositeVertex().getData();
@@ -370,67 +368,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          //System.out.format("Triangle is\n%s---\n%s---\n%s---\n", camV0.toString(), camV1.toString(), camV2.toString());
 
          Triangle t2 = new Triangle(camV0, camV1, camV2);
-         if (intersects(t2,s)) return true;      
+         if (VectorAlgebra.intersects(t2,s)) return true;      
       }
       return false;
    }
-
-   public static class Segment {
-      public final Vector3f p0;
-      public final Vector3f p1;
-      public Segment(Vector3f p0, Vector3f p1) {
-         this.p0 = p0;
-         this.p1 = p1;
-      }
-   }
-   public static class Triangle {
-      public final Vector3f v0;
-      public final Vector3f v1;
-      public final Vector3f v2;
-      public Triangle(Vector3f v0, Vector3f v1, Vector3f v2) {
-         this.v0 = v0;
-         this.v1 = v1;
-         this.v2 = v2;
-      }
-   }
-   public static boolean intersects(Triangle t, Segment s) {
-      Vector3f u = t.v1.minus(t.v0);
-      Vector3f v = t.v2.minus(t.v0);
-      Vector3f n = u.cross(v).normalized();
-
-      // http://geomalgorithms.com/a06-_intersect-2.html
-
-      float den = n.dot(s.p1.minus(s.p0));
-      if (den == 0) return false;
-
-      float r1 = n.dot(t.v0.minus(s.p0)) / den;
-      //System.out.format("Intersection f=%g\n", r1);
-
-      Vector3f i = s.p0.plus(s.p1.minus(s.p0).times(r1));
-
-      //System.out.format("Plane intersection at\n%s", i.toString());
-
-      Vector3f w = i.minus(t.v0);
- 
-      float den2 = u.dot(v) * u.dot(v)
-                 - u.dot(u) * v.dot(v);
-      if (den2 == 0) return false;
-
-      float snum = u.dot(v) * w.dot(v)
-                 - v.dot(v) * w.dot(u);
-
-      float tnum = u.dot(v) * w.dot(u)
-                 - u.dot(u) * w.dot(v);
-
-      float sc = snum/den2;
-      float tc = tnum/den2;
-      if (sc<0) return false;
-      if (tc<0) return false;
-      if (sc+tc>1) return false;
-      return true;
-   }
-
-
 
    // -------------------------------------------------------------------
    // SENDING SHADER PROGRAM to GL
@@ -637,9 +578,21 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // SENDING GEOMETRY to GL
    // -------------------------------------------------------------------
    
-   // Vertex Array Object ID
-   // TODO: shold be a "map" from Geom to int...
-   private HashMap<Geometry.Model, GeometryBindings> modelToBindings;
+   // okay, here i'm taking specific arrays from models, 
+   //          sending them to the GPU associated with a "bufferId",
+   //       (which arrays I'm taking is decided by the shader)
+   //          and I'm binding that "bufferId" to a specific shader variable...
+   //
+   // so, the shader should be handling this...
+   
+   // there's one basic SERVICE here...
+   //    at init time, the shader marks which arrays it needs from a model.
+   //    at init time, for each model, arrays that are needed by ANY shader have to be sent to the GPU and each one gets a bufferId.
+   //                  (and arrays that are needed have to be update when they change)
+   //    at init time, the shader binds the array's bufferId to the shader's program dataloc
+   
+   
+   private HashMap<MeshModel, GeometryBindings> modelToBindings;
 
    private static class GeometryBindings {
       public int vaoID;
@@ -652,9 +605,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    private void setupModels(GL3 gl) {
       System.out.format("SETUP-models called \n");
-      modelToBindings = new HashMap<Geometry.Model, GeometryBindings>();
+      modelToBindings = new HashMap<MeshModel, GeometryBindings>();
 
-      for(Geometry.Model model : demoWorld.getModels()) {
+      for(MeshModel model : demoWorld.getMeshModels()) {
          GeometryBindings b = setupModel(gl, model);
          System.out.format("BOUND model [%s] to id [%d]\n", model.getName(), b.vaoID);
          modelToBindings.put(model, b);
@@ -664,14 +617,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // What about new (unregistered) or lost (but still registered) Models?
       // We need a "delete Vertex Array" object..
 
-      for(Geometry.Model model : demoWorld.getModels()) {
+      for(MeshModel model : demoWorld.getMeshModels()) {
          if (model.isModified()) {
             GeometryBindings b = modelToBindings.get(model);
             updateModel(gl, model, b);
          }
       }
    }
-   private GeometryBindings setupModel(GL3 gl, Geometry.Model model) {
+   private GeometryBindings setupModel(GL3 gl, MeshModel model) {
       // generate the IDs
       GeometryBindings b = new GeometryBindings();
       b.vaoID = generateVAOId(gl);
@@ -685,36 +638,69 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       b.baryCoordsBufferId = this.generateBufferId(gl);
    
       // bind the buffers
-      Geometry.Model.Arrays ma = model.getArrays();
-      bindBuffer(gl, b.positionBufferId,   ma.positions,  4, vsPositionLoc);
-      bindBuffer(gl, b.colorBufferId,      ma.colors,     4, vsColorLoc);
-      bindBuffer(gl, b.texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
-      bindBuffer(gl, b.baryCoordsBufferId, ma.baryCoords, 2, vsBaryCoordsLoc);
+      HashMap<String,FloatArray> ma = model.getArrays();
+      bindBuffer(gl, b.positionBufferId,   ma.get(MeshModel.GEOMETRY_ARRAY_NAME),    vsPositionLoc);
+      bindBuffer(gl, b.colorBufferId,      ma.get(MeshModel.COLOR_ARRAY_NAME),       vsColorLoc);
+      bindBuffer(gl, b.texCoordsBufferId,  ma.get(MeshModel.TEX_COORDS_ARRAY_NAME),  vsTexCoordsLoc);
+      bindBuffer(gl, b.baryCoordsBufferId, ma.get(MeshModel.BARY_COORDS_ARRAY_NAME), vsBaryCoordsLoc);
       return b;
    }
-   private void updateModel(GL3 gl, Geometry.Model model, GeometryBindings b) {
+   private void updateModel(GL3 gl, MeshModel model, GeometryBindings b) {
       gl.glBindVertexArray(b.vaoID);
 
-      Geometry.Model.Arrays ma = model.getArrays();
-      updateBuffer(gl, b.positionBufferId,   ma.positions,  4, vsPositionLoc);
-      updateBuffer(gl, b.colorBufferId,      ma.colors,     4, vsColorLoc);
-      updateBuffer(gl, b.texCoordsBufferId,  ma.texCoords,  4, vsTexCoordsLoc);
-      updateBuffer(gl, b.baryCoordsBufferId, ma.baryCoords, 2, vsBaryCoordsLoc);
+      HashMap<String,FloatArray> ma = model.getArrays();
+      updateBuffer(gl, b.positionBufferId,   ma.get(MeshModel.GEOMETRY_ARRAY_NAME));
+      updateBuffer(gl, b.colorBufferId,      ma.get(MeshModel.COLOR_ARRAY_NAME));
+      updateBuffer(gl, b.texCoordsBufferId,  ma.get(MeshModel.TEX_COORDS_ARRAY_NAME));
+      updateBuffer(gl, b.baryCoordsBufferId, ma.get(MeshModel.BARY_COORDS_ARRAY_NAME));
    }
    
-   private void bindBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
+   private void bindBuffer(GL3 gl, int bufferId, MeshModel.FloatArray data, int dataLoc){
       // bind buffer for vertices and copy data into buffer
       gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
-      gl.glBufferData(GL.GL_ARRAY_BUFFER, dataArray.length * Float.SIZE / 8,
-            Buffers.newDirectFloatBuffer(dataArray), GL.GL_STATIC_DRAW);
+      
+      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(data.array.length * 4);
+      byteBuffer.order(ByteOrder.nativeOrder());
+      FloatBuffer floatBuffer = byteBuffer.asFloatBuffer();
+      floatBuffer.put(data.array);
+      floatBuffer.position(0);
+      
+      gl.glBufferData(GL.GL_ARRAY_BUFFER,
+            data.array.length * Float.SIZE / 8,
+            floatBuffer, GL.GL_STATIC_DRAW);
+      
+      // we're doing two different things here...
+      //   we're Sending the dataArray to the GPU -- 
+      //      first, the dataArray (a Java Array instance) is copied into a FloatArray (native allocated memory)
+      //      second, that allocated memory is copied into the GPU and assoicated with "bufferId".
+      //
+      //   AND, we're telling the GPU how to interpret data for the vertex-shader-input-parameter "dataLoc"
+      //      the number-of-components, the component-type, the stride, the offset,
+      //      and implicitly, the bufferId.  Whatever butterId is bound to GL_ARRAY_BUFFER at the time
+      //      "glVertexAttribPointer" is called will be bound to "dataLoc" when glDrawArrays is called.
+      //
+      //      (note, the bufferId does not have to be bound when glDrawArrays is called,
+      //       (of course not, as there are several different arrays in use then),
+      //       but if we ever get around to glBindBuffer of GL_ELEMENT_ARRAY_BUFFER, that one
+      //       needs to be bound AT the glDrawArrays call)
+      
+      
       gl.glEnableVertexAttribArray(dataLoc);
-      gl.glVertexAttribPointer(dataLoc, componentsPerAttribute, GL.GL_FLOAT, false, 0, 0);
+      gl.glVertexAttribPointer(dataLoc, data.numComponentsPerElement, GL.GL_FLOAT, false, 0, 0);
    }
-   private void updateBuffer(GL3 gl, int bufferId, float[] dataArray, int componentsPerAttribute, int dataLoc){
+   private void updateBuffer(GL3 gl, int bufferId, MeshModel.FloatArray data){
       gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
+
+      // todo: don't recreate the float-buffer everytime but reuse the one allocated in the bindBuffer
+      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(data.array.length * 4);
+      byteBuffer.order(ByteOrder.nativeOrder());
+      FloatBuffer floatBuffer = byteBuffer.asFloatBuffer();
+      floatBuffer.put(data.array);
+      floatBuffer.position(0);
+      
       gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
-            dataArray.length * Float.SIZE / 8,
-            Buffers.newDirectFloatBuffer(dataArray));
+            data.array.length * Float.SIZE / 8,
+            floatBuffer);
    }
    private int generateVAOId(GL3 gl) {
       // allocate an array of one element in order to store the generated id

@@ -56,7 +56,14 @@ public class VectorAlgebra {
       public Vector2f normalized() {
          return this.times(1.0f / length());
       }
-      
+
+      // -------------------------------------------------------
+
+      public int copyToFloatArray(float[] a, int offset) {
+         a[offset+0]=x; a[offset+1]=y;
+         return offset+2;
+      }
+
       public static final Vector2f ORIGIN = new Vector2f(0.0f, 0.0f);
       public static final Vector2f X      = new Vector2f(1.0f, 0.0f);
       public static final Vector2f Y      = new Vector2f(0.0f, 1.0f);
@@ -227,6 +234,13 @@ public class VectorAlgebra {
          return new Vector3f(x * remainder + target.x * fraction,
                              y * remainder + target.y * fraction,
                              z * remainder + target.z * fraction);
+      }
+
+      // -------------------------------------------------------
+
+      public int copyToFloatArray(float[] a, int offset) {
+         a[offset+0]=x; a[offset+1]=y; a[offset+2]=z;
+         return offset+3;
       }
 
       public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f);
@@ -446,6 +460,11 @@ public class VectorAlgebra {
 
       // -------------------------------------------------------
 
+      public int copyToFloatArray(float[] a, int offset) {
+         a[offset+0]=x; a[offset+1]=y; a[offset+2]=z; a[offset+3]=w;
+         return offset+4;
+      }
+
       public static final Vector4f ORIGIN = new Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
       public static final Vector4f X      = new Vector4f(1.0f, 0.0f, 0.0f, 0.0f);
       public static final Vector4f Y      = new Vector4f(0.0f, 1.0f, 0.0f, 0.0f);
@@ -613,12 +632,7 @@ public class VectorAlgebra {
       if (den == 0) return false;
 
       float r1 = n.dot(t.v0.minus(s.p0)) / den;
-      //System.out.format("Intersection f=%g\n", r1);
-
       Vector3f i = s.p0.plus(s.p1.minus(s.p0).times(r1));
-
-      //System.out.format("Plane intersection at\n%s", i.toString());
-
       Vector3f w = i.minus(t.v0);
  
       float den2 = u.dot(v) * u.dot(v)

@@ -1,6 +1,7 @@
 package demo;
 
 import demo.VectorAlgebra.*;
+import demo.Geometry.*;
 import demo.Raster.*;
 
 
@@ -19,7 +20,7 @@ public class DemoWorld extends World {
    private boolean ball = false;
    private int subdivide = 1;
    
-   private Geometry.Model stretchyBall;
+   private MeshModel stretchyBall;
    private World.Model[] mobileBalls;
    
    public void initDemoWorld() {
@@ -28,12 +29,12 @@ public class DemoWorld extends World {
       Image leaImage = Raster.imageFromResource("lea.png");
       Image teapotImage = Raster.imageFromResource("teapot.png");
       
-      Geometry.Model center = null;
+      MeshModel center = null;
       if (cube) center = Geometry.createUnitCube();
       if (ball) center = Geometry.createUnitSphere(20,20);
       if (ico)  center = Geometry.createIco(subdivide);
 
-      Geometry.Model ball = Geometry.createIco(2);
+      MeshModel ball = Geometry.createIco(2);
       stretchyBall = Geometry.createIco(4);
       
       CompoundModel root = new CompoundModel();
@@ -52,7 +53,6 @@ public class DemoWorld extends World {
          root.children.add(m);
       }
       updateDemoWorld(0.0f);
-
       setRootModel(root);
    }
    
