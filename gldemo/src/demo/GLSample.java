@@ -12,11 +12,11 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
-import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -30,7 +30,6 @@ import javax.swing.JFrame;
 import demo.World.*;
 import demo.Raster.*;
 import demo.Geometry.*;
-import demo.Geometry.MeshModel.FloatArray;
 import demo.VectorAlgebra.*;
 
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
@@ -69,9 +68,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
       
-      //demoWorld = new DemoWorld(/* cube */ false, /* ico */ true, /* ball */ false, /* subdivide */ 2);
       demoWorld = new DemoWorld(/* cube */ true, /* ico */ false, /* ball */ false, /* subdivide */ 0);
-      //demoWorld = new DemoWorld(/* cube */ false, /* ico */ false, /* ball */ true, /* subdivide */ 0);
       
       GLProfile glProfile = GLProfile.get(GLProfile.GL3);
       GLCapabilities glCapabilities = new GLCapabilities(glProfile);
@@ -226,7 +223,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       //    but the different models in the model tree might use different programs
       setupProgram(gl);
       setupTextures(gl);
-      setupModels(gl);
+      setupBuffers(gl);
    }
    
    //    "renderGL" (GL3)  -- set camera-ball perspective matrix
@@ -236,9 +233,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    //                              render
    
    public void renderGL(GL3 gl) {
-      updateModifiedModels(gl);
+      updateBuffers(gl);
 
       Camera camera = cameraController.getCamera();
+      demoWorld.bindPositions(camera.cameraToClipSpace, camera.worldToCameraSpace);
       
       int width = camera.width;
       int height = camera.height;
@@ -267,53 +265,60 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // RENDERING -------
       
       // Save Camera-To-Clip-Space Matrix
-      sendMatrixToGL(gl, camera.cameraToClipSpace, projMatrixLoc);
+      //sendMatrixToGL(gl, camera.cameraToClipSpace, projMatrixLoc);
       
-      renderSubmodels(gl, demoWorld.getRootModel(), camera.worldToCameraSpace);
+      renderShaderInstances(gl, demoWorld.getRootModel(), camera.worldToCameraSpace);
 
       // Check out error
       checkError(gl, "render");
    }
    
-   public void renderSubmodels(GL3 gl, Model m, Matrix4f worldToCamera) {
-      Matrix4f modelToCamera = Matrix4f.product(worldToCamera, m.getModelToWorld());
+   public void renderShaderInstances(GL3 gl, Model m, Matrix4f viewMatrix) {
+      viewMatrix = Matrix4f.product(viewMatrix, m.getModelToWorld());
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel)m).children) {
-            renderSubmodels(gl, child, modelToCamera);
+            renderShaderInstances(gl, child, viewMatrix);
          }
       }
-      if (m instanceof TexturedMeshModel) {
-         TexturedMeshModel tm = (TexturedMeshModel) m;
+      if (m instanceof ShaderInstanceModel) {
+         Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
+         MeshModel model = ((ShaderInstanceModel) m).model;
 
-         // Save Model-To-Camera-Space Matrix
-         sendMatrixToGL(gl, modelToCamera, viewMatrixLoc);
-
-         // Bind texture -- 
-         //    we're binding the GL_TEXTURE2D field in GL_TEXTURE0,
-         //       because GL_TEXTURE0 is the "active" texture
-         //    and the SHADER uses GL_TEXTURE0 
-         //       because the shader "myTexture" field is bound to "0".
-         //
-         // We could set it up differently... right?            
-         //  
-         int textureId = imageToGLId.get(tm.texture); 
-         gl.glBindTexture(GL.GL_TEXTURE_2D, textureId); 
-
-         // Bind model
-         GeometryBindings modelId = modelToBindings.get(tm.geometry);
-         gl.glBindVertexArray(modelId.vaoID);
-
-         //System.out.format("Testing intersection with [%s]\n", tm.geometry.getName());
-
-         if (intersects(tm.geometry, modelToCamera, cameraController.getCamera(), hoverX, hoverY)) {
-            gl.glUniform1i(highlightBoolLoc, 1);
+         if (intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY)) {
+            shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.UniformIntBinding(1));
          } else {
-            gl.glUniform1i(highlightBoolLoc, 0);
+            shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.UniformIntBinding(0));
          }
 
+         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Variable variable = entry.getKey();
+            Shader.Binding binding = entry.getValue();
+            if (binding instanceof Shader.UniformIntBinding) {
+               Integer value = ((Shader.UniformIntBinding) binding).value;
+               gl.glUniform1i(variable.getGLPProgramLocation(), value);
+            }
+            if (binding instanceof Shader.UniformVec3Binding) {
+               Vector3f value = ((Shader.UniformVec3Binding) binding).value;
+               gl.glUniform3f(variable.getGLPProgramLocation(), value.x, value.y, value.z);
+            }
+            if (binding instanceof Shader.UniformMat4Binding) {
+               Matrix4f value = ((Shader.UniformMat4Binding) binding).value;
+               float arr[] = new float[16];
+               value.copyToFloatArray(arr);
+               gl.glUniformMatrix4fv(variable.getGLPProgramLocation(), 1, false, arr, 0);     
+            }
+            if (binding instanceof Shader.TextureBinding) {
+               Shader.ManagedTexture texture = ((Shader.TextureBinding) binding).texture;
+               gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID); 
+            }
+         }
          
+         // Binding the "vertex array object" ID takes care of all the per-vertex buffer bindings
+         GeometryBindings modelId = modelToBindings.get(shaderInstance);
+         gl.glBindVertexArray(modelId.vaoID);
+
          // Draw the bound arrays...
-         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * tm.geometry.getNumTriangles());
+         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * model.getNumTriangles());
       }
    }
    
@@ -377,24 +382,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // SENDING SHADER PROGRAM to GL
    // -------------------------------------------------------------------
 
-   // Program ID
-   private int programID;
-
-   // Vertex Attribute Locations
-   private int vsPositionLoc;
-   private int vsColorLoc;
-   private int vsTexCoordsLoc;
-   private int vsBaryCoordsLoc;
-
-   // Uniform (vertex-shader) variable Locations
-   private int projMatrixLoc;
-   private int viewMatrixLoc;
-   
-   // Uniform (fragment-shader) variable Locations
-   private int textureLoc;
-   private int highlightBoolLoc;
-
-   
    enum ShaderType{ VertexShader, FragmentShader }
    
    private void setupProgram(GL3 gl) {
@@ -408,7 +395,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       System.out.format("Fragent Shader Info Log: [%s]\n", getShaderInfoLog(gl, f));
 
       // Complete the "shader program"
-      this.programID = gl.glCreateProgram();
+      int programID = gl.glCreateProgram();
       gl.glAttachShader(programID, v);
       gl.glAttachShader(programID, f);
       gl.glLinkProgram(programID);
@@ -420,22 +407,23 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       checkError(gl, "gotProgram");      
 
       // Extract variable "locations":
-      
-      this.vsPositionLoc = gl.glGetAttribLocation(programID, "inVertexPosition");
-      this.vsColorLoc = gl.glGetAttribLocation(programID, "inVertexColor");
-      this.vsBaryCoordsLoc = gl.glGetAttribLocation(programID, "inVertexBaryCoords");
-      this.vsTexCoordsLoc = gl.glGetAttribLocation(programID, "inVertexTexCoords");
-      System.out.format("Locations: [%d,%d,%d]\n", 
-            vsPositionLoc, vsColorLoc, vsTexCoordsLoc);
-      checkError(gl, "extractLocs");      
+      Shader.TEXTURE_SHADER.setGLProgramID(programID);
+      for (Shader.Variable variable : Shader.TEXTURE_SHADER.variables) {
+         if ((variable.type == Shader.Variable.Type.VEC2_PER_VERTEX_BUFFER) ||
+             (variable.type == Shader.Variable.Type.VEC3_PER_VERTEX_BUFFER) ||
+             (variable.type == Shader.Variable.Type.VEC4_PER_VERTEX_BUFFER)) {
             
-      this.projMatrixLoc = gl.glGetUniformLocation(programID, "projMatrix");
-      this.viewMatrixLoc = gl.glGetUniformLocation(programID, "viewMatrix");
-
-      this.textureLoc       = gl.glGetUniformLocation(programID, "myTexture");
-      this.highlightBoolLoc = gl.glGetUniformLocation(programID, "highlight");
-
-      gl.glUniform1i(textureLoc, 0);
+            variable.setGLProgramLocation(gl.glGetAttribLocation(programID, variable.name));
+         } else {
+            variable.setGLProgramLocation(gl.glGetUniformLocation(programID, variable.name));
+            if ((variable.type == Shader.Variable.Type.BGRA_TEXTURE) ||
+                (variable.type == Shader.Variable.Type.GRAY_TEXTURE)) {
+               
+               gl.glUniform1i(variable.getGLPProgramLocation(), 0);
+            }
+         }
+      }
+      checkError(gl, "extractLocs");
    }
 
    private int newShaderFromCurrentClass(GL3 gl, String fileName, ShaderType type){
@@ -529,40 +517,39 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // SENDING TEXTURE to GL
    // -------------------------------------------------------------------
 
-   private HashMap<Image, Integer> imageToGLId;
-
    private void setupTextures(GL3 gl) {
-      System.out.format("SETUP-textures called \n");
-      imageToGLId = new HashMap<Image, Integer>();
-
-      for(Image image : demoWorld.getTextures()) {
-         int id = setupTexture(gl, image);
-         System.out.format("BOUND texture [%s] to id [%d]\n", image.getName(), id);
-         imageToGLId.put(image, id);
+      gl.glActiveTexture(GL.GL_TEXTURE0);
+      
+      HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
+      HashSet<Shader.ManagedTexture> textures = getAllTextures(shaderInstances);
+      for (Shader.ManagedTexture texture : textures) {
+         texture.setup();
+         texture.glTextureID = this.generateTextureId(gl);
+         
+         gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID);         
+         gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
+         gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);
+         
+         gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
+               texture.image.width, texture.image.height, 0, GL.GL_BGRA,
+               GL.GL_UNSIGNED_BYTE, texture.intBuffer);
       }
    }
-
-   private int setupTexture(GL3 gl, Image image) {
-      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(image.pixels.length * 4);
-      byteBuffer.order(ByteOrder.nativeOrder());
-      IntBuffer intBuffer = byteBuffer.asIntBuffer();
-      intBuffer.put(image.pixels);
-      intBuffer.position(0);
-      
-      int textureId = this.generateTextureId(gl);
-      gl.glActiveTexture(GL.GL_TEXTURE0);
-      gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);
-      
-      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
-      gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);
-      
-      gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
-                      image.width, image.height, 0, GL.GL_BGRA,
-                      GL.GL_UNSIGNED_BYTE, intBuffer);
-      
-      checkError(gl, "savedTexture");
-      return textureId;         
+   private HashSet<Shader.ManagedTexture> getAllTextures(Collection<Shader.Instance> shaderInstances) {
+      HashSet<Shader.ManagedTexture> textures = new HashSet<Shader.ManagedTexture>();
+      for (Shader.Instance shaderInstance : shaderInstances) {
+         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Binding binding = entry.getValue();
+            if (binding instanceof Shader.TextureBinding) {
+               textures.add(((Shader.TextureBinding) binding).texture);
+            }
+         }
+      }
+      return textures;
    }
+   
+   
+   
    private int generateTextureId(GL3 gl) {
       // allocate an array of one element in order to store the generated id
       int[] idArray = new int[1];
@@ -578,130 +565,77 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // SENDING GEOMETRY to GL
    // -------------------------------------------------------------------
    
-   // okay, here i'm taking specific arrays from models, 
-   //          sending them to the GPU associated with a "bufferId",
-   //       (which arrays I'm taking is decided by the shader)
-   //          and I'm binding that "bufferId" to a specific shader variable...
-   //
-   // so, the shader should be handling this...
-   
-   // there's one basic SERVICE here...
-   //    at init time, the shader marks which arrays it needs from a model.
-   //    at init time, for each model, arrays that are needed by ANY shader have to be sent to the GPU and each one gets a bufferId.
-   //                  (and arrays that are needed have to be update when they change)
-   //    at init time, the shader binds the array's bufferId to the shader's program dataloc
-   
-   
-   private HashMap<MeshModel, GeometryBindings> modelToBindings;
-
+   private HashMap<Shader.Instance, GeometryBindings> modelToBindings;
    private static class GeometryBindings {
       public int vaoID;
-
-      public int positionBufferId;
-      public int colorBufferId;
-      public int texCoordsBufferId;
-      public int baryCoordsBufferId;
    };
 
-   private void setupModels(GL3 gl) {
-      System.out.format("SETUP-models called \n");
-      modelToBindings = new HashMap<MeshModel, GeometryBindings>();
+   private void setupBuffers(GL3 gl) {
+      modelToBindings = new HashMap<Shader.Instance, GeometryBindings>();
+      
+      HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
+      HashSet<Shader.ManagedBuffer> buffers = getAllBuffers(shaderInstances);
+      for (Shader.ManagedBuffer buffer : buffers) {
+         buffer.setup();
+         buffer.glBufferID = generateBufferId(gl);
 
-      for(MeshModel model : demoWorld.getMeshModels()) {
-         GeometryBindings b = setupModel(gl, model);
-         System.out.format("BOUND model [%s] to id [%d]\n", model.getName(), b.vaoID);
-         modelToBindings.put(model, b);
+         gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);
+         gl.glBufferData(GL.GL_ARRAY_BUFFER,
+               buffer.array.length * Float.SIZE / 8,
+               buffer.floatBuffer, GL.GL_STATIC_DRAW);
+         buffer.glBufferSize = buffer.array.length;
+      }
+
+      // Second, for each shader-instance, create a "vertex array object" to hold the vertex array bindings
+      for (Shader.Instance shaderInstance : shaderInstances) {
+         // generate the IDs
+         GeometryBindings b = new GeometryBindings();
+         b.vaoID = generateVAOId(gl);
+         gl.glBindVertexArray(b.vaoID);
+
+         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Variable variable = entry.getKey();
+            Shader.Binding binding = entry.getValue();
+            if (binding instanceof Shader.PerVertexBinding) {
+               Shader.ManagedBuffer buffer = ((Shader.PerVertexBinding) binding).buffer;
+               
+               gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);               
+               gl.glEnableVertexAttribArray(variable.getGLPProgramLocation());
+               gl.glVertexAttribPointer(variable.getGLPProgramLocation(), buffer.numFloatsPerElement, GL.GL_FLOAT, false, 0, 0);
+            }
+         }
+         
+         modelToBindings.put(shaderInstance, b);
       }
    }
-   private void updateModifiedModels(GL3 gl) {
-      // What about new (unregistered) or lost (but still registered) Models?
-      // We need a "delete Vertex Array" object..
-
-      for(MeshModel model : demoWorld.getMeshModels()) {
-         if (model.isModified()) {
-            GeometryBindings b = modelToBindings.get(model);
-            updateModel(gl, model, b);
+   private void updateBuffers(GL3 gl) {
+      HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
+      HashSet<Shader.ManagedBuffer> buffers = getAllBuffers(shaderInstances);
+      
+      for (Shader.ManagedBuffer buffer : buffers) {
+         if (buffer.isModified()) {
+            buffer.setup();
+            gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);
+            gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
+                  buffer.array.length * Float.SIZE / 8,
+                  buffer.floatBuffer);
          }
       }
    }
-   private GeometryBindings setupModel(GL3 gl, MeshModel model) {
-      // generate the IDs
-      GeometryBindings b = new GeometryBindings();
-      b.vaoID = generateVAOId(gl);
-      gl.glBindVertexArray(b.vaoID);
-      
-      // Generate slots
-      checkError(gl, "bufferIdCreation");
-      b.positionBufferId = this.generateBufferId(gl);
-      b.colorBufferId = this.generateBufferId(gl);
-      b.texCoordsBufferId = this.generateBufferId(gl);
-      b.baryCoordsBufferId = this.generateBufferId(gl);
-   
-      // bind the buffers
-      HashMap<String,FloatArray> ma = model.getArrays();
-      bindBuffer(gl, b.positionBufferId,   ma.get(MeshModel.GEOMETRY_ARRAY_NAME),    vsPositionLoc);
-      bindBuffer(gl, b.colorBufferId,      ma.get(MeshModel.COLOR_ARRAY_NAME),       vsColorLoc);
-      bindBuffer(gl, b.texCoordsBufferId,  ma.get(MeshModel.TEX_COORDS_ARRAY_NAME),  vsTexCoordsLoc);
-      bindBuffer(gl, b.baryCoordsBufferId, ma.get(MeshModel.BARY_COORDS_ARRAY_NAME), vsBaryCoordsLoc);
-      return b;
-   }
-   private void updateModel(GL3 gl, MeshModel model, GeometryBindings b) {
-      gl.glBindVertexArray(b.vaoID);
-
-      HashMap<String,FloatArray> ma = model.getArrays();
-      updateBuffer(gl, b.positionBufferId,   ma.get(MeshModel.GEOMETRY_ARRAY_NAME));
-      updateBuffer(gl, b.colorBufferId,      ma.get(MeshModel.COLOR_ARRAY_NAME));
-      updateBuffer(gl, b.texCoordsBufferId,  ma.get(MeshModel.TEX_COORDS_ARRAY_NAME));
-      updateBuffer(gl, b.baryCoordsBufferId, ma.get(MeshModel.BARY_COORDS_ARRAY_NAME));
+   private HashSet<Shader.ManagedBuffer> getAllBuffers(Collection<Shader.Instance> shaderInstances) {
+      HashSet<Shader.ManagedBuffer> buffers = new HashSet<Shader.ManagedBuffer>();
+      for (Shader.Instance shaderInstance : shaderInstances) {
+         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Binding binding = entry.getValue();
+            if (binding instanceof Shader.PerVertexBinding) {
+               buffers.add(((Shader.PerVertexBinding) binding).buffer);
+            }
+         }
+      }
+      return buffers;
    }
    
-   private void bindBuffer(GL3 gl, int bufferId, MeshModel.FloatArray data, int dataLoc){
-      // bind buffer for vertices and copy data into buffer
-      gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
-      
-      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(data.array.length * 4);
-      byteBuffer.order(ByteOrder.nativeOrder());
-      FloatBuffer floatBuffer = byteBuffer.asFloatBuffer();
-      floatBuffer.put(data.array);
-      floatBuffer.position(0);
-      
-      gl.glBufferData(GL.GL_ARRAY_BUFFER,
-            data.array.length * Float.SIZE / 8,
-            floatBuffer, GL.GL_STATIC_DRAW);
-      
-      // we're doing two different things here...
-      //   we're Sending the dataArray to the GPU -- 
-      //      first, the dataArray (a Java Array instance) is copied into a FloatArray (native allocated memory)
-      //      second, that allocated memory is copied into the GPU and assoicated with "bufferId".
-      //
-      //   AND, we're telling the GPU how to interpret data for the vertex-shader-input-parameter "dataLoc"
-      //      the number-of-components, the component-type, the stride, the offset,
-      //      and implicitly, the bufferId.  Whatever butterId is bound to GL_ARRAY_BUFFER at the time
-      //      "glVertexAttribPointer" is called will be bound to "dataLoc" when glDrawArrays is called.
-      //
-      //      (note, the bufferId does not have to be bound when glDrawArrays is called,
-      //       (of course not, as there are several different arrays in use then),
-      //       but if we ever get around to glBindBuffer of GL_ELEMENT_ARRAY_BUFFER, that one
-      //       needs to be bound AT the glDrawArrays call)
-      
-      
-      gl.glEnableVertexAttribArray(dataLoc);
-      gl.glVertexAttribPointer(dataLoc, data.numComponentsPerElement, GL.GL_FLOAT, false, 0, 0);
-   }
-   private void updateBuffer(GL3 gl, int bufferId, MeshModel.FloatArray data){
-      gl.glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
-
-      // todo: don't recreate the float-buffer everytime but reuse the one allocated in the bindBuffer
-      ByteBuffer byteBuffer = ByteBuffer.allocateDirect(data.array.length * 4);
-      byteBuffer.order(ByteOrder.nativeOrder());
-      FloatBuffer floatBuffer = byteBuffer.asFloatBuffer();
-      floatBuffer.put(data.array);
-      floatBuffer.position(0);
-      
-      gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
-            data.array.length * Float.SIZE / 8,
-            floatBuffer);
-   }
+   
    private int generateVAOId(GL3 gl) {
       // allocate an array of one element in order to store the generated id
       int[] idArray = new int[1];

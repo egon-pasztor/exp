@@ -8,6 +8,7 @@ import java.util.Map;
 
 import demo.Raster.*;   // for ColorARGB
 import demo.VectorAlgebra.*;
+import demo.World.*;
 
 public class Geometry {
    
@@ -406,10 +407,10 @@ public class Geometry {
          this.name = name;
          this.mesh = new Mesh<Vector3f,Object>();
          
-         builders = new HashMap<String,FloatArrayBuilder>();
-         builders.put(GEOMETRY_ARRAY_NAME, DEFAULT_GEOMETRY_ARRAY_BUILDER);
-         builders.put(BARY_COORDS_ARRAY_NAME, DEFAULT_BARY_COORDS_ARRAY_BUILDER);
-         builders.put(COLOR_ARRAY_NAME, EMPTY_COLOR_ARRAY_BUILDER);
+         buffers = new HashMap<String,Shader.ManagedBuffer>();
+         buffers.put(Shader.POSITION_ARRAY, defaultPositionBuffer(mesh));
+         buffers.put(Shader.BARY_COORDS,    defaultBaryCoords(mesh));
+         buffers.put(Shader.COLOR_ARRAY,    defaultColorArray(mesh));
       }
 
       // ------------------------------------------------------------------------
@@ -445,125 +446,84 @@ public class Geometry {
       }
       
       // ------------------------------------------------------------------------
-      // Modified bool
+      // Map of Managed Buffers...
       // ------------------------------------------------------------------------
 
-      private boolean modified;
-      public boolean isModified() {
-         return modified;
+      public Shader.ManagedBuffer getManagedBuffer(String key) {
+         return buffers.get(key);
       }
-      public void setModified(boolean modified) {
-         this.modified = modified;
+      public void setManagedBuffer(String key, Shader.ManagedBuffer buffer) {
+         buffers.put(key, buffer);
       }
-      
-      // for any number of "keys", we want to be able to return a "float array"
-      
-      public static class FloatArray {
-         public final int numElements; 
-         public final int numComponentsPerElement;
-         public final float[] array;
-         
-         public FloatArray(int numElements, int numComponentsPerElement) {
-            this.numElements = numElements;
-            this.numComponentsPerElement = numComponentsPerElement;
-            this.array = new float[numElements * numComponentsPerElement];
-         }
-      }
-      public interface FloatArrayBuilder {
-         public FloatArray build(Mesh<Vector3f,Object> mesh);
-      }
-      
-      private HashMap<String,FloatArrayBuilder> builders;
-      public void setFloatArrayBuilder(String name,FloatArrayBuilder builder) {
-         builders.put(name,builder);
-      }
-      public HashMap<String,FloatArray> getArrays() {
-         HashMap<String,FloatArray> arrays = new HashMap<String,FloatArray>();
-         for (Map.Entry<String,FloatArrayBuilder> builder : builders.entrySet()) {
-            arrays.put(builder.getKey(), builder.getValue().build(mesh));
-         }
-         return arrays;
-      }
-      
+      private HashMap<String,Shader.ManagedBuffer> buffers;
 
-      public static final String GEOMETRY_ARRAY_NAME    = "geometry";
-      public static final String TEX_COORDS_ARRAY_NAME  = "texCoords";
-      public static final String BARY_COORDS_ARRAY_NAME = "baryCoords";
-      public static final String COLOR_ARRAY_NAME       = "colors";
    }
    
    // -------------------------------------------------------------------------
    // Basic Array Builders for Geometry / BaryCoords
    //    .. and an "empty" one for Colors
    // -------------------------------------------------------------------------
-
-   private static class GeometryArrayBuilder implements MeshModel.FloatArrayBuilder {
-      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
-         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
-         
-         int pPos = 0;
-         for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
-            Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
-            Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
-            Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
-            pPos = Vector4f.fromVector3f(v0Pos).copyToFloatArray(result.array, pPos);
-            pPos = Vector4f.fromVector3f(v1Pos).copyToFloatArray(result.array, pPos);
-            pPos = Vector4f.fromVector3f(v2Pos).copyToFloatArray(result.array, pPos);
+   
+   private static Shader.ManagedBuffer defaultPositionBuffer(final Mesh<Vector3f,Object> mesh) {
+      return new Shader.ManagedBuffer(4) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
+               Vector3f v0Pos = t.edge0.getOppositeVertex().getData();
+               Vector3f v1Pos = t.edge1.getOppositeVertex().getData();
+               Vector3f v2Pos = t.edge2.getOppositeVertex().getData();
+               pPos = Vector4f.fromVector3f(v0Pos).copyToFloatArray(array, pPos);
+               pPos = Vector4f.fromVector3f(v1Pos).copyToFloatArray(array, pPos);
+               pPos = Vector4f.fromVector3f(v2Pos).copyToFloatArray(array, pPos);
+            }
          }
-         return result;
-      }
+      };
    }
-   
-   private static final GeometryArrayBuilder DEFAULT_GEOMETRY_ARRAY_BUILDER = new GeometryArrayBuilder();
 
-   private static class BaryCoordsArrayBuilder implements MeshModel.FloatArrayBuilder {
-      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
-         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 2);
-         
-         int pPos = 0;
-         for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
-            pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(result.array,  pPos);
-            pPos = (new Vector2f(0.0f,1.0f)).copyToFloatArray(result.array,  pPos);
-            pPos = (new Vector2f(1.0f,1.0f)).copyToFloatArray(result.array,  pPos);
+   private static Shader.ManagedBuffer defaultBaryCoords(final Mesh<Vector3f,Object> mesh) {
+      return new Shader.ManagedBuffer(2) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
+               pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(array,  pPos);
+               pPos = (new Vector2f(0.0f,1.0f)).copyToFloatArray(array,  pPos);
+               pPos = (new Vector2f(1.0f,1.0f)).copyToFloatArray(array,  pPos);
+            }
          }
-         return result;
-      }
+      };
    }
-   
-   private static final BaryCoordsArrayBuilder DEFAULT_BARY_COORDS_ARRAY_BUILDER = new BaryCoordsArrayBuilder();
 
-   private static class EmptyColorArrayBuilder implements MeshModel.FloatArrayBuilder {
-      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
-         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
-         
-         int pPos = 0;
-         for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
-            ColorARGB color = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
-            pPos = copyColor(result.array, pPos, color);
-            pPos = copyColor(result.array, pPos, color);
-            pPos = copyColor(result.array, pPos, color);
+   private static Shader.ManagedBuffer defaultColorArray(final Mesh<Vector3f,Object> mesh) {
+      return new Shader.ManagedBuffer(3) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
+               ColorARGB color = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
+               pPos = copyColor(array, pPos, color);
+               pPos = copyColor(array, pPos, color);
+               pPos = copyColor(array, pPos, color);
+            }
          }
-         return result;
-      }
-      private int copyColor(float[] arr, int base, ColorARGB c) {
-          arr[base+0] = ((float)(c.r&0xff))/255.0f;
-          arr[base+1] = ((float)(c.g&0xff))/255.0f;
-          arr[base+2] = ((float)(c.b&0xff))/255.0f;
-          arr[base+3] = ((float)(c.a&0xff))/255.0f;
-          return base+4;
-      }
+         private int copyColor(float[] arr, int base, ColorARGB c) {
+             arr[base+0] = ((float)(c.r&0xff))/255.0f;
+             arr[base+1] = ((float)(c.g&0xff))/255.0f;
+             arr[base+2] = ((float)(c.b&0xff))/255.0f;
+             //arr[base+3] = ((float)(c.a&0xff))/255.0f;
+             return base+3;
+         }
+      };
    }
-   
-   private static final EmptyColorArrayBuilder EMPTY_COLOR_ARRAY_BUILDER = new EmptyColorArrayBuilder();
-   
    
    // -----------------------------------------------------------------------
    // CUBE
    // -----------------------------------------------------------------------
    
    public static MeshModel createUnitCube () {
-      MeshModel m = new MeshModel("UnitCube");
-      m.setFloatArrayBuilder(MeshModel.TEX_COORDS_ARRAY_NAME, CUBE_TEXTURE_ARRAY_BUILDER);
+      final MeshModel m = new MeshModel("UnitCube");
+      m.setManagedBuffer(Shader.TEX_COORDS, cubeTextureCoordsArray(m.mesh));
       
       final Vector3f cntr = Vector3f.Z;
       final Vector3f dX   = Vector3f.X;
@@ -583,7 +543,8 @@ public class Geometry {
       
       addSquare(m, cntr.rotated(Vector3f.X, halfpi),
                      dX.rotated(Vector3f.X, halfpi),
-                     dY.rotated(Vector3f.X, halfpi), 5);      
+                     dY.rotated(Vector3f.X, halfpi), 5);
+      
       return m;
    }
    
@@ -615,25 +576,24 @@ public class Geometry {
          this.face = face; this.tex0 = tex0; this.tex1 = tex1; this.tex2 = tex2;
       }
    }
-   private static class CubeTextureArrayBuilder implements MeshModel.FloatArrayBuilder {
-      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
-         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
-         
-         int pPos = 0;
-         for (Mesh.Triangle<Vector3f,Object> t : mesh.interiorTriangles) {
-            CubeFaceInfo faceInfo = (CubeFaceInfo) t.getData();
-            pPos = toVector4f(faceInfo.tex0).copyToFloatArray(result.array, pPos);
-            pPos = toVector4f(faceInfo.tex1).copyToFloatArray(result.array, pPos);
-            pPos = toVector4f(faceInfo.tex2).copyToFloatArray(result.array, pPos);
-         }
-         return result;
-      }
-      private Vector4f toVector4f(Vector2f tex1) {
-         return new Vector4f(tex1.x, tex1.y, 0.0f, 1.0f);
-      }
-   }
-   private static final CubeTextureArrayBuilder CUBE_TEXTURE_ARRAY_BUILDER = new CubeTextureArrayBuilder();
 
+   private static Shader.ManagedBuffer cubeTextureCoordsArray(final Mesh<Vector3f,Object> mesh) {
+      return new Shader.ManagedBuffer(4) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle<Vector3f,Object> t : mesh.interiorTriangles) {
+               CubeFaceInfo faceInfo = (CubeFaceInfo) t.getData();
+               pPos = toVector4f(faceInfo.tex0).copyToFloatArray(array, pPos);
+               pPos = toVector4f(faceInfo.tex1).copyToFloatArray(array, pPos);
+               pPos = toVector4f(faceInfo.tex2).copyToFloatArray(array, pPos);
+            }
+         }
+         private Vector4f toVector4f(Vector2f tex1) {
+            return new Vector4f(tex1.x, tex1.y, 0.0f, 1.0f);
+         }
+      };
+   }
 
    // -----------------------------------------------------------------------
    // SPHERE
@@ -641,7 +601,7 @@ public class Geometry {
 
    public static MeshModel createUnitSphere(int numLatDivisions, int numLonDivisions) {
       MeshModel m = new MeshModel("UnitSphere");
-      m.setFloatArrayBuilder(MeshModel.TEX_COORDS_ARRAY_NAME, SPHERE_TEXTURE_ARRAY_BUILDER);
+      m.setManagedBuffer(Shader.TEX_COORDS, sphereTextureCoordsArray(m.mesh));
 
       double globalLatMin = -Math.PI/2;
       double globalLatMax =  Math.PI/2;
@@ -706,60 +666,59 @@ public class Geometry {
          this.latlon0 = latlon0; this.latlon1 = latlon1; this.latlon2 = latlon2;
       }
    }
-   private static class SphereTextureArrayBuilder implements MeshModel.FloatArrayBuilder {
-      @Override public MeshModel.FloatArray build(Mesh<Vector3f,Object> mesh) {
-         MeshModel.FloatArray result = new MeshModel.FloatArray(mesh.interiorTriangles.size() * 3, 4);
-         
-         int pPos = 0;
-         for (Mesh.Triangle<Vector3f,Object> t : mesh.interiorTriangles) {
-            SphereFaceInfo faceInfo = (SphereFaceInfo) t.getData();
-            Vector2f tex0 = latLonToTexCoord(faceInfo.latlon0.x, faceInfo.latlon0.y);
-            Vector2f tex1 = latLonToTexCoord(faceInfo.latlon1.x, faceInfo.latlon1.y);
-            Vector2f tex2 = latLonToTexCoord(faceInfo.latlon2.x, faceInfo.latlon2.y);
-            
-            // adjusting the trio of tex0/tex1/tex2 to be nearby in longitude
-            float eps = .000001f;
-            
-            { float d1 = (float) Math.abs(tex1.x     -tex0.x);
-              float d2 = (float) Math.abs(tex1.x+1.0f-tex0.x);
-              if (d2 < d1) {
-                 tex1 = tex1.plus(Vector2f.X);
-              } else {
-                 float d3 = (float) Math.abs(tex1.x-1.0f-tex0.x);
-                 if (d3 < d1) {
-                    tex1 = tex1.minus(Vector2f.X);
-                 }
-              }
-            }
-            { float d1 = (float) Math.abs(tex2.x    -tex1.x);
-              float d2 = (float) Math.abs(tex2.x+1.0f-tex1.x);
-              if (d2 < d1) {
-                 tex2 = tex2.plus(Vector2f.X);
-              } else {
-                 float d3 = (float) Math.abs(tex2.x-1.0f-tex1.x);
-                 if (d3 < d1) {
-                    tex2 = tex2.minus(Vector2f.X);
-                 }
-              }
-            }
 
-            // emit the 3 texture coords:
-            float tex0w = (float) Math.cos((tex0.y-0.5)*Math.PI) +eps;
-            float tex1w = (float) Math.cos((tex1.y-0.5)*Math.PI) +eps;
-            float tex2w = (float) Math.cos((tex2.y-0.5)*Math.PI) +eps;
-            
-            pPos = toVector4f(tex0,tex0w).copyToFloatArray(result.array, pPos);
-            pPos = toVector4f(tex1,tex1w).copyToFloatArray(result.array, pPos);
-            pPos = toVector4f(tex2,tex2w).copyToFloatArray(result.array, pPos);
+   private static Shader.ManagedBuffer sphereTextureCoordsArray(final Mesh<Vector3f,Object> mesh) {
+      return new Shader.ManagedBuffer(4) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle<Vector3f,Object> t : mesh.interiorTriangles) {
+               SphereFaceInfo faceInfo = (SphereFaceInfo) t.getData();
+               Vector2f tex0 = latLonToTexCoord(faceInfo.latlon0.x, faceInfo.latlon0.y);
+               Vector2f tex1 = latLonToTexCoord(faceInfo.latlon1.x, faceInfo.latlon1.y);
+               Vector2f tex2 = latLonToTexCoord(faceInfo.latlon2.x, faceInfo.latlon2.y);
+               
+               // adjusting the trio of tex0/tex1/tex2 to be nearby in longitude
+               float eps = .000001f;
+               
+               { float d1 = (float) Math.abs(tex1.x     -tex0.x);
+                 float d2 = (float) Math.abs(tex1.x+1.0f-tex0.x);
+                 if (d2 < d1) {
+                    tex1 = tex1.plus(Vector2f.X);
+                 } else {
+                    float d3 = (float) Math.abs(tex1.x-1.0f-tex0.x);
+                    if (d3 < d1) {
+                       tex1 = tex1.minus(Vector2f.X);
+                    }
+                 }
+               }
+               { float d1 = (float) Math.abs(tex2.x    -tex1.x);
+                 float d2 = (float) Math.abs(tex2.x+1.0f-tex1.x);
+                 if (d2 < d1) {
+                    tex2 = tex2.plus(Vector2f.X);
+                 } else {
+                    float d3 = (float) Math.abs(tex2.x-1.0f-tex1.x);
+                    if (d3 < d1) {
+                       tex2 = tex2.minus(Vector2f.X);
+                    }
+                 }
+               }
+
+               // emit the 3 texture coords:
+               float tex0w = (float) Math.cos((tex0.y-0.5)*Math.PI) +eps;
+               float tex1w = (float) Math.cos((tex1.y-0.5)*Math.PI) +eps;
+               float tex2w = (float) Math.cos((tex2.y-0.5)*Math.PI) +eps;
+               
+               pPos = toVector4f(tex0,tex0w).copyToFloatArray(array, pPos);
+               pPos = toVector4f(tex1,tex1w).copyToFloatArray(array, pPos);
+               pPos = toVector4f(tex2,tex2w).copyToFloatArray(array, pPos);
+            }
          }
-         return result;
-      }
-      private Vector4f toVector4f(Vector2f tex1, float w) {
-         return new Vector4f(tex1.x*w, tex1.y*w, 0.0f, w);
-      }
+         private Vector4f toVector4f(Vector2f tex1, float w) {
+            return new Vector4f(tex1.x*w, tex1.y*w, 0.0f, w);
+         }
+      };
    }
-   private static final SphereTextureArrayBuilder SPHERE_TEXTURE_ARRAY_BUILDER = new SphereTextureArrayBuilder();
-
    
    // -----------------------------------------------------------------------
    // ICO
@@ -767,7 +726,7 @@ public class Geometry {
 
    public static MeshModel createIco(int subdivisions) {
       MeshModel m = new MeshModel(String.format("Ico-Subdivided-%d", subdivisions));
-      m.setFloatArrayBuilder(MeshModel.TEX_COORDS_ARRAY_NAME, SPHERE_TEXTURE_ARRAY_BUILDER);
+      m.setManagedBuffer(Shader.TEX_COORDS, sphereTextureCoordsArray(m.mesh));
 
       float pi   = (float)Math.PI;
       float lat0 = pi/2;
@@ -825,35 +784,17 @@ public class Geometry {
    }
    
    // -----------------------------------------------------------------------
-   // BEZIER
+   // BEZIER / CYLINDER
    // -----------------------------------------------------------------------
 
    // todo...
    
-   //public Geometry bezierPatchMaker(Vector3f[] sixteenCtrlPoints, float minCurvature, Shader s) {
-   //   return null;
-   //}
-   
-   // -----------------------------------------------------------------------
-   // CYLINDER
-   // -----------------------------------------------------------------------
-
-
-   // -----------------------------------------------------------------------
-   // UVCoordinateProvider ... Hmm...
-   // -----------------------------------------------------------------------
-   
-   interface Extractor {
-      public Vector4f extract(Mesh.Triangle<Vector3f,?> t);
-   }
-
-
    // -----------------------------------------------------------------------
    // Apply modifications..
    // -----------------------------------------------------------------------
 
-   public static void sphereWarp (MeshModel src, float phase, float mag) {
-      for (Mesh.Vertex<Vector3f,?> v : src.mesh.vertices) {
+   public static void sphereWarp (MeshModel model, float phase, float mag) {
+      for (Mesh.Vertex<Vector3f,?> v : model.mesh.vertices) {
          Vector3f p = v.getData().normalized();
  
          Vector2f p2 = positionToLatLon(p);
@@ -862,6 +803,6 @@ public class Geometry {
          p = p.times((float)(1.0 - mag * Math.sin(phase) * Math.sin(phase2)));
          v.setData(p);
       }
-      src.setModified(true);
+      model.getManagedBuffer(Shader.POSITION_ARRAY).setModified(true);
    }
 }
