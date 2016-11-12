@@ -37,8 +37,8 @@ public class DemoWorld extends World {
       Shader.ManagedTexture teapotImageT = new Shader.ManagedTexture(teapotImage);
       
       MeshModel cube0 = Geometry.createUnitCube();
-      MeshModel ball0 = Geometry.createUnitSphere(20,20);
-      MeshModel ball1 = Geometry.createIco(4);
+      MeshModel ball0 = Geometry.createIco(0);
+      MeshModel ball1 = Geometry.createUnitSphere(30,30); //Geometry.createIco(4);
 
       stretchyBall = ball1;
       
@@ -46,12 +46,7 @@ public class DemoWorld extends World {
       
       // Build root instance
       Shader.Instance cube0Instance = new Shader.Instance(Shader.TEXTURE_SHADER);
-      System.out.format("Setting up bindings..\n");
-      cube0Instance.bind(Shader.POSITION_ARRAY, new Shader.PerVertexBinding(cube0.getManagedBuffer(Shader.POSITION_ARRAY)));
-      cube0Instance.bind(Shader.COLOR_ARRAY, new Shader.PerVertexBinding(cube0.getManagedBuffer(Shader.COLOR_ARRAY)));
-      cube0Instance.bind(Shader.BARY_COORDS,    new Shader.PerVertexBinding(cube0.getManagedBuffer(Shader.BARY_COORDS)));
-      cube0Instance.bind(Shader.TEX_COORDS,     new Shader.PerVertexBinding(cube0.getManagedBuffer(Shader.TEX_COORDS)));
-      cube0Instance.bind(Shader.MAIN_TEXTURE,   new Shader.TextureBinding(leaImageT));
+      cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(leaImageT));
       root.children.add(new ShaderInstanceModel(cube0Instance, cube0));
 
       mobileBalls = new World.Model[4];
@@ -59,16 +54,8 @@ public class DemoWorld extends World {
          float angle = (float)(i * (Math.PI/2.0));
          Model m;
          
-         Shader.Instance mobileBallInstance = new Shader.Instance(Shader.TEXTURE_SHADER);
-         mobileBallInstance.bind(Shader.POSITION_ARRAY, new Shader.PerVertexBinding(ball0.getManagedBuffer(Shader.POSITION_ARRAY)));
-         mobileBallInstance.bind(Shader.COLOR_ARRAY, new Shader.PerVertexBinding(ball0.getManagedBuffer(Shader.COLOR_ARRAY)));
-         mobileBallInstance.bind(Shader.BARY_COORDS,    new Shader.PerVertexBinding(ball0.getManagedBuffer(Shader.BARY_COORDS)));
-         mobileBallInstance.bind(Shader.TEX_COORDS,     new Shader.PerVertexBinding(ball0.getManagedBuffer(Shader.TEX_COORDS)));
-         mobileBallInstance.bind(Shader.MAIN_TEXTURE,   new Shader.TextureBinding(teapotImageT));
-         // Build mobile flat-shaded ball instance
-         // Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-         // mobileBallInstance.bind(Shader.POSITION_ARRAY,  new Shader.PerVertexBinding(ball0.getManagedBuffer(Shader.POSITION_ARRAY)));
-         // mobileBallInstance.bind(Shader.COLOR_ARRAY,     new Shader.PerVertexBinding(ball0.getManagedBuffer(Shader.COLOR_ARRAY)));
+         Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+         mobileBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(teapotImageT));
          m = new ShaderInstanceModel(mobileBallInstance, ball0);
          
          root.children.add(m);
@@ -76,19 +63,14 @@ public class DemoWorld extends World {
          
          // Build pulsing textured ball instance
          Shader.Instance texBallInstance = new Shader.Instance(Shader.TEXTURE_SHADER);
-         texBallInstance.bind(Shader.POSITION_ARRAY,  new Shader.PerVertexBinding(ball1.getManagedBuffer(Shader.POSITION_ARRAY)));
-         texBallInstance.bind(Shader.COLOR_ARRAY, new Shader.PerVertexBinding(ball1.getManagedBuffer(Shader.COLOR_ARRAY)));
-         texBallInstance.bind(Shader.BARY_COORDS,     new Shader.PerVertexBinding(ball1.getManagedBuffer(Shader.BARY_COORDS)));
-         texBallInstance.bind(Shader.TEX_COORDS,      new Shader.PerVertexBinding(ball1.getManagedBuffer(Shader.TEX_COORDS)));
-         texBallInstance.bind(Shader.MAIN_TEXTURE,    new Shader.TextureBinding(teapotImageT));
+         texBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(teapotImageT));
          m = new ShaderInstanceModel(texBallInstance, ball1);
          
          root.children.add(m);
          m.translate(Vector3f.X.times(6).rotated(Vector3f.Y, angle));
       }
       System.out.format("DONE..\n");
-
-      updateDemoWorld(0.0f);
+      updateDemoWorld(0.0f);      
       setRootModel(root);
    }
    // ----------------------------------------------------------------------------------

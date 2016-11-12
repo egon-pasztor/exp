@@ -408,9 +408,9 @@ public class Geometry {
          this.mesh = new Mesh<Vector3f,Object>();
          
          buffers = new HashMap<String,Shader.ManagedBuffer>();
-         buffers.put(Shader.POSITION_ARRAY, defaultPositionBuffer(mesh));
-         buffers.put(Shader.BARY_COORDS,    defaultBaryCoords(mesh));
-         buffers.put(Shader.COLOR_ARRAY,    defaultColorArray(mesh));
+         setManagedBuffer(Shader.POSITION_ARRAY, defaultPositionBuffer(mesh), name);
+         setManagedBuffer(Shader.BARY_COORDS,    defaultBaryCoords(mesh), name);
+         setManagedBuffer(Shader.COLOR_ARRAY,    defaultColorArray(mesh), name);
       }
 
       // ------------------------------------------------------------------------
@@ -453,6 +453,11 @@ public class Geometry {
          return buffers.get(key);
       }
       public void setManagedBuffer(String key, Shader.ManagedBuffer buffer) {
+         buffer.name = key;
+         buffers.put(key, buffer);
+      }
+      public void setManagedBuffer(String key, Shader.ManagedBuffer buffer, String name2) {
+         buffer.name = key + ":" + name2;
          buffers.put(key, buffer);
       }
       private HashMap<String,Shader.ManagedBuffer> buffers;
@@ -500,8 +505,13 @@ public class Geometry {
          @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
          @Override public void fillBuffer(float[] array) {
             int pPos = 0;
+            int col = 0;
             for (Mesh.Triangle<Vector3f,?> t : mesh.interiorTriangles) {
-               ColorARGB color = new ColorARGB((byte)0x00, (byte)0xff, (byte)0x00, (byte)0x00);
+               ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xf0, (byte)0x80) :
+                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0x80, (byte)0xf0) :
+                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xe0, (byte)0xe0) :
+                                            new ColorARGB((byte)0x00, (byte)0x10, (byte)0xf0, (byte)0xc0);
+               col = (col+1)%3;
                pPos = copyColor(array, pPos, color);
                pPos = copyColor(array, pPos, color);
                pPos = copyColor(array, pPos, color);
@@ -513,6 +523,8 @@ public class Geometry {
              arr[base+2] = ((float)(c.b&0xff))/255.0f;
              //arr[base+3] = ((float)(c.a&0xff))/255.0f;
              return base+3;
+//             arr[base+3] = ((float)(c.a&0xff))/255.0f;
+//             return base+4;
          }
       };
    }
@@ -523,7 +535,7 @@ public class Geometry {
    
    public static MeshModel createUnitCube () {
       final MeshModel m = new MeshModel("UnitCube");
-      m.setManagedBuffer(Shader.TEX_COORDS, cubeTextureCoordsArray(m.mesh));
+      m.setManagedBuffer(Shader.TEX_COORDS, cubeTextureCoordsArray(m.mesh), "UnitCubeManual");
       
       final Vector3f cntr = Vector3f.Z;
       final Vector3f dX   = Vector3f.X;
@@ -601,7 +613,7 @@ public class Geometry {
 
    public static MeshModel createUnitSphere(int numLatDivisions, int numLonDivisions) {
       MeshModel m = new MeshModel("UnitSphere");
-      m.setManagedBuffer(Shader.TEX_COORDS, sphereTextureCoordsArray(m.mesh));
+      m.setManagedBuffer(Shader.TEX_COORDS, sphereTextureCoordsArray(m.mesh), "UnitSphereManual");
 
       double globalLatMin = -Math.PI/2;
       double globalLatMax =  Math.PI/2;
@@ -726,7 +738,7 @@ public class Geometry {
 
    public static MeshModel createIco(int subdivisions) {
       MeshModel m = new MeshModel(String.format("Ico-Subdivided-%d", subdivisions));
-      m.setManagedBuffer(Shader.TEX_COORDS, sphereTextureCoordsArray(m.mesh));
+      m.setManagedBuffer(Shader.TEX_COORDS, sphereTextureCoordsArray(m.mesh), "UnitIcoManual");
 
       float pi   = (float)Math.PI;
       float lat0 = pi/2;
