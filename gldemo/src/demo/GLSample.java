@@ -366,10 +366,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       Segment s = new Segment(Vector3f.ORIGIN, camPos);
       // --------------------
   
-      for (Geometry.Mesh.Triangle<Vector3f,?> t : geometry.mesh.interiorTriangles) {
-         Vector3f v0 = t.edge0.getOppositeVertex().getData();
-         Vector3f v1 = t.edge1.getOppositeVertex().getData();
-         Vector3f v2 = t.edge2.getOppositeVertex().getData();
+      for (Geometry.Mesh.Triangle t : geometry.mesh.interiorTriangles) {
+         Vector3f v0 = (Vector3f) t.edge0.getOppositeVertex().getData();
+         Vector3f v1 = (Vector3f) t.edge1.getOppositeVertex().getData();
+         Vector3f v2 = (Vector3f) t.edge2.getOppositeVertex().getData();
 
          Vector3f camV0 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v0)).toVector3f();
          Vector3f camV1 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v1)).toVector3f();

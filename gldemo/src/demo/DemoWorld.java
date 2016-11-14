@@ -41,14 +41,13 @@ public class DemoWorld extends World {
       MeshModel ball1 = Geometry.createUnitSphere(30,30); //Geometry.createIco(4);
 
       stretchyBall = ball1;
-      
       CompoundModel root = new CompoundModel();
       
       // Build root instance
       Shader.Instance cube0Instance = new Shader.Instance(Shader.TEXTURE_SHADER);
       cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(leaImageT));
       root.children.add(new ShaderInstanceModel(cube0Instance, cube0));
-
+      
       mobileBalls = new World.Model[4];
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
