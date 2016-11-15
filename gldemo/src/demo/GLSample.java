@@ -8,12 +8,8 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
@@ -28,7 +24,6 @@ import com.jogamp.opengl.awt.GLCanvas;
 import javax.swing.JFrame;
 
 import demo.World.*;
-import demo.Raster.*;
 import demo.Geometry.*;
 import demo.VectorAlgebra.*;
 
@@ -68,7 +63,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
       
-      demoWorld = new DemoWorld(/* cube */ true, /* ico */ false, /* ball */ false, /* subdivide */ 0);
+      demoWorld = new DemoWorld();
       
       GLProfile glProfile = GLProfile.get(GLProfile.GL3);
       GLCapabilities glCapabilities = new GLCapabilities(glProfile);
@@ -204,13 +199,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // -----------------------------------------------------------
    // GL-RENDERING
    // -----------------------------------------------------------
-
-
    
-   // ###################################################################
-   // GL-WRANGLING
-   // ###################################################################
-
    //    "initGL" (GL3)   -- bind all the RenderingStrategy / Texture / TexturedMeshs 
    //                           instances to GL-vertex-array-objects
    //                           save a map from Textures and TexturedMeshs to the GL-vertex-array-object IDs
@@ -221,13 +210,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
       // TODO -- this is sending one program (for texture-mapped-surfaces) to GL
       //    but the different models in the model tree might use different programs
-      checkError(gl, "r1");
       setupProgram(gl);
-      checkError(gl, "r2");
       setupTextures(gl);
-      checkError(gl, "r3");
       setupBuffers(gl);
-      checkError(gl, "r4");
    }
    
    //    "renderGL" (GL3)  -- set camera-ball perspective matrix
@@ -289,32 +274,32 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          MeshModel model = ((ShaderInstanceModel) m).model;
 
          if (intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY)) {
-            shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.UniformIntBinding(1));
+            shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.Variable.Uniform.IntBinding(1));
          } else {
-            shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.UniformIntBinding(0));
+            shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.Variable.Uniform.IntBinding(0));
          }
          
          // Tell GL to use the shader program for this instance...
          gl.glUseProgram(shaderInstance.program.getGLProgramID());  
 
          for (Shader.Variable variable : shaderInstance.program.variables) {
-            Shader.Binding binding = shaderInstance.boundVariables.get(variable);
-            if (binding instanceof Shader.UniformIntBinding) {
-               Integer value = ((Shader.UniformIntBinding) binding).value;
+            Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
+            if (binding instanceof Shader.Variable.Uniform.IntBinding) {
+               Integer value = ((Shader.Variable.Uniform.IntBinding) binding).value;
                gl.glUniform1i(variable.getGLPProgramLocation(), value);
             }
-            if (binding instanceof Shader.UniformVec3Binding) {
-               Vector3f value = ((Shader.UniformVec3Binding) binding).value;
+            if (binding instanceof Shader.Variable.Uniform.Vec3Binding) {
+               Vector3f value = ((Shader.Variable.Uniform.Vec3Binding) binding).value;
                gl.glUniform3f(variable.getGLPProgramLocation(), value.x, value.y, value.z);
             }
-            if (binding instanceof Shader.UniformMat4Binding) {
-               Matrix4f value = ((Shader.UniformMat4Binding) binding).value;
+            if (binding instanceof Shader.Variable.Uniform.Mat4Binding) {
+               Matrix4f value = ((Shader.Variable.Uniform.Mat4Binding) binding).value;
                float arr[] = new float[16];
                value.copyToFloatArray(arr);
                gl.glUniformMatrix4fv(variable.getGLPProgramLocation(), 1, false, arr, 0);     
             }
-            if (binding instanceof Shader.TextureBinding) {
-               Shader.ManagedTexture texture = ((Shader.TextureBinding) binding).texture;
+            if (binding instanceof Shader.Variable.Uniform.TextureBinding) {
+               Shader.ManagedTexture texture = ((Shader.Variable.Uniform.TextureBinding) binding).texture;
                gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID); 
             }
          }
@@ -396,90 +381,41 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // we're going to explicitly setup TWO shaders
       // -----------------------------------------------------
       
-      int v,f,programID;
-      
-      // -----------------------------------------------------
-      // Shader.TEXTURE_SHADER
-      // -----------------------------------------------------
-      
-      v = this.newShaderFromCurrentClass(gl, "vertex.shader", ShaderType.VertexShader);
-      f = this.newShaderFromCurrentClass(gl, "fragment.shader", ShaderType.FragmentShader);
-      System.out.format("Vertex Shader Info Log: [%s]\n", getShaderInfoLog(gl, v));
-      System.out.format("Fragent Shader Info Log: [%s]\n", getShaderInfoLog(gl, f));
+      for (Shader.Program shaderProgram : Arrays.asList(Shader.TEXTURE_SHADER, Shader.FACE_COLOR_SHADER)) {
+         
+         int v = this.newShaderFromCurrentClass(gl, shaderProgram.vertexShaderName,   ShaderType.VertexShader);
+         int f = this.newShaderFromCurrentClass(gl, shaderProgram.fragmentShaderName, ShaderType.FragmentShader);
+         System.out.format("Vertex Shader Info Log: [%s]\n", getShaderInfoLog(gl, v));
+         System.out.format("Fragent Shader Info Log: [%s]\n", getShaderInfoLog(gl, f));
 
-      // Complete the "shader program"
-      programID = gl.glCreateProgram();
-      Shader.TEXTURE_SHADER.setGLProgramID(programID);
-      gl.glAttachShader(programID, v);
-      gl.glAttachShader(programID, f);
-      gl.glLinkProgram(programID);
-      
-      gl.glUseProgram(programID);      
-      gl.glBindFragDataLocation(programID, 0, "outColor");
-      System.out.format("Program Info Log: [%s]\n", getProgramInfoLog(gl, programID));
-      checkError(gl, "gotProgram");      
-
-      System.out.format("Program Variables for TEXTURE_SHADER here we go..\n");
-      
-      // Extract variable "locations":
-      for (Shader.Variable variable : Shader.TEXTURE_SHADER.variables) {
-         if ((variable.type == Shader.Variable.Type.VEC2_PER_VERTEX_BUFFER) ||
-             (variable.type == Shader.Variable.Type.VEC3_PER_VERTEX_BUFFER) ||
-             (variable.type == Shader.Variable.Type.VEC4_PER_VERTEX_BUFFER)) {
-            
-            variable.setGLProgramLocation(gl.glGetAttribLocation(programID, variable.name));
-         } else {
-            variable.setGLProgramLocation(gl.glGetUniformLocation(programID, variable.name));
-            if ((variable.type == Shader.Variable.Type.BGRA_TEXTURE) ||
-                (variable.type == Shader.Variable.Type.GRAY_TEXTURE)) {
-               
-               gl.glUniform1i(variable.getGLPProgramLocation(), 0);
+         // Complete the "shader program"
+         int programID = gl.glCreateProgram();
+         shaderProgram.setGLProgramID(programID);
+         gl.glAttachShader(programID, v);
+         gl.glAttachShader(programID, f);
+         gl.glLinkProgram(programID);
+         
+         gl.glUseProgram(programID);      
+         gl.glBindFragDataLocation(programID, 0, "outColor");
+         System.out.format("Program Info Log: [%s]\n", getProgramInfoLog(gl, programID));
+         
+         // Extract variable "locations":
+         for (Shader.Variable variable : shaderProgram.variables) {
+            if (variable instanceof Shader.Variable.Buffer) {
+               variable.setGLProgramLocation(gl.glGetAttribLocation(programID, variable.name));
             }
-         }
-         System.out.format("Program Location for %s is %d\n",  variable.name, variable.getGLPProgramLocation());
-      }
-      checkError(gl, "extractLocs");
-      
-      // -----------------------------------------------------
-      // Shader.FACE_COLOR_SHADER
-      // -----------------------------------------------------
-      v = this.newShaderFromCurrentClass(gl, "vertex2.shader", ShaderType.VertexShader);
-      f = this.newShaderFromCurrentClass(gl, "fragment2.shader", ShaderType.FragmentShader);
-      System.out.format("Vertex Shader Info Log: [%s]\n", getShaderInfoLog(gl, v));
-      System.out.format("Fragent Shader Info Log: [%s]\n", getShaderInfoLog(gl, f));
-
-      // Complete the "shader program"
-      programID = gl.glCreateProgram();
-      Shader.FACE_COLOR_SHADER.setGLProgramID(programID);
-      gl.glAttachShader(programID, v);
-      gl.glAttachShader(programID, f);
-      gl.glLinkProgram(programID);
-      
-      gl.glUseProgram(programID);      
-      gl.glBindFragDataLocation(programID, 0, "outColor");
-      System.out.format("Program Info Log: [%s]\n", getProgramInfoLog(gl, programID));
-      checkError(gl, "gotProgram2");      
-
-      System.out.format("Program Variables for FACE_COLOR_SHADER here we go..\n");
-
-      // Extract variable "locations":
-      for (Shader.Variable variable : Shader.FACE_COLOR_SHADER.variables) {
-         if ((variable.type == Shader.Variable.Type.VEC2_PER_VERTEX_BUFFER) ||
-             (variable.type == Shader.Variable.Type.VEC3_PER_VERTEX_BUFFER) ||
-             (variable.type == Shader.Variable.Type.VEC4_PER_VERTEX_BUFFER)) {
-            
-            variable.setGLProgramLocation(gl.glGetAttribLocation(programID, variable.name));
-         } else {
-            variable.setGLProgramLocation(gl.glGetUniformLocation(programID, variable.name));
-            if ((variable.type == Shader.Variable.Type.BGRA_TEXTURE) ||
-                (variable.type == Shader.Variable.Type.GRAY_TEXTURE)) {
-               
-               gl.glUniform1i(variable.getGLPProgramLocation(), 0);
+            if (variable instanceof Shader.Variable.Uniform) {
+               Shader.Variable.Uniform uniformVariable = (Shader.Variable.Uniform) variable;
+               variable.setGLProgramLocation(gl.glGetUniformLocation(programID, variable.name));
+               if ((uniformVariable.type == Shader.Variable.Uniform.Type.BGRA_TEXTURE) ||
+                   (uniformVariable.type == Shader.Variable.Uniform.Type.GRAY_TEXTURE)) {
+                  
+                  gl.glUniform1i(variable.getGLPProgramLocation(), 0);
+               }
             }
+            System.out.format("Program Location for %s is %d\n",  variable.name, variable.getGLPProgramLocation());
          }
-         System.out.format("Program Location for %s is %d\n",  variable.name, variable.getGLPProgramLocation());
       }
-      checkError(gl, "extractLocs2");
    }
 
    private int newShaderFromCurrentClass(GL3 gl, String fileName, ShaderType type){
@@ -594,10 +530,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private HashSet<Shader.ManagedTexture> getAllTextures(Collection<Shader.Instance> shaderInstances) {
       HashSet<Shader.ManagedTexture> textures = new HashSet<Shader.ManagedTexture>();
       for (Shader.Instance shaderInstance : shaderInstances) {
-         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
-            Shader.Binding binding = entry.getValue();
-            if (binding instanceof Shader.TextureBinding) {
-               textures.add(((Shader.TextureBinding) binding).texture);
+         for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Variable.Binding binding = entry.getValue();
+            if (binding instanceof Shader.Variable.Uniform.TextureBinding) {
+               textures.add(((Shader.Variable.Uniform.TextureBinding) binding).texture);
             }
          }
       }
@@ -633,7 +569,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                buffer.array.length * Float.SIZE / 8,
                buffer.floatBuffer, GL.GL_STATIC_DRAW);
          buffer.glBufferSize = buffer.array.length;
-         checkError(gl, "r4a-" + buffer.name);
          System.out.format("Created GL buffer %d for %s\n", buffer.glBufferID, buffer.name);
       }
 
@@ -643,20 +578,17 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          shaderInstance.setGLVertexArraySetupID(generateVAOId(gl));
          gl.glBindVertexArray(shaderInstance.getGLVertexArraySetupID());
-         checkError(gl, "r4A");
+         
+         // Walk through all the buffers in this instance:
          for (Shader.Variable variable : shaderInstance.program.variables) {
-            Shader.Binding binding = shaderInstance.boundVariables.get(variable);
-            if (binding instanceof Shader.PerVertexBinding) {
-               Shader.ManagedBuffer buffer = ((Shader.PerVertexBinding) binding).buffer;
+            if (variable instanceof Shader.Variable.Buffer) {
+               Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
+               Shader.ManagedBuffer buffer = ((Shader.Variable.Buffer.Binding) binding).buffer;
                int programLocation = variable.getGLPProgramLocation();
                if (programLocation >= 0) {
                   gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);               
-                  checkError(gl, "r4b2-" + buffer.name);
                   gl.glEnableVertexAttribArray(variable.getGLPProgramLocation());
-                  checkError(gl, "r4b1-" + buffer.name);
-                
                   gl.glVertexAttribPointer(variable.getGLPProgramLocation(), buffer.numFloatsPerElement, GL.GL_FLOAT, false, 0, 0);
-                  checkError(gl, "r4b-" + buffer.name);
                }
             }            
          }
@@ -679,16 +611,18 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private HashSet<Shader.ManagedBuffer> getAllBuffers(Collection<Shader.Instance> shaderInstances) {
       HashSet<Shader.ManagedBuffer> buffers = new HashSet<Shader.ManagedBuffer>();
       for (Shader.Instance shaderInstance : shaderInstances) {
-         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
-            Shader.Binding binding = entry.getValue();
-            if (binding instanceof Shader.PerVertexBinding) {
-               buffers.add(((Shader.PerVertexBinding) binding).buffer);
+         
+         // Walk through all the buffers in this instance:
+         for (Shader.Variable variable : shaderInstance.program.variables) {
+            if (variable instanceof Shader.Variable.Buffer) {
+               Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
+               Shader.ManagedBuffer buffer = ((Shader.Variable.Buffer.Binding) binding).buffer;
+               buffers.add(buffer);
             }
          }
       }
       return buffers;
    }
-   
    
    private int generateVAOId(GL3 gl) {
       // allocate an array of one element in order to store the generated id

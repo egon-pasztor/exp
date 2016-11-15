@@ -8,23 +8,10 @@ import demo.Raster.*;
 
 public class DemoWorld extends World {
    
-   public DemoWorld(boolean cube, boolean ico, boolean ball, int subdivide) {
-      this.cube = cube;
-      this.ico = ico;
-      this.ball = ball;
-      this.subdivide = subdivide;
-      initDemoWorld();
-   }
-      
-   private boolean cube = false;  
-   private boolean ico = true;
-   private boolean ball = false;
-   private int subdivide = 1;
-   
    private MeshModel stretchyBall;
    private World.Model[] mobileBalls;
    
-   public void initDemoWorld() {
+   public DemoWorld() {
       System.out.format("Starting InitDemoWorld\n");
       
       // ----------------------------------------------------------------------------------
@@ -45,7 +32,7 @@ public class DemoWorld extends World {
       
       // Build root instance
       Shader.Instance cube0Instance = new Shader.Instance(Shader.TEXTURE_SHADER);
-      cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(leaImageT));
+      cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(leaImageT));
       root.children.add(new ShaderInstanceModel(cube0Instance, cube0));
       
       mobileBalls = new World.Model[4];
@@ -54,7 +41,7 @@ public class DemoWorld extends World {
          Model m;
          
          Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-         mobileBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(teapotImageT));
+         mobileBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(teapotImageT));
          m = new ShaderInstanceModel(mobileBallInstance, ball0);
          
          root.children.add(m);
@@ -62,7 +49,7 @@ public class DemoWorld extends World {
          
          // Build pulsing textured ball instance
          Shader.Instance texBallInstance = new Shader.Instance(Shader.TEXTURE_SHADER);
-         texBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.TextureBinding(teapotImageT));
+         texBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(teapotImageT));
          m = new ShaderInstanceModel(texBallInstance, ball1);
          
          root.children.add(m);

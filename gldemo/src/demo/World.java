@@ -1,7 +1,5 @@
 package demo;
 
-import com.jogamp.opengl.GL;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -12,7 +10,6 @@ import java.util.HashSet;
 import java.util.Map;
 
 import demo.VectorAlgebra.*;   // vectors/matrices
-import demo.World.Shader;
 import demo.Geometry.*;        // meshes(cube,sphere,ico)
 import demo.Raster.*;          // texture image
 
@@ -21,72 +18,18 @@ public class World {
 
    public static class Shader {
 
-      
-      
-      // okay. shader.
-      // a shader is a pair of vertex/fragment programs installed into OpenGL together.
-      // To work a shader requires a set of variables to be bound, of 3 different classes:
-      //
-      // uniform values: (lots of different format types -- we currently care only about INT, VEC3, and MAT4)
-      //    Uniform-INT     (int)   gl.glUniform1i(int location, int value);
-      //    Uniform-VEC3    (vec3)  gl.glUniform3f(int location, float x, float y, float z);
-      //    Uniform-MAT4    (mat4)  gl.glUniformMatrix4f(int location, 1      /* count     */, false /* transpose */, 
-      //                                                               float* /* 16 floats */, 0     /* offset    */
-      //
-      //
-      // textures: (lots of different format types -- we currently care only about TEXTURE_2D)
-      //    1.  the TEXTURE needed must be sent to OpenGL, associated with a textureId
-      //                    and that textureId must be associated with one of then TEXTURE0,TEXTURE1,TEXTURE2 enums
-      //
-      //            gl.glActiveTexture(GL.GL_TEXTURE0);             /* which TEXTUREx enum are we affecting */
-      //            gl.glBindTexture(GL.GL_TEXTURE_2D, textureId);  /* link the TEXTUREx enum with a specific textureId object */
-      //         
-      //               glTexImage2D         <-- SEND the data to OpenGL and associate it with the active bound textureId
-      //               glTexSubImage2D
-      //
-      //    2.  we must call  (int)   gl.glUniform1i(int location, int value);  
-      //        where "value" specifies which TEXTURE0,TEXTURE1,TEXTURE2 enum to use.
-      //
-      //
-      // per-vertex buffer data:
-      //    1.  the BUFFER needed must be sent to OpenGL, associated with a bufferId
-      //
-      //              glBindBuffer(GL.GL_ARRAY_BUFFER, bufferId);
-      //
-      //              glBufferData          <-- SEND the data to OpenGL and associate it with the bound bufferId
-      //              glBufferSubData
-      //
-      //    2.  we must call   glEnableVertexAttribArray(int location);
-      //                       gl.glVertexAttribPointer(int location, 
-      //                             numComponentsPerElement, GL.GL_FLOAT, false, 0, 0);
-      //
-      //        while the bufferId is bound
-      
-      
       // -----------------------------
       // Shader.Variable
       // -----------------------------
       
-      public static class Variable {
+      public static abstract class Variable {
          public final String name;
-         public final Type type;
          
-         public Variable(String name, Type type) {
-            this.name = name; this.type = type;
-         }
+         public Variable(String name) {
+            this.name = name;
+         }      
          
-         public enum Type {
-            INT_UNIFORM,
-            VEC3_UNIFORM,
-            MAT4_UNIFORM,
-            
-            VEC4_PER_VERTEX_BUFFER,
-            VEC3_PER_VERTEX_BUFFER,
-            VEC2_PER_VERTEX_BUFFER,
-            
-            BGRA_TEXTURE,
-            GRAY_TEXTURE
-         }
+         public interface Binding {}
          
          // ProgramLocation Int -----------------------
          
@@ -97,11 +40,76 @@ public class World {
             return glProgramLocation;
          }
          private int glProgramLocation;
-      }
+         
+         // ----------------------------------------------
+         // "Buffer" Variable Types
+         // ----------------------------------------------
+         
+         public static class Buffer extends Variable {
+            public final int floatsPerElement;
+            
+            public Buffer(String name, int floatsPerElement) {
+               super(name);
+               this.floatsPerElement = floatsPerElement;
+            }
+            
+            public static class Binding implements Variable.Binding {
+               public final ManagedBuffer buffer;
+               public Binding(ManagedBuffer buffer) {
+                  this.buffer = buffer;
+               }
+               public String toString() {
+                  return String.format("Per-vertex binding([%s])", (buffer!=null) ? buffer.toString():"NULL");
+               }
+            }
+         }
+         
+         // ----------------------------------------------
+         // "Uniform" Variable Types
+         // ----------------------------------------------         
 
-      // 'cept of course "Variable.Type.VEC4_PER_VERTEX_BUFFER" doesn't specify that it's actually
-      // supposed to be bound to a texture-coordiate-generating FloatBufferBuilder, nor that
-      // it's supposed to be 4 components per element....
+         public static class Uniform extends Variable {
+            public final Type type;
+            
+            public Uniform(String name, Type type) {
+               super(name);
+               this.type = type;
+            }
+            
+            public enum Type {
+               INTEGER,
+               VECTOR3,
+               MATRIX4,
+               BGRA_TEXTURE,
+               GRAY_TEXTURE
+            }
+            
+            public static class IntBinding implements Variable.Binding {
+               public final Integer value;
+               public IntBinding(int value) {
+                  this.value = value;
+               }
+            }
+            public static class Vec3Binding implements Variable.Binding {
+               public final Vector3f value;
+               public Vec3Binding(Vector3f value) {
+                  this.value = value;
+               }
+            }
+            public static class Mat4Binding implements Variable.Binding {
+               public final Matrix4f value;
+               public Mat4Binding(Matrix4f value) {
+                  this.value = value;
+               }
+            }
+            public static class TextureBinding implements Variable.Binding {
+               public final ManagedTexture texture;
+               public TextureBinding(ManagedTexture texture) {
+                  this.texture = texture;
+               }
+            }
+         }
+      }
       
       // -----------------------------
       // Shader.Programs
@@ -109,10 +117,14 @@ public class World {
 
       public abstract static class Program {
          public final String name;
+         public final String vertexShaderName;
+         public final String fragmentShaderName;
          public ArrayList<Variable> variables;
          
-         public Program(String name) {
+         public Program(String name, String vertexShaderName, String fragmentShaderName) {
             this.name = name;
+            this.vertexShaderName = vertexShaderName;
+            this.fragmentShaderName = fragmentShaderName;
             variables = new ArrayList<Variable>();
             initVariables();
          }
@@ -150,13 +162,13 @@ public class World {
 
       public static class Instance {
          public final Shader.Program program;
-         public HashMap<Variable,Binding> boundVariables;
+         public HashMap<Variable, Variable.Binding> boundVariables;
          
          public Instance(Shader.Program program) {
             this.program = program;
-            boundVariables = new HashMap<Variable,Binding>();
+            boundVariables = new HashMap<Variable, Variable.Binding>();
          }
-         public void bind (String name, Binding binding) {
+         public void bind (String name, Variable.Binding binding) {
             //System.out.format(" Bound \"%s\" to \"%s\"\n",
             //      name, binding.toString());
             boundVariables.put(program.getVariable(name), binding);
@@ -171,43 +183,6 @@ public class World {
             return glVertexArraySetupID;
          }
          private int glVertexArraySetupID;
-      }
-      
-      public interface Binding {}
-      
-      public static class UniformIntBinding implements Binding {
-         public final Integer value;
-         public UniformIntBinding(int value) {
-            this.value = value;
-         }
-      }
-      public static class UniformVec3Binding implements Binding {
-         public final Vector3f value;
-         public UniformVec3Binding(Vector3f value) {
-            this.value = value;
-         }
-      }
-      public static class UniformMat4Binding implements Binding {
-         public final Matrix4f value;
-         public UniformMat4Binding(Matrix4f value) {
-            this.value = value;
-         }
-      }
-      
-      public static class PerVertexBinding implements Binding {
-         public final ManagedBuffer buffer;
-         public PerVertexBinding(ManagedBuffer buffer) {
-            this.buffer = buffer;
-         }
-         public String toString() {
-            return String.format("Per-vertex binding([%s])", (buffer!=null) ? buffer.toString():"NULL");
-         }
-      }
-      public static class TextureBinding implements Binding {
-         public final ManagedTexture texture;
-         public TextureBinding(ManagedTexture texture) {
-            this.texture = texture;
-         }
       }
 
       // -----------------------------
@@ -303,31 +278,33 @@ public class World {
       // Names for Shader Constants
       // -----------------------------
 
-      public static final Program TEXTURE_SHADER = new Program("textured_faces_with_wireframe_shader") {
+      public static final Program TEXTURE_SHADER = new Program("textured_faces_with_wireframe_shader", 
+            "vertex.shader", "fragment.shader") {
          @Override
          protected void initVariables() {
-            variables.add(new Variable(Shader.MAIN_TEXTURE,    Variable.Type.BGRA_TEXTURE));
-            variables.add(new Variable(Shader.POSITION_ARRAY,  Variable.Type.VEC4_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.COLOR_ARRAY,     Variable.Type.VEC4_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.TEX_COORDS,      Variable.Type.VEC4_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.BARY_COORDS,     Variable.Type.VEC2_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.HIGHLIGHT_BOOL,  Variable.Type.INT_UNIFORM));
-            variables.add(new Variable(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Type.MAT4_UNIFORM));
-            variables.add(new Variable(Shader.MODEL_TO_WORLD_MATRIX, Variable.Type.MAT4_UNIFORM));
+            variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
+            variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    4));
+            variables.add(new Variable.Buffer(Shader.TEX_COORDS,     4));
+            variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
+            
+            variables.add(new Variable.Uniform(Shader.MAIN_TEXTURE,          Variable.Uniform.Type.BGRA_TEXTURE));
+            variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+            variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
+            variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
          }
       };
       
-      public static final Program FACE_COLOR_SHADER = new Program("each_face_a_different_flat_color_shader") {
+      public static final Program FACE_COLOR_SHADER = new Program("each_face_a_different_flat_color_shader",
+            "vertex2.shader", "fragment2.shader") {
          @Override
          protected void initVariables() {
-            //variables.add(new Variable(Shader.MAIN_TEXTURE,    Variable.Type.BGRA_TEXTURE));
-            variables.add(new Variable(Shader.POSITION_ARRAY,  Variable.Type.VEC4_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.COLOR_ARRAY,     Variable.Type.VEC4_PER_VERTEX_BUFFER));
-            //variables.add(new Variable(Shader.TEX_COORDS,      Variable.Type.VEC4_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.BARY_COORDS,     Variable.Type.VEC2_PER_VERTEX_BUFFER));
-            variables.add(new Variable(Shader.HIGHLIGHT_BOOL,  Variable.Type.INT_UNIFORM));
-            variables.add(new Variable(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Type.MAT4_UNIFORM));
-            variables.add(new Variable(Shader.MODEL_TO_WORLD_MATRIX, Variable.Type.MAT4_UNIFORM));
+            variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
+            variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    4));
+            variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
+            
+            variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+            variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
+            variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
          }
       };
       
@@ -400,13 +377,10 @@ public class World {
          this.model = model;
          this.instance = instance;
          for (Shader.Variable variable : instance.program.variables) {
-            if ((variable.type == Shader.Variable.Type.VEC2_PER_VERTEX_BUFFER) ||
-                (variable.type == Shader.Variable.Type.VEC3_PER_VERTEX_BUFFER) ||
-                (variable.type == Shader.Variable.Type.VEC4_PER_VERTEX_BUFFER)) {
-               
+            if (variable instanceof Shader.Variable.Buffer) {
                Shader.ManagedBuffer buffer = model.getManagedBuffer(variable.name);
                if (buffer != null) {
-                  instance.bind(variable.name, new Shader.PerVertexBinding(buffer));
+                  instance.bind(variable.name, new Shader.Variable.Buffer.Binding(buffer));
                }
             }
          }
@@ -432,10 +406,10 @@ public class World {
       }
       if (m instanceof ShaderInstanceModel) {
          Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
-         for (Map.Entry<Shader.Variable,Shader.Binding> entry : shaderInstance.boundVariables.entrySet()) {
-            Shader.Binding binding = entry.getValue();
-            if (binding instanceof Shader.PerVertexBinding) {
-               Shader.PerVertexBinding perVertexBinding = (Shader.PerVertexBinding) binding;
+         for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Variable.Binding binding = entry.getValue();
+            if (binding instanceof Shader.Variable.Buffer.Binding) {
+               Shader.Variable.Buffer.Binding perVertexBinding = (Shader.Variable.Buffer.Binding) binding;
                buffers.add(perVertexBinding.buffer);
             }
          }
@@ -465,8 +439,8 @@ public class World {
    public void bindPositions(Model m, Matrix4f projMatrix, Matrix4f viewMatrix) {
       viewMatrix = Matrix4f.product(viewMatrix, m.getModelToWorld());
       if (m instanceof ShaderInstanceModel) {
-         ((ShaderInstanceModel)m).instance.bind(Shader.WORLD_TO_CLIP_MATRIX, new Shader.UniformMat4Binding(projMatrix));
-         ((ShaderInstanceModel)m).instance.bind(Shader.MODEL_TO_WORLD_MATRIX, new Shader.UniformMat4Binding(viewMatrix));
+         ((ShaderInstanceModel)m).instance.bind(Shader.WORLD_TO_CLIP_MATRIX, new Shader.Variable.Uniform.Mat4Binding(projMatrix));
+         ((ShaderInstanceModel)m).instance.bind(Shader.MODEL_TO_WORLD_MATRIX, new Shader.Variable.Uniform.Mat4Binding(viewMatrix));
       }
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel) m).children) {

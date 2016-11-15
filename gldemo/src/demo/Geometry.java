@@ -1,10 +1,8 @@
 package demo;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 
 import demo.Raster.*;   // for ColorARGB
 import demo.VectorAlgebra.*;
@@ -607,7 +605,7 @@ public class Geometry {
             triangles[i++] = new TriangleRecord(t);
          }
          
-         int trials = 1000;
+         int trials = 100;
          
          for (int j = 0; j < trials; ++j) {
             int triangleToAffect = (int)(Math.random() * numTriangles);
@@ -656,9 +654,7 @@ public class Geometry {
                checkMesh();
             }
          }
-         
          System.out.format("Repaired...\n\n");
-         
       }
    }
    
@@ -721,8 +717,6 @@ public class Geometry {
          Mesh.Vertex vc = getOrAddVertex(c);
          Mesh.Triangle t = mesh.addTriangle(va, vb, vc);
          t.setData(ti);
-         
-         mesh.checkMesh();
       }
       
       // ------------------------------------------------------------------------

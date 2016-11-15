@@ -756,14 +756,31 @@ public class VectorAlgebra {
          //
          // Solving for A and B results:
          //
-         //   A =  - (FAR+NEAR)/(FAR-NEAR)
-         //   B =  (2*FAR*NEAR)/(FAR-NEAR)
+         //   A =  - (FAR+NEAR) / (FAR-NEAR)
+         //   B =  (2*FAR*NEAR) / (FAR-NEAR)
 
          float nearZ = -0.1f;
          float farZ = -10.0f;
 
-         float A = -(farZ + nearZ) / (farZ - nearZ);
-         float B = (2.0f * farZ * nearZ) / (farZ - nearZ);
+         //float A = -(farZ + nearZ) / (farZ - nearZ);
+         //float B = (2.0f * farZ * nearZ) / (farZ - nearZ);
+         
+         // What we want is:
+         //
+         //   z == NEAR == -.1   -->   z_view ==  0
+         //   z == FAR  == -10   -->   z_view == +1
+         //
+         // So:
+         //         0 == -B/NEAR - A
+         //        +1 == -B/FAR  - A
+         //
+         // Solving for A and B results:
+         //
+         //   A =    - FAR    / (FAR-NEAR)
+         //   B =  (FAR*NEAR) / (FAR-NEAR)
+
+         float A =    - farZ      / (farZ - nearZ);
+         float B = (farZ * nearZ) / (farZ - nearZ);
 
          Matrix4f perspectiveTransform = new Matrix4f(
             1.0f, 0.0f,  0.0f,  0.0f,
@@ -1011,8 +1028,7 @@ public class VectorAlgebra {
             return grabState;
          }
 
-         private static final float ScaleZoom       = 3.0f;
-         private static final float Scale3DRotation = 2.0f;
+         private static final float ScaleZoom = 3.0f;
       }
    }
    
