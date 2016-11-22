@@ -349,6 +349,11 @@ public class VectorAlgebra {
                               0.0f,     s,  0.0f,
                               0.0f,  0.0f,    s);
       }
+      public static Matrix3f scaling(float sx, float sy, float sz) {
+         return new Matrix3f (  sx,  0.0f,  0.0f,
+                              0.0f,    sy,  0.0f,
+                              0.0f,  0.0f,   sz);
+      }
       public static Matrix3f nonuniformScaling(Vector3f s) {
          return new Matrix3f ( s.x,  0.0f,  0.0f,
                               0.0f,   s.y,  0.0f,
@@ -1036,10 +1041,24 @@ public class VectorAlgebra {
    // Intersections
    // -----------------------------------------------------------------------
 
-   public static class Segment {
+   public static class Segment2d {
+      public final Vector2f p0;
+      public final Vector2f p1;
+      public Segment2d(Vector2f p0, Vector2f p1) {
+         this.p0 = p0;
+         this.p1 = p1;
+      }
+   }
+   
+   //public static float distanceBetween(Segment2d segment, Vector2f point) {
+   //   
+   //}
+   
+   
+   public static class Segment3d {
       public final Vector3f p0;
       public final Vector3f p1;
-      public Segment(Vector3f p0, Vector3f p1) {
+      public Segment3d(Vector3f p0, Vector3f p1) {
          this.p0 = p0;
          this.p1 = p1;
       }
@@ -1054,7 +1073,7 @@ public class VectorAlgebra {
          this.v2 = v2;
       }
    }
-   public static boolean intersects(Triangle t, Segment s) {
+   public static boolean intersects(Triangle t, Segment3d s) {
       Vector3f u = t.v1.minus(t.v0);
       Vector3f v = t.v2.minus(t.v0);
       Vector3f n = u.cross(v).normalized();

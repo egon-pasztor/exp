@@ -9,7 +9,7 @@ import demo.Raster.*;
 public class DemoWorld extends World {
    
    private MeshModel stretchyBall;
-   private World.Model[] mobileBalls;
+   private ShaderInstanceModel[] mobileBalls;
    
    public DemoWorld() {
       System.out.format("Starting InitDemoWorld\n");
@@ -29,21 +29,38 @@ public class DemoWorld extends World {
 
       stretchyBall = ball1;
       CompoundModel root = new CompoundModel();
+      ShaderInstanceModel m;
       
       // Build root instance
       Shader.Instance cube0Instance = new Shader.Instance(Shader.TEXTURE_SHADER);
       cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(leaImageT));
-      root.children.add(new ShaderInstanceModel(cube0Instance, cube0));
+      m = new ShaderInstanceModel(cube0Instance, cube0);
+      root.children.add(m);
       
-      mobileBalls = new World.Model[4];
+      // Demo cylinder instance
+      MeshModel cyl = Geometry.createCylinder(Vector3f.Z.times(-1.0f), Vector3f.Z, 1.0f, 1.0f, 8);
+      Shader.Instance cylInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      m = new ShaderInstanceModel(cylInstance, cyl);
+      root.children.add(m);
+      m.scale(0.2f, 0.2f, 2.0f);
+      m.translate(Vector3f.Y.times(3.0f));
+      
+
+      Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      m = new ShaderInstanceModel(mobileBallInstance, ball0);
+      root.children.add(m);
+      m.translate(Vector3f.Y.times(-3.0f));
+      
+      MeshModel pb = Geometry.createIco(3);
+      Geometry.everyPointGetsAnInteger(pb, 255);
+      
+      mobileBalls = new ShaderInstanceModel[4];
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
-         Model m;
          
-         Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-         mobileBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(teapotImageT));
-         m = new ShaderInstanceModel(mobileBallInstance, ball0);
-         
+         // Perlin-Ball instance
+         Shader.Instance pbInstance = new Shader.Instance(Shader.POINT_COLOR_SHADER);
+         m = new ShaderInstanceModel(pbInstance, pb);
          root.children.add(m);
          mobileBalls[i] = m;
          
@@ -63,14 +80,16 @@ public class DemoWorld extends World {
    // ----------------------------------------------------------------------------------
    
    public void updateDemoWorld(float time) {
-      final int MillisPerCycle = 2000;
+      final int MillisPerCycle = 10000;
       float phase = (float) ((time / MillisPerCycle) * (Math.PI * 2.0));
 
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
-         World.Model m = mobileBalls[i];
+         ShaderInstanceModel m = mobileBalls[i];
          m.setModelToWorld(Matrix4f.IDENTITY);
-         m.translate(Vector3f.X.times(3.0f + (float) Math.cos(phase + angle)).rotated(Vector3f.Y, angle));
+         Vector3f translationVec = Vector3f.X.times(3.0f + (float) Math.cos(phase + angle)).rotated(Vector3f.Y, angle);
+         m.translate(translationVec);
+         m.instance.bind(Shader.TRANSLATION_VEC, new Shader.Variable.Uniform.Vec3Binding(translationVec));
       }
 
       Geometry.sphereWarp(stretchyBall, phase, 0.05f);

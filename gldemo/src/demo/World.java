@@ -278,7 +278,7 @@ public class World {
       // Names for Shader Constants
       // -----------------------------
 
-      public static final Program TEXTURE_SHADER = new Program("textured_faces_with_wireframe_shader", 
+      public static final Program TEXTURE_SHADER = new Program("textured_shader", 
             "vertex.shader", "fragment.shader") {
          @Override
          protected void initVariables() {
@@ -294,7 +294,7 @@ public class World {
          }
       };
       
-      public static final Program FACE_COLOR_SHADER = new Program("each_face_a_different_flat_color_shader",
+      public static final Program FACE_COLOR_SHADER = new Program("face_color_shader",
             "vertex2.shader", "fragment2.shader") {
          @Override
          protected void initVariables() {
@@ -303,6 +303,20 @@ public class World {
             variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
             
             variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+            variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
+            variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
+         }
+      };
+      public static final Program POINT_COLOR_SHADER = new Program("point_color_shader",
+            "vertex3.shader", "fragment3.shader") {
+         @Override
+         protected void initVariables() {
+            variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
+            variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    4));
+            variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
+            
+            variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+            variables.add(new Variable.Uniform(Shader.TRANSLATION_VEC,       Variable.Uniform.Type.VECTOR3));
             variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
             variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
          }
@@ -319,6 +333,7 @@ public class World {
       public static final String MODEL_TO_WORLD_MATRIX = "viewMatrix";
 
       public static final String HIGHLIGHT_BOOL = "highlight";
+      public static final String TRANSLATION_VEC = "translation";
    }
    
    
@@ -358,6 +373,13 @@ public class World {
       public void rotate(Vector3f axis, float angle) {
          modelToWorld = Matrix4f.product(Matrix4f.fromMatrix3f(Matrix3f.rotation(axis, angle)), modelToWorld);
       }
+      public void scale(float s) {
+         modelToWorld = Matrix4f.product(Matrix4f.fromMatrix3f(Matrix3f.scaling(s)), modelToWorld);
+      }
+      public void scale(float sx, float sy, float sz) {
+         modelToWorld = Matrix4f.product(Matrix4f.fromMatrix3f(Matrix3f.scaling(sx,sy,sz)), modelToWorld);
+      }
+      
    }
    
    // ------- Compound model

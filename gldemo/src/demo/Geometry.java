@@ -1,5 +1,6 @@
 package demo;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -35,6 +36,11 @@ public class Geometry {
       // -----------------------------------------------
       
       public static class Vertex {
+         public Vertex(Vector3f position) {
+            this.position = position;
+            this.oneOutgoingEdge = oneOutgoingEdge;
+         }
+         
          // Each Vertex holds a pointer to one outgoing Edge
          public Triangle.Edge getOneOutgoingEdge()       { return oneOutgoingEdge; }
          public void setOneOutgoingEdge(Triangle.Edge e) { oneOutgoingEdge = e;    }
@@ -44,6 +50,11 @@ public class Geometry {
          public Object getData()          { return userdata; }
          public void setData(Object data) { userdata = data; }         
          private Object userdata;
+         
+         // Position 
+         public Vector3f getPosition()              { return position;          }
+         public void setPosition(Vector3f position) { this.position = position; }
+         private Vector3f position;
       }
       
       // -----------------------------------------------
@@ -695,13 +706,12 @@ public class Geometry {
          // Search to see if we already have a Vertex at this position
          // TODO:  Use a 3D index for this...
          for (Mesh.Vertex v : mesh.vertices) {
-            Vector3f vPosition = (Vector3f) v.getData();
+            Vector3f vPosition = v.getPosition();
             if (vPosition.minus(position).lengthSq() < .00000001f) return v;
          }
          
          // Create a new vertex
-         Mesh.Vertex v = new Mesh.Vertex();
-         v.setData(position);
+         Mesh.Vertex v = new Mesh.Vertex(position);
          mesh.vertices.add(v);
          updateMaxRadius(position.length());
          return v;
@@ -749,9 +759,9 @@ public class Geometry {
          @Override public void fillBuffer(float[] array) {
             int pPos = 0;
             for (Mesh.Triangle t : mesh.interiorTriangles) {
-               Vector3f v0Pos = (Vector3f) t.edge0.getOppositeVertex().getData();
-               Vector3f v1Pos = (Vector3f) t.edge1.getOppositeVertex().getData();
-               Vector3f v2Pos = (Vector3f) t.edge2.getOppositeVertex().getData();
+               Vector3f v0Pos = t.edge0.getOppositeVertex().getPosition();
+               Vector3f v1Pos = t.edge1.getOppositeVertex().getPosition();
+               Vector3f v2Pos = t.edge2.getOppositeVertex().getPosition();
                pPos = Vector4f.fromVector3f(v0Pos).copyToFloatArray(array, pPos);
                pPos = Vector4f.fromVector3f(v1Pos).copyToFloatArray(array, pPos);
                pPos = Vector4f.fromVector3f(v2Pos).copyToFloatArray(array, pPos);
@@ -765,10 +775,11 @@ public class Geometry {
          @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
          @Override public void fillBuffer(float[] array) {
             int pPos = 0;
+            float root3 = (float) Math.sqrt(3);
             for (Mesh.Triangle t : mesh.interiorTriangles) {
                pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(array,  pPos);
-               pPos = (new Vector2f(0.0f,1.0f)).copyToFloatArray(array,  pPos);
-               pPos = (new Vector2f(1.0f,1.0f)).copyToFloatArray(array,  pPos);
+               pPos = (new Vector2f(1.0f,0.0f)).copyToFloatArray(array,  pPos);
+               pPos = (new Vector2f(0.5f,root3 * 0.5f)).copyToFloatArray(array,  pPos);
             }
          }
       };
@@ -795,10 +806,7 @@ public class Geometry {
              arr[base+0] = ((float)(c.r&0xff))/255.0f;
              arr[base+1] = ((float)(c.g&0xff))/255.0f;
              arr[base+2] = ((float)(c.b&0xff))/255.0f;
-             //arr[base+3] = ((float)(c.a&0xff))/255.0f;
              return base+3;
-//             arr[base+3] = ((float)(c.a&0xff))/255.0f;
-//             return base+4;
          }
       };
    }
@@ -1070,10 +1078,124 @@ public class Geometry {
    }
    
    // -----------------------------------------------------------------------
-   // BEZIER / CYLINDER
+   // BEZIER / CYLINDER ...
+   //
+   // I wish we had robust intersect / union,
+   //   but isn't that extremely hard due to the inevitable degeneracies?
+   // 
+   // How about some kind of marching-cubes thing that walk over
+   //   a potential field with a level constant?
    // -----------------------------------------------------------------------
 
-   // todo...
+   // -----------------------------------------------------------------------
+   // Tube
+   // -----------------------------------------------------------------------
+
+   private static Vector3f leastDimension(Vector3f a) {
+      Vector3f result = Vector3f.X;
+      if (a.y < a.x) result = Vector3f.Y;
+      if ((a.z < a.y) && (a.z < a.x)) result = Vector3f.Z;
+      return result;
+   }
+   public static MeshModel createCylinder(Vector3f start, Vector3f end, float radius1, float radius2, int numDivisions) {
+      MeshModel m = new MeshModel(String.format("Tube"));
+
+      Vector3f discFwd = end.minus(start).normalized();
+      Vector3f discX = leastDimension(discFwd);
+      Vector3f discY = discX.cross(discFwd);
+      
+      Mesh.Vertex startVertex = new Mesh.Vertex(start);
+      Mesh.Vertex endVertex = new Mesh.Vertex(end);
+      
+      ArrayList<Mesh.Vertex> startVertices = new ArrayList<Mesh.Vertex>();
+      ArrayList<Mesh.Vertex> endVertices = new ArrayList<Mesh.Vertex>();
+      for (int i = 0; i < numDivisions; ++i) {
+         float angle = (float)(Math.PI * 2 * i / numDivisions);
+         Vector3f delta = discX.times((float)Math.cos(angle))
+                    .plus(discY.times((float)Math.sin(angle)));
+         
+         Mesh.Vertex v;
+         
+         v = new Mesh.Vertex(start.plus(delta));
+         startVertices.add(v);
+         
+         v = new Mesh.Vertex(end.plus(delta));
+         endVertices.add(v);
+      }
+
+      for (int i = 0; i < numDivisions; ++i) {
+         Mesh.Vertex sv1 = startVertices.get(i);
+         Mesh.Vertex sv0 = startVertices.get((i + numDivisions - 1) % numDivisions);
+         
+         Mesh.Vertex ev1 = endVertices.get(i);
+         Mesh.Vertex ev0 = endVertices.get((i + numDivisions - 1) % numDivisions);
+         
+         m.mesh.addTriangle(startVertex, sv0, sv1);
+         m.mesh.addTriangle(sv1, sv0, ev1);
+         m.mesh.addTriangle(ev1, sv0, ev0);
+         m.mesh.addTriangle(ev1, ev0, endVertex);
+      }
+      
+      return m;
+   }
+   
+   // -----------------------------------------------------------------------
+   // Simple Fractal Experiment??
+   // -----------------------------------------------------------------------
+   
+   private static int noise(int value) {
+      return 0; 
+   }
+   
+   
+   
+   
+   
+   //public static MeshModel createTube(ArrayList<Vector3f> centers, float radius1, float radius2, int numDivisions) {
+   //   MeshModel m = new MeshModel(String.format("Tube"));
+   // }
+   
+
+   // -----------------------------------------------------------------------
+   // We keep thinking that we might want to attach additional types of data
+   // to each triangle or each vertex .. or each edge.   Each triangle or vertex
+   // has a getData/setData pair, but we could have a HashMap<Triangle,?> or
+   // a HashMap<Vertex,?> instead...
+   // -----------------------------------------------------------------------
+
+   public static void everyPointGetsAnInteger (MeshModel model, int largestVertexInt) {
+      for (Mesh.Vertex v : model.mesh.vertices) {
+         int vertexInt = (int)(largestVertexInt * Math.random());
+         v.setData(Integer.valueOf(vertexInt));
+      }
+      model.setManagedBuffer(Shader.COLOR_ARRAY, pointShadingColorArray(model.mesh));
+   }
+   
+   private static Shader.ManagedBuffer pointShadingColorArray(final Mesh mesh) {
+      return new Shader.ManagedBuffer(3) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle t : mesh.interiorTriangles) {
+               int v0Int = (Integer) t.edge0.getOppositeVertex().getData();
+               int v1Int = (Integer) t.edge1.getOppositeVertex().getData();
+               int v2Int = (Integer) t.edge2.getOppositeVertex().getData();
+               
+               ColorARGB color = new ColorARGB((byte)0x00, (byte)v0Int, (byte)v1Int, (byte)v2Int);
+               pPos = copyColor(array, pPos, color);
+               pPos = copyColor(array, pPos, color);
+               pPos = copyColor(array, pPos, color);
+            }
+         }
+         private int copyColor(float[] arr, int base, ColorARGB c) {
+             arr[base+0] = ((float)(c.r&0xff))/255.0f;
+             arr[base+1] = ((float)(c.g&0xff))/255.0f;
+             arr[base+2] = ((float)(c.b&0xff))/255.0f;
+             return base+3;
+         }
+      };
+   }
+
    
    // -----------------------------------------------------------------------
    // Apply modifications..
@@ -1081,13 +1203,13 @@ public class Geometry {
 
    public static void sphereWarp (MeshModel model, float phase, float mag) {
       for (Mesh.Vertex v : model.mesh.vertices) {
-         Vector3f p = ((Vector3f)v.getData()).normalized();
+         Vector3f p = v.getPosition().normalized();
  
          Vector2f p2 = positionToLatLon(p);
          float phase2 = (float)(6.0 * p2.y);
          
          p = p.times((float)(1.0 - mag * Math.sin(phase) * Math.sin(phase2)));
-         v.setData(p);
+         v.setPosition(p);
       }
       model.getManagedBuffer(Shader.POSITION_ARRAY).setModified(true);
    }

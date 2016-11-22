@@ -1,34 +1,57 @@
 #version 330
 
-//uniform sampler2D mainTexture;
 uniform bool highlight;
 
 in vec3 fragColor;
-//in vec4 fragTexCoords;
 in vec2 fragBaryCoords;
 out vec4 outColor;
+  
+float distance(float sx, float sy,
+               float ex, float ey,
+               float px, float py) {
+   
+  float dx=ex-sx;
+  float dy=ey-sy;
+  float dd=sqrt(dx*dx+dy*dy);
+  
+  float nx=-dy/dd;
+  float ny= dx/dd;
+  
+  float vx=px-sx;
+  float vy=py-sy;
  
+  float dot = nx*vx+ny*vy;
+  float wx=nx*dot; 
+  float wy=ny*dot; 
+  
+  return sqrt(wx*wx+wy*wy);
+}
+float edgeDistance(float x, float y) {
+    float p0x = 0;
+    float p0y = 0;
+    float p1x = 1;
+    float p1y = 0;
+    float p2x = 0.5;
+    float p2y = 0.8660254;
+    
+    float d01 = distance(p0x,p0y, p1x,p1y, x,y);
+    float d12 = distance(p1x,p1y, p2x,p2y, x,y);
+    float d20 = distance(p2x,p2y, p0x,p0y, x,y);
+    
+    float lowestD = d01;
+    if (d12 < lowestD) lowestD = d12;
+    if (d20 < lowestD) lowestD = d20;
+    
+    return lowestD;
+}
+
 void main()
 {
-//    vec2 lk;
-//    lk.x = fragTexCoords.x / fragTexCoords.w;
-//    lk.y = fragTexCoords.y;
-//    outColor = texture2D(mainTexture, lk);
-    
-    float d1 = fragBaryCoords.x;
-    float d2 = fragBaryCoords.y;
-    float d3 = (fragBaryCoords.x-fragBaryCoords.y)/1.414;
-    float d4 = 1-fragBaryCoords.x;
-    float d5 = 1-fragBaryCoords.y;
-    if (d3 < 0) d3 = -d3;
-    
-    float lowestD = d1;
-    if (d2 < lowestD) lowestD = d2;
-    if (d3 < lowestD) lowestD = d3;
-    if (d4 < lowestD) lowestD = d4;
-    if (d5 < lowestD) lowestD = d5;
-    
-    if (lowestD < 0.01) {
+    float x = fragBaryCoords.x;
+    float y = fragBaryCoords.y;
+    bool h = (edgeDistance(x,y) < 0.01);
+
+    if (h) {
          outColor.r = 0.0;
          outColor.g = 0.0;
          outColor.b = 0.0;

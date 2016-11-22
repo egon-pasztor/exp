@@ -348,17 +348,17 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       float yPos = fHeight - pixelHeight*y   + pixelHeight * 0.5f;
 
       Vector3f camPos = new Vector3f(xPos,yPos,-1.0f);
-      Segment s = new Segment(Vector3f.ORIGIN, camPos);
+      Segment3d s = new Segment3d(Vector3f.ORIGIN, camPos);
       // --------------------
   
       for (Geometry.Mesh.Triangle t : geometry.mesh.interiorTriangles) {
-         Vector3f v0 = (Vector3f) t.edge0.getOppositeVertex().getData();
-         Vector3f v1 = (Vector3f) t.edge1.getOppositeVertex().getData();
-         Vector3f v2 = (Vector3f) t.edge2.getOppositeVertex().getData();
+         Vector3f v0Pos = t.edge0.getOppositeVertex().getPosition();
+         Vector3f v1Pos = t.edge1.getOppositeVertex().getPosition();
+         Vector3f v2Pos = t.edge2.getOppositeVertex().getPosition();
 
-         Vector3f camV0 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v0)).toVector3f();
-         Vector3f camV1 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v1)).toVector3f();
-         Vector3f camV2 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v2)).toVector3f();
+         Vector3f camV0 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v0Pos)).toVector3f();
+         Vector3f camV1 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v1Pos)).toVector3f();
+         Vector3f camV2 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v2Pos)).toVector3f();
 
          //System.out.format("Triangle is\n%s---\n%s---\n%s---\n", camV0.toString(), camV1.toString(), camV2.toString());
 
@@ -381,7 +381,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // we're going to explicitly setup TWO shaders
       // -----------------------------------------------------
       
-      for (Shader.Program shaderProgram : Arrays.asList(Shader.TEXTURE_SHADER, Shader.FACE_COLOR_SHADER)) {
+      for (Shader.Program shaderProgram : Arrays.asList(Shader.TEXTURE_SHADER, 
+                                                        Shader.FACE_COLOR_SHADER,
+                                                        Shader.POINT_COLOR_SHADER)) {
          
          int v = this.newShaderFromCurrentClass(gl, shaderProgram.vertexShaderName,   ShaderType.VertexShader);
          int f = this.newShaderFromCurrentClass(gl, shaderProgram.fragmentShaderName, ShaderType.FragmentShader);
