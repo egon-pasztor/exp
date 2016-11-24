@@ -166,14 +166,10 @@ void main()
          outColor.b = 0.2;
     } else {
          
-         if (colval < 0) {
+         if (colval < 0.25) {
            outColor.r = 1.0;
            outColor.g = 1.0;
            outColor.b = 0.0;
-         } else if (colval < 0.25) {
-           outColor.r = 1.0;
-           outColor.g = 1.0;
-           outColor.b = 1.0;
          } else if (colval < 0.5) {
            outColor.r = 0.8;
            outColor.g = 0.2;
