@@ -1,4 +1,4 @@
-package demo;
+package com.generic.demo;
 
 public class StandardModel {
 

@@ -1,4 +1,4 @@
-package demo;
+package com.generic.demo;
 
 import java.awt.Dimension;
 import java.awt.event.MouseEvent;
@@ -13,6 +13,16 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 
+import com.generic.base.Camera;
+import com.generic.base.Shader;
+import com.generic.base.Geometry;
+import com.generic.base.VectorAlgebra;
+import com.generic.base.World;
+
+import com.generic.base.Geometry.*;
+import com.generic.base.VectorAlgebra.*;
+import com.generic.base.World.*;
+
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -22,10 +32,6 @@ import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
 
 import javax.swing.JFrame;
-
-import demo.World.*;
-import demo.Geometry.*;
-import demo.VectorAlgebra.*;
 
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
 
@@ -201,8 +207,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // -----------------------------------------------------------
    
    //    "initGL" (GL3)   -- bind all the RenderingStrategy / Texture / TexturedMeshs 
-   //                           instances to GL-vertex-array-objects
-   //                           save a map from Textures and TexturedMeshs to the GL-vertex-array-object IDs
+   //                        instances to GL-vertex-array-objects
+   //                        save a map from Textures and TexturedMeshs
+   //                        to the GL-vertex-array-object IDs
    
    public void initGL(GL3 gl) {
       gl.glEnable(GL.GL_DEPTH_TEST);
@@ -515,7 +522,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glActiveTexture(GL.GL_TEXTURE0);
       
       HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
-      HashSet<Shader.ManagedTexture> textures = getAllTextures(shaderInstances);
+      HashSet<Shader.ManagedTexture> textures = World.getAllTextures(shaderInstances);
       for (Shader.ManagedTexture texture : textures) {
          texture.setup();
          texture.glTextureID = this.generateTextureId(gl);
@@ -529,20 +536,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                GL.GL_UNSIGNED_BYTE, texture.intBuffer);
       }
    }
-   private HashSet<Shader.ManagedTexture> getAllTextures(Collection<Shader.Instance> shaderInstances) {
-      HashSet<Shader.ManagedTexture> textures = new HashSet<Shader.ManagedTexture>();
-      for (Shader.Instance shaderInstance : shaderInstances) {
-         for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
-            Shader.Variable.Binding binding = entry.getValue();
-            if (binding instanceof Shader.Variable.Uniform.TextureBinding) {
-               textures.add(((Shader.Variable.Uniform.TextureBinding) binding).texture);
-            }
-         }
-      }
-      return textures;
-   }
-   
-   
    
    private int generateTextureId(GL3 gl) {
       // allocate an array of one element in order to store the generated id
@@ -561,7 +554,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    private void setupBuffers(GL3 gl) {
       HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
-      HashSet<Shader.ManagedBuffer> buffers = getAllBuffers(shaderInstances);
+      HashSet<Shader.ManagedBuffer> buffers = World.getAllBuffers(shaderInstances);
       for (Shader.ManagedBuffer buffer : buffers) {
          buffer.setup();
          buffer.glBufferID = generateBufferId(gl);
@@ -598,7 +591,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    }
    private void updateBuffers(GL3 gl) {
       HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
-      HashSet<Shader.ManagedBuffer> buffers = getAllBuffers(shaderInstances);
+      HashSet<Shader.ManagedBuffer> buffers = World.getAllBuffers(shaderInstances);
       
       for (Shader.ManagedBuffer buffer : buffers) {
          if (buffer.isModified()) {
@@ -609,21 +602,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                   buffer.floatBuffer);
          }
       }
-   }
-   private HashSet<Shader.ManagedBuffer> getAllBuffers(Collection<Shader.Instance> shaderInstances) {
-      HashSet<Shader.ManagedBuffer> buffers = new HashSet<Shader.ManagedBuffer>();
-      for (Shader.Instance shaderInstance : shaderInstances) {
-         
-         // Walk through all the buffers in this instance:
-         for (Shader.Variable variable : shaderInstance.program.variables) {
-            if (variable instanceof Shader.Variable.Buffer) {
-               Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
-               Shader.ManagedBuffer buffer = ((Shader.Variable.Buffer.Binding) binding).buffer;
-               buffers.add(buffer);
-            }
-         }
-      }
-      return buffers;
    }
    
    private int generateVAOId(GL3 gl) {

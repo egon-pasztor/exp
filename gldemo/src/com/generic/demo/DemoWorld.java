@@ -1,16 +1,19 @@
-package demo;
+package com.generic.demo;
 
-import demo.VectorAlgebra.*;
-import demo.World.Shader;
-import demo.Geometry.*;
-import demo.Raster.*;
+import com.generic.base.Geometry;
+import com.generic.base.World;
+import com.generic.base.Geometry.*;
+import com.generic.base.VectorAlgebra.*;
+import com.generic.base.Shader;
+import com.generic.demo.Raster.*;
 
 
 public class DemoWorld extends World {
    
    private MeshModel stretchyBall;
    private ShaderInstanceModel[] mobileBalls;
-   
+   private MeshModel choppedCube;
+
    public DemoWorld() {
       System.out.format("Starting InitDemoWorld\n");
       
@@ -44,8 +47,15 @@ public class DemoWorld extends World {
       root.children.add(m);
       m.scale(0.2f, 0.2f, 2.0f);
       m.translate(Vector3f.Y.times(3.0f));
-      
 
+      // Demo cylinder instance
+      choppedCube = Geometry.createChoppedCube();
+      Shader.Instance createChoppedCubeInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      m = new ShaderInstanceModel(createChoppedCubeInstance, choppedCube);
+      root.children.add(m);
+      m.translate(Vector3f.Y.times(7.0f));
+      
+      // ICO
       Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
       m = new ShaderInstanceModel(mobileBallInstance, ball0);
       root.children.add(m);
@@ -82,7 +92,7 @@ public class DemoWorld extends World {
    public void updateDemoWorld(float time) {
       final int MillisPerCycle = 10000;
       float phase = (float) ((time / MillisPerCycle) * (Math.PI * 2.0));
-
+phase=0;
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
          ShaderInstanceModel m = mobileBalls[i];
@@ -92,6 +102,7 @@ public class DemoWorld extends World {
          m.instance.bind(Shader.TRANSLATION_VEC, new Shader.Variable.Uniform.Vec3Binding(translationVec));
       }
 
+      Geometry.warpChoppedCube(choppedCube, phase, 1.0f);
       Geometry.sphereWarp(stretchyBall, phase, 0.05f);
    }
 }

@@ -1,13 +1,15 @@
-package demo;
+package com.generic.base;
+
+import com.generic.base.VectorAlgebra.*;
+import com.generic.base.World.*;
+import com.generic.base.Shader;
+import com.generic.demo.Raster;
+import com.generic.demo.Raster.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-
-import demo.Raster.*;   // for ColorARGB
-import demo.VectorAlgebra.*;
-import demo.World.*;
 
 public class Geometry {
    
@@ -132,6 +134,16 @@ public class Geometry {
          private Object userdata;
       }
 
+      // --------------------------------------------------------
+      // AddVertex
+      // --------------------------------------------------------
+      
+      public Vertex addVertex (Vector3f position) {
+         Mesh.Vertex v = new Mesh.Vertex(position);
+         vertices.add(v);
+         return v;
+      }
+      
       // --------------------------------------------------------
       // AddTriangle
       // --------------------------------------------------------
@@ -711,8 +723,7 @@ public class Geometry {
          }
          
          // Create a new vertex
-         Mesh.Vertex v = new Mesh.Vertex(position);
-         mesh.vertices.add(v);
+         Mesh.Vertex v = mesh.addVertex(position);
          updateMaxRadius(position.length());
          return v;
       }
@@ -725,6 +736,9 @@ public class Geometry {
          Mesh.Vertex va = getOrAddVertex(a);
          Mesh.Vertex vb = getOrAddVertex(b);
          Mesh.Vertex vc = getOrAddVertex(c);
+         addTriangle(va,vb,vc,ti);
+      }
+      public void addTriangle (Mesh.Vertex va, Mesh.Vertex vb, Mesh.Vertex vc, Object ti) {
          Mesh.Triangle t = mesh.addTriangle(va, vb, vc);
          t.setData(ti);
       }
@@ -1104,8 +1118,8 @@ public class Geometry {
       Vector3f discX = leastDimension(discFwd);
       Vector3f discY = discX.cross(discFwd);
       
-      Mesh.Vertex startVertex = new Mesh.Vertex(start);
-      Mesh.Vertex endVertex = new Mesh.Vertex(end);
+      Mesh.Vertex startVertex = m.mesh.addVertex(start);
+      Mesh.Vertex endVertex = m.mesh.addVertex(end);
       
       ArrayList<Mesh.Vertex> startVertices = new ArrayList<Mesh.Vertex>();
       ArrayList<Mesh.Vertex> endVertices = new ArrayList<Mesh.Vertex>();
@@ -1116,10 +1130,10 @@ public class Geometry {
          
          Mesh.Vertex v;
          
-         v = new Mesh.Vertex(start.plus(delta));
+         v = m.mesh.addVertex(start.plus(delta));
          startVertices.add(v);
          
-         v = new Mesh.Vertex(end.plus(delta));
+         v = m.mesh.addVertex(end.plus(delta));
          endVertices.add(v);
       }
 
@@ -1140,14 +1154,84 @@ public class Geometry {
    }
    
    // -----------------------------------------------------------------------
-   // Simple Fractal Experiment??
+   // Cube-Chopped
    // -----------------------------------------------------------------------
-   
-   private static int noise(int value) {
-      return 0; 
+
+   public static MeshModel createChoppedCube() {
+      MeshModel m = new MeshModel("ChoopedCube");
+      
+      Vector3f v000 = new Vector3f(0.0f,0.0f,0.0f);
+      Vector3f v001 = new Vector3f(0.0f,0.0f,1.0f);
+      Vector3f v010 = new Vector3f(0.0f,1.0f,0.0f);
+      Vector3f v011 = new Vector3f(0.0f,1.0f,1.0f);
+      Vector3f v100 = new Vector3f(1.0f,0.0f,0.0f);
+      Vector3f v101 = new Vector3f(1.0f,0.0f,1.0f);
+      Vector3f v110 = new Vector3f(1.0f,1.0f,0.0f);
+      Vector3f v111 = new Vector3f(1.0f,1.0f,1.0f);
+      
+      addTetrahedron(m, 0, v010,v000,v111,v110);
+      addTetrahedron(m, 1, v011,v000,v111,v010);
+      addTetrahedron(m, 2, v001,v000,v111,v011);
+      addTetrahedron(m, 3, v101,v000,v111,v001);
+      addTetrahedron(m, 4, v100,v000,v111,v101);
+      addTetrahedron(m, 5, v110,v000,v111,v100);
+      
+      Vector3f axis = new Vector3f(1.0f,-1.0f,0.0f).normalized();
+      float angle = (float) Math.atan(Math.sqrt(2.0));
+      
+      for (Mesh.Vertex v : m.mesh.vertices) {
+         Vector3f p = v.getPosition();
+         p = p.rotated(axis, angle);
+         
+         TetrahedronCount tc = (TetrahedronCount) v.getData();
+         tc.base = tc.base.rotated(axis, angle);
+         tc.offset = new Vector3f(tc.offset.x, tc.offset.y, 0.0f);
+         
+         p = new Vector3f(p.x,p.y,p.z/2);
+         if (tc.id == 5) {
+            System.out.format("VERTEX: \n%s\n", p);
+         }
+         tc.base = new Vector3f(tc.base.x, tc.base.y, tc.base.z/2);
+         
+         v.setPosition(p);
+      }
+         
+      return m;
+   }
+
+   private static class TetrahedronCount {
+      public int id;
+      public Vector3f base;
+      public Vector3f offset;
+      TetrahedronCount (int id, Vector3f base, Vector3f offset) {
+         this.id = id;
+         this.base = base;
+         this.offset = offset;
+      }
    }
    
-   
+   public static void addTetrahedron(MeshModel m, int id, Vector3f a, Vector3f b, Vector3f c, Vector3f d) {
+      Vector3f offset = (a.plus(d).times(0.5f)).minus(b.plus(c).times(0.5f)).normalized();
+      TetrahedronCount ti = new TetrahedronCount(id, a, offset);
+      
+      Mesh.Vertex va = m.mesh.addVertex(a); va.setData(new TetrahedronCount(id, a, offset));
+      Mesh.Vertex vb = m.mesh.addVertex(b); vb.setData(new TetrahedronCount(id, b, offset));
+      Mesh.Vertex vc = m.mesh.addVertex(c); vc.setData(new TetrahedronCount(id, c, offset));
+      Mesh.Vertex vd = m.mesh.addVertex(d); vd.setData(new TetrahedronCount(id, d, offset));
+    
+      m.addTriangle(va, vb, vc, ti);
+      m.addTriangle(vd, vc, vb, ti);
+      m.addTriangle(vc, vd, va, ti);
+      m.addTriangle(vd, vb, va, ti);
+   }
+
+   public static void warpChoppedCube (MeshModel model, float phase, float mag) {
+      for (Mesh.Vertex v : model.mesh.vertices) {
+         TetrahedronCount tc = (TetrahedronCount) v.getData();
+         v.setPosition(tc.base.plus(tc.offset.times((1.0f - (float) Math.cos(phase)) * mag)));
+      }
+      model.getManagedBuffer(Shader.POSITION_ARRAY).setModified(true);
+   }
    
    
    
