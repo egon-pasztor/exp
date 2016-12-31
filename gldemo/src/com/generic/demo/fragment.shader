@@ -29,10 +29,13 @@ float distance(float sx, float sy,
   return sqrt(wx*wx+wy*wy);
 }
 float edgeDistance(float x, float y) {
+
     float p0x = 0;
     float p0y = 0;
+    
     float p1x = 1;
     float p1y = 0;
+    
     float p2x = 0.5;
     float p2y = 0.8660254;
     

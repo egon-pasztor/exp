@@ -5,7 +5,7 @@ import com.generic.base.World;
 import com.generic.base.Geometry.*;
 import com.generic.base.VectorAlgebra.*;
 import com.generic.base.Shader;
-import com.generic.demo.Raster.*;
+import com.generic.base.Raster.*;
 
 
 public class DemoWorld extends World {
@@ -14,15 +14,13 @@ public class DemoWorld extends World {
    private ShaderInstanceModel[] mobileBalls;
    private MeshModel choppedCube;
 
-   public DemoWorld() {
+   public DemoWorld(Image leaImage, Image teapotImage) {
       System.out.format("Starting InitDemoWorld\n");
       
       // ----------------------------------------------------------------------------------
       // consider a version where... the renderable model nodes ARE Shader.Instance
       // ----------------------------------------------------------------------------------
       
-      Image leaImage = Raster.imageFromResource("lea.png");
-      Image teapotImage = Raster.imageFromResource("teapot.png");
       Shader.ManagedTexture leaImageT = new Shader.ManagedTexture(leaImage);
       Shader.ManagedTexture teapotImageT = new Shader.ManagedTexture(teapotImage);
       
@@ -62,6 +60,12 @@ public class DemoWorld extends World {
       m.translate(Vector3f.Y.times(-3.0f));
       
       MeshModel pb = Geometry.createIco(3);
+      // hmm.. we're bit-rotting.  this function binds "COLOR_ARRAY" in pb to provide a color
+      // for each triangle, consisting of 3 values, these being the "random ints" assigned 
+      // to the 3 verticies...
+      //
+      // ... but then, we're not using it at all.   We used to, but fragment3's code is now
+      // all perlin-noise stuff.
       Geometry.everyPointGetsAnInteger(pb, 255);
       
       mobileBalls = new ShaderInstanceModel[4];
@@ -92,13 +96,17 @@ public class DemoWorld extends World {
    public void updateDemoWorld(float time) {
       final int MillisPerCycle = 10000;
       float phase = (float) ((time / MillisPerCycle) * (Math.PI * 2.0));
-phase=0;
+
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
          ShaderInstanceModel m = mobileBalls[i];
          m.setModelToWorld(Matrix4f.IDENTITY);
          Vector3f translationVec = Vector3f.X.times(3.0f + (float) Math.cos(phase + angle)).rotated(Vector3f.Y, angle);
          m.translate(translationVec);
+         
+         // okay.. i see.   "m.translate" above changes the viewMatrix which is passed into vertexShader and 
+         // used to move the object, while TRANSLATION_VEC below allows the shader to compute the sphere's intersection
+         // with a perlin-solid-noise, by providing the sphere's position..
          m.instance.bind(Shader.TRANSLATION_VEC, new Shader.Variable.Uniform.Vec3Binding(translationVec));
       }
 

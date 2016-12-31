@@ -1,10 +1,8 @@
 package com.generic.base;
 
 import com.generic.base.VectorAlgebra.*;
-import com.generic.base.World.*;
 import com.generic.base.Shader;
-import com.generic.demo.Raster;
-import com.generic.demo.Raster.*;
+import com.generic.base.Raster.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -40,7 +38,7 @@ public class Geometry {
       public static class Vertex {
          public Vertex(Vector3f position) {
             this.position = position;
-            this.oneOutgoingEdge = oneOutgoingEdge;
+            this.oneOutgoingEdge = null;
          }
          
          // Each Vertex holds a pointer to one outgoing Edge
@@ -218,9 +216,12 @@ public class Geometry {
           
           // Now let's consider each VERTEX in turn
           for (Triangle.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
+             
+             // Consider a VERTEX v (== ei.getOppositeVertex()).
              Vertex v = ei.getOppositeVertex();
              
-             // Going CCW around the NEW-TRIANGLE, we encounter edges: prevEdge -> v -> nextEdge
+             // When passing this vertex going CCW around the TRIANGLE to be DELETED, 
+             //    we encounter edges: prevEdge -> v -> nextEdge
              Triangle.Edge prevEdge = ei.ccwAroundTriangle();  // (points towards v)
              Triangle.Edge nextEdge = ei.cwAroundTriangle();   // (points away from v)
              
@@ -391,9 +392,10 @@ public class Geometry {
          
          // Now let's consider each VERTEX in turn
          for (Triangle.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
-            Vertex v = ei.getOppositeVertex();
             
-            // Going CCW around the TRIANGLE to be DELETED, we encounter edges: prevEdge -> v -> nextEdge
+            // Consider a VERTEX v (== ei.getOppositeVertex()).
+            // When passing this vertex going CCW around the TRIANGLE to be DELETED, 
+            //    we encounter edges: prevEdge -> v -> nextEdge
             Triangle.Edge prevEdge = ei.ccwAroundTriangle();  // (points towards v)
             Triangle.Edge nextEdge = ei.cwAroundTriangle();   // (points away from v)
           
@@ -708,6 +710,11 @@ public class Geometry {
          setManagedBuffer(Shader.POSITION_ARRAY, defaultPositionBuffer(mesh), name);
          setManagedBuffer(Shader.BARY_COORDS,    defaultBaryCoords(mesh), name);
          setManagedBuffer(Shader.COLOR_ARRAY,    defaultColorArray(mesh), name);
+         
+         setManagedBuffer(Shader.V0POS_ARRAY,    defaultPosArray(mesh,0), name);
+         setManagedBuffer(Shader.V2POS_ARRAY,    defaultPosArray(mesh,1), name);
+         setManagedBuffer(Shader.V1POS_ARRAY,    defaultPosArray(mesh,2), name);
+         
       }
 
       // ------------------------------------------------------------------------
@@ -783,7 +790,21 @@ public class Geometry {
          }
       };
    }
-
+   private static Shader.ManagedBuffer defaultPosArray(final Mesh mesh, final int index) {
+      return new Shader.ManagedBuffer(4) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle t : mesh.interiorTriangles) {
+               Vector3f pos = ((index==0)?t.edge0:(index==1)?t.edge1:t.edge2).getOppositeVertex().getPosition();
+               pPos = Vector4f.fromVector3f(pos).copyToFloatArray(array, pPos);
+               pPos = Vector4f.fromVector3f(pos).copyToFloatArray(array, pPos);
+               pPos = Vector4f.fromVector3f(pos).copyToFloatArray(array, pPos);
+            }
+         }
+      };
+   }
+   
    private static Shader.ManagedBuffer defaultBaryCoords(final Mesh mesh) {
       return new Shader.ManagedBuffer(2) {
          @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
@@ -808,9 +829,9 @@ public class Geometry {
             for (Mesh.Triangle t : mesh.interiorTriangles) {
                ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xf0, (byte)0x80) :
                                  (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0x80, (byte)0xf0) :
-                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xe0, (byte)0xe0) :
-                                            new ColorARGB((byte)0x00, (byte)0x10, (byte)0xf0, (byte)0xc0);
-               col = (col+1)%3;
+                                 (col==2) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xe0, (byte)0xe0) :
+                                            new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               col = (col+1)%4;
                pPos = copyColor(array, pPos, color);
                pPos = copyColor(array, pPos, color);
                pPos = copyColor(array, pPos, color);
@@ -823,7 +844,7 @@ public class Geometry {
              return base+3;
          }
       };
-   }
+   }   
    
    // -----------------------------------------------------------------------
    // CUBE
@@ -1231,6 +1252,9 @@ public class Geometry {
          v.setPosition(tc.base.plus(tc.offset.times((1.0f - (float) Math.cos(phase)) * mag)));
       }
       model.getManagedBuffer(Shader.POSITION_ARRAY).setModified(true);
+      model.getManagedBuffer(Shader.V0POS_ARRAY).setModified(true);
+      model.getManagedBuffer(Shader.V1POS_ARRAY).setModified(true);
+      model.getManagedBuffer(Shader.V2POS_ARRAY).setModified(true);      
    }
    
    
@@ -1296,5 +1320,8 @@ public class Geometry {
          v.setPosition(p);
       }
       model.getManagedBuffer(Shader.POSITION_ARRAY).setModified(true);
+      model.getManagedBuffer(Shader.V0POS_ARRAY).setModified(true);
+      model.getManagedBuffer(Shader.V1POS_ARRAY).setModified(true);
+      model.getManagedBuffer(Shader.V2POS_ARRAY).setModified(true);
    }
 }

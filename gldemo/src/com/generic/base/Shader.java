@@ -2,7 +2,7 @@ package com.generic.base;
 
 import com.generic.base.VectorAlgebra.Matrix4f;
 import com.generic.base.VectorAlgebra.Vector3f;
-import com.generic.demo.Raster.Image;
+import com.generic.base.Raster.Image;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -278,7 +278,7 @@ public class Shader {
       @Override
       protected void initVariables() {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
-         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    4));
+         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
          variables.add(new Variable.Buffer(Shader.TEX_COORDS,     4));
          variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
          
@@ -294,10 +294,17 @@ public class Shader {
       @Override
       protected void initVariables() {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
-         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    4));
+         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
+         
+         variables.add(new Variable.Buffer(Shader.V0POS_ARRAY,    4));
+         variables.add(new Variable.Buffer(Shader.V1POS_ARRAY,    4));
+         variables.add(new Variable.Buffer(Shader.V2POS_ARRAY,    4));
+         
          variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+         variables.add(new Variable.Uniform(Shader.WINDOW_WIDTH,          Variable.Uniform.Type.INTEGER));
+         variables.add(new Variable.Uniform(Shader.WINDOW_HEIGHT,         Variable.Uniform.Type.INTEGER));
          variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
          variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
       }
@@ -307,7 +314,7 @@ public class Shader {
       @Override
       protected void initVariables() {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
-         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    4));
+         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
          variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
@@ -319,6 +326,11 @@ public class Shader {
    
    public static final String POSITION_ARRAY = "vertexPosition";
    public static final String COLOR_ARRAY    = "vertexColor";
+   
+   public static final String V0POS_ARRAY    = "vertexV0Pos";
+   public static final String V1POS_ARRAY    = "vertexV1Pos";
+   public static final String V2POS_ARRAY    = "vertexV2Pos";
+   
    public static final String TEX_COORDS     = "vertexTexCoords";
    public static final String BARY_COORDS    = "vertexBaryCoords";
    
@@ -329,4 +341,8 @@ public class Shader {
 
    public static final String HIGHLIGHT_BOOL = "highlight";
    public static final String TRANSLATION_VEC = "translation";
+
+   public static final String WINDOW_WIDTH = "windowWidth";
+   public static final String WINDOW_HEIGHT = "windowHeight";
+
 }

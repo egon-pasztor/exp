@@ -2,8 +2,9 @@ package com.generic.base;
 
 import com.generic.base.Geometry.*;
 import com.generic.base.VectorAlgebra.*;
-import com.generic.demo.Raster;
-import com.generic.demo.Raster.*;
+import com.generic.base.World.ShaderInstanceModel;
+import com.generic.base.Raster;
+import com.generic.base.Raster.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -83,6 +84,8 @@ public class World {
             if (variable instanceof Shader.Variable.Buffer) {
                Shader.ManagedBuffer buffer = model.getManagedBuffer(variable.name);
                if (buffer != null) {
+                  // Note that binding by "name" does not check that "variable.floatsPerElement" is
+                  // the same as "buffer.numFloatsPerElement".  It certainly should be...
                   instance.bind(variable.name, new Shader.Variable.Buffer.Binding(buffer));
                }
             }
@@ -173,19 +176,24 @@ public class World {
    // Pre-Render-Pass
    // ---------------------------------------------
    
-   public void bindPositions(Model m, Matrix4f projMatrix, Matrix4f viewMatrix) {
+   public void bindPositions(Model m, Matrix4f projMatrix, Matrix4f viewMatrix, int windowWidth, int windowHeight) {
       viewMatrix = Matrix4f.product(viewMatrix, m.getModelToWorld());
       if (m instanceof ShaderInstanceModel) {
-         ((ShaderInstanceModel)m).instance.bind(Shader.WORLD_TO_CLIP_MATRIX, new Shader.Variable.Uniform.Mat4Binding(projMatrix));
-         ((ShaderInstanceModel)m).instance.bind(Shader.MODEL_TO_WORLD_MATRIX, new Shader.Variable.Uniform.Mat4Binding(viewMatrix));
+         Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
+         
+         shaderInstance.bind(Shader.WORLD_TO_CLIP_MATRIX, new Shader.Variable.Uniform.Mat4Binding(projMatrix));
+         shaderInstance.bind(Shader.MODEL_TO_WORLD_MATRIX, new Shader.Variable.Uniform.Mat4Binding(viewMatrix));
+         
+         shaderInstance.bind(Shader.WINDOW_WIDTH, new Shader.Variable.Uniform.IntBinding(windowWidth));
+         shaderInstance.bind(Shader.WINDOW_HEIGHT, new Shader.Variable.Uniform.IntBinding(windowHeight));
       }
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel) m).children) {
-            bindPositions(child, projMatrix, viewMatrix);
+            bindPositions(child, projMatrix, viewMatrix, windowWidth, windowHeight);
          }
       }
    }
-   public void bindPositions(Matrix4f projMatrix, Matrix4f viewMatrix) {
-      bindPositions(rootModel, projMatrix, viewMatrix);
+   public void bindPositions(Matrix4f projMatrix, Matrix4f viewMatrix, int windowWidth, int windowHeight) {
+      bindPositions(rootModel, projMatrix, viewMatrix, windowWidth, windowHeight);
    }
 }

@@ -4,14 +4,13 @@ import java.awt.Dimension;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map;
 
 import com.generic.base.Camera;
 import com.generic.base.Shader;
@@ -20,6 +19,7 @@ import com.generic.base.VectorAlgebra;
 import com.generic.base.World;
 
 import com.generic.base.Geometry.*;
+import com.generic.base.Raster.Image;
 import com.generic.base.VectorAlgebra.*;
 import com.generic.base.World.*;
 
@@ -31,6 +31,7 @@ import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
 
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 
 public class GLSample implements GLEventListener, MouseListener, MouseMotionListener {
@@ -69,7 +70,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
       
-      demoWorld = new DemoWorld();
+      Image leaImage = imageFromResource("lea.png");
+      Image teapotImage = imageFromResource("teapot.png");
+      demoWorld = new DemoWorld(leaImage, teapotImage);
       
       GLProfile glProfile = GLProfile.get(GLProfile.GL3);
       GLCapabilities glCapabilities = new GLCapabilities(glProfile);
@@ -105,6 +108,58 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       
    }
+
+   // -------------------------------------------------------------------
+   // Loading from RESOURCEs:
+   // -------------------------------------------------------------------
+
+   public static Image imageFromResource(String name) {
+      System.out.format("Trying to load image named [%s]\n", name);
+      BufferedImage im;
+      try {
+          im = ImageIO.read(Image.class.getResource(name));
+      } catch (IOException e) {
+          System.out.format("FAILED - Trying to load image named [%s]\n", name);
+          e.printStackTrace();
+          return null;
+      }
+
+      Image res = new Image(name, im.getWidth(), im.getHeight());
+      for (int row = 0; row < res.height; row++) {
+         for (int col = 0; col < res.width; col++) {
+            int val = im.getRGB(col, row);
+            res.pixels[col+row*res.width] = val;
+            if ((row == 0) && (col == 0)) {
+               System.out.format("At (0,0) we got 0x%8x\n", val);
+            }
+         }
+      }
+      return res;
+   }
+   private String loadStringFileFromCurrentPackage(String fileName){
+      InputStream stream = this.getClass().getResourceAsStream(fileName);
+
+      BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+      // allocate a string builder to add line per line 
+      StringBuilder strBuilder = new StringBuilder();
+
+      try {
+         String line = reader.readLine();
+         // get text from file, line per line
+         while(line != null){
+            strBuilder.append(line + "\n");
+            line = reader.readLine();  
+         }
+         // close resources
+         reader.close();
+         stream.close();
+      } catch (IOException e) {
+         e.printStackTrace();
+      }
+
+      return strBuilder.toString();
+   }
+   
    
    // -----------------------------------------------------------
    // Implementing GLEventListener
@@ -117,6 +172,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       System.out.format("----------------------\n");
       
       GL3 gl = drawable.getGL().getGL3();
+      
+      int[] result = new int[1];
+      gl.glGetIntegerv(GL3.GL_MAX_VERTEX_ATTRIBS, result,0);
+      System.out.format("GL_MAX_VERTEX_ATTRIBS:  I found a %d in result\n", result[0]);
+      
       initGL(gl);
       System.out.format("----------------------\n");
    }
@@ -232,10 +292,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       updateBuffers(gl);
 
       Camera camera = cameraController.getCamera();
-      demoWorld.bindPositions(camera.cameraToClipSpace, camera.worldToCameraSpace);
-      
       int width = camera.width;
       int height = camera.height;
+      
+      demoWorld.bindPositions(camera.cameraToClipSpace, camera.worldToCameraSpace, width, height);
       
       gl.glViewport(0,0,width, height);
       gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -440,30 +500,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glCompileShader(id);
 
       return id;
-   }
-   
-   private String loadStringFileFromCurrentPackage(String fileName){
-      InputStream stream = this.getClass().getResourceAsStream(fileName);
-
-      BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-      // allocate a string builder to add line per line 
-      StringBuilder strBuilder = new StringBuilder();
-
-      try {
-         String line = reader.readLine();
-         // get text from file, line per line
-         while(line != null){
-            strBuilder.append(line + "\n");
-            line = reader.readLine();  
-         }
-         // close resources
-         reader.close();
-         stream.close();
-      } catch (IOException e) {
-         e.printStackTrace();
-      }
-
-      return strBuilder.toString();
    }
    
    /** Retrieves the info log for the shader */
