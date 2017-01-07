@@ -639,7 +639,7 @@ public class VectorAlgebra {
          this.v2 = v2;
       }
    }
-   public static boolean intersects(Triangle t, Segment3d s) {
+   public static Vector2f intersects(Triangle t, Segment3d s) {
       Vector3f u = t.v1.minus(t.v0);
       Vector3f v = t.v2.minus(t.v0);
       Vector3f n = u.cross(v).normalized();
@@ -651,7 +651,10 @@ public class VectorAlgebra {
       // http://geomalgorithms.com/a06-_intersect-2.html
 
       float den = n.dot(s.p1.minus(s.p0));
-      if (den == 0) return false;
+      if (den == 0) return null;
+      
+      // This rejects intersections with back-facing triangles...
+      if (den > 0) return null;
 
       float r1 = n.dot(t.v0.minus(s.p0)) / den;
       Vector3f i = s.p0.plus(s.p1.minus(s.p0).times(r1));
@@ -659,7 +662,7 @@ public class VectorAlgebra {
  
       float den2 = u.dot(v) * u.dot(v)
                  - u.dot(u) * v.dot(v);
-      if (den2 == 0) return false;
+      if (den2 == 0) return null;
 
       float snum = u.dot(v) * w.dot(v)
                  - v.dot(v) * w.dot(u);
@@ -669,10 +672,10 @@ public class VectorAlgebra {
 
       float sc = snum/den2;
       float tc = tnum/den2;
-      if (sc<0) return false;
-      if (tc<0) return false;
-      if (sc+tc>1) return false;
-      return true;
+      if (sc<0) return null;
+      if (tc<0) return null;
+      if (sc+tc>1) return null;
+      return new Vector2f(sc,tc);
    }
 
    // -----------------------------------------------------------------------
@@ -743,7 +746,6 @@ public class VectorAlgebra {
       return cmp(m.xx, 1.0f) && cmp(m.xy, 0.0f) 
           && cmp(m.yx, 0.0f) && cmp(m.yy, 1.0f);
    }
-   
    private static float randf() {
       return (float)(Math.random()*4.0 - 2.0);
    }

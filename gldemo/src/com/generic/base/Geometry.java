@@ -1304,6 +1304,53 @@ public class Geometry {
       };
    }
 
+   //==================================================
+   
+
+   public static class FlatFaceInfo {
+      public final Vector2f tex0,tex1,tex2;
+      public FlatFaceInfo(Vector2f tex0, Vector2f tex1, Vector2f tex2) {
+         this.tex0 = tex0; this.tex1 = tex1; this.tex2 = tex2;
+      }
+   }
+
+   private static Shader.ManagedBuffer perTriangleTexCoords(final Mesh mesh) {
+      return new Shader.ManagedBuffer(4) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle t : mesh.interiorTriangles) {
+               FlatFaceInfo faceInfo = (FlatFaceInfo) t.getData();
+               pPos = toVector4f(faceInfo.tex0).copyToFloatArray(array, pPos);
+               pPos = toVector4f(faceInfo.tex1).copyToFloatArray(array, pPos);
+               pPos = toVector4f(faceInfo.tex2).copyToFloatArray(array, pPos);
+            }
+         }
+         private Vector4f toVector4f(Vector2f tex1) {
+            return new Vector4f(tex1.x, tex1.y, 0.0f, 1.0f);
+         }
+      };
+   }
+   
+   public static void everyTriangleGetsManualMapping (MeshModel model) {
+      Vector2f p0 = new Vector2f(0.0f, 0.0f);
+      Vector2f p1 = new Vector2f(1.0f, 0.0f);
+      Vector2f p2 = new Vector2f(0.5f, 0.866f);
+      float margin = 0.1f;
+      
+      int tCount = 0;
+      for (Mesh.Triangle t : model.mesh.interiorTriangles) {
+         int yCount = tCount/4;
+         int xCount = tCount - (yCount*4);
+         Vector2f base = new Vector2f(margin + (1.0f+margin) * xCount, margin + (1.0f+margin) * yCount); 
+               
+         FlatFaceInfo fi = new FlatFaceInfo(base.plus(p0),base.plus(p1),base.plus(p2));
+         t.setData(fi);
+         tCount++;
+      }
+      model.setManagedBuffer(Shader.TEX_COORDS, perTriangleTexCoords(model.mesh));
+   }
+   
    
    // -----------------------------------------------------------------------
    // Apply modifications..

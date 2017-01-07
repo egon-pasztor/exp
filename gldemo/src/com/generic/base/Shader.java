@@ -1,6 +1,7 @@
 package com.generic.base;
 
 import com.generic.base.VectorAlgebra.Matrix4f;
+import com.generic.base.VectorAlgebra.Vector2f;
 import com.generic.base.VectorAlgebra.Vector3f;
 import com.generic.base.Raster.Image;
 
@@ -74,6 +75,7 @@ public class Shader {
          public enum Type {
             INTEGER,
             VECTOR3,
+            VECTOR2,
             MATRIX4,
             BGRA_TEXTURE,
             GRAY_TEXTURE
@@ -88,6 +90,12 @@ public class Shader {
          public static class Vec3Binding implements Variable.Binding {
             public final Vector3f value;
             public Vec3Binding(Vector3f value) {
+               this.value = value;
+            }
+         }
+         public static class Vec2Binding implements Variable.Binding {
+            public final Vector2f value;
+            public Vec2Binding(Vector2f value) {
                this.value = value;
             }
          }
@@ -295,6 +303,7 @@ public class Shader {
       protected void initVariables() {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
          variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
+         variables.add(new Variable.Buffer(Shader.TEX_COORDS,     4));
          
          variables.add(new Variable.Buffer(Shader.V0POS_ARRAY,    4));
          variables.add(new Variable.Buffer(Shader.V1POS_ARRAY,    4));
@@ -303,6 +312,7 @@ public class Shader {
          variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+         variables.add(new Variable.Uniform(Shader.UV_POINTER,            Variable.Uniform.Type.VECTOR2));
          variables.add(new Variable.Uniform(Shader.WINDOW_WIDTH,          Variable.Uniform.Type.INTEGER));
          variables.add(new Variable.Uniform(Shader.WINDOW_HEIGHT,         Variable.Uniform.Type.INTEGER));
          variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
@@ -340,6 +350,7 @@ public class Shader {
    public static final String MODEL_TO_WORLD_MATRIX = "viewMatrix";
 
    public static final String HIGHLIGHT_BOOL = "highlight";
+   public static final String UV_POINTER = "uvPointer";
    public static final String TRANSLATION_VEC = "translation";
 
    public static final String WINDOW_WIDTH = "windowWidth";

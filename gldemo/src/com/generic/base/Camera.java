@@ -2,6 +2,7 @@ package com.generic.base;
 
 import com.generic.base.VectorAlgebra.Matrix4f;
 import com.generic.base.VectorAlgebra.Vector3f;
+import com.generic.base.VectorAlgebra.Vector2f;
 
 public class Camera {
 
@@ -324,10 +325,9 @@ public class Camera {
          grabState = newGrabState;
          grabPointCameraSpace = getCameraSpacePosition(ix,iy);
 
-         // roll = (new Vector2f(grabPointCameraSpace.x,grabPointCameraSpace.y)).lengthSq()
-         //      > grabFHeight*grabFWidth;
+         roll = (new Vector2f(grabPointCameraSpace.x,grabPointCameraSpace.y)).lengthSq()
+               > grabCamera.fHeight*grabCamera.fWidth;
 
-         roll = false;
          grabAngle = (float) Math.atan2(grabPointCameraSpace.y, grabPointCameraSpace.x);
          lastAngle = grabAngle;
          tScale = (grabPointCameraSpace.y < 0) ?

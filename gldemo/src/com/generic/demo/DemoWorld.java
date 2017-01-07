@@ -12,7 +12,10 @@ public class DemoWorld extends World {
    
    private MeshModel stretchyBall;
    private ShaderInstanceModel[] mobileBalls;
-   private MeshModel choppedCube;
+//   private MeshModel choppedCube;
+   
+   public MeshModel mappingModel;
+   public Vector2f intersectionPointHack;
 
    public DemoWorld(Image leaImage, Image teapotImage) {
       System.out.format("Starting InitDemoWorld\n");
@@ -24,20 +27,17 @@ public class DemoWorld extends World {
       Shader.ManagedTexture leaImageT = new Shader.ManagedTexture(leaImage);
       Shader.ManagedTexture teapotImageT = new Shader.ManagedTexture(teapotImage);
       
-      MeshModel cube0 = Geometry.createUnitCube();
-      MeshModel ball0 = Geometry.createIco(0);
-      MeshModel ball1 = Geometry.createUnitSphere(30,30); //Geometry.createIco(4);
-
-      stretchyBall = ball1;
       CompoundModel root = new CompoundModel();
       ShaderInstanceModel m;
       
       // Build root instance
+      MeshModel cube0 = Geometry.createUnitCube();
       Shader.Instance cube0Instance = new Shader.Instance(Shader.TEXTURE_SHADER);
       cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(leaImageT));
       m = new ShaderInstanceModel(cube0Instance, cube0);
       root.children.add(m);
       
+/*
       // Demo cylinder instance
       MeshModel cyl = Geometry.createCylinder(Vector3f.Z.times(-1.0f), Vector3f.Z, 1.0f, 1.0f, 8);
       Shader.Instance cylInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
@@ -52,29 +52,39 @@ public class DemoWorld extends World {
       m = new ShaderInstanceModel(createChoppedCubeInstance, choppedCube);
       root.children.add(m);
       m.translate(Vector3f.Y.times(7.0f));
+*/
       
       // ICO
-      Shader.Instance mobileBallInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-      m = new ShaderInstanceModel(mobileBallInstance, ball0);
+      MeshModel ico0 = Geometry.createIco(0);
+      Geometry.everyTriangleGetsManualMapping(ico0);
+      mappingModel = ico0;
+
+      Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      m = new ShaderInstanceModel(ico0Instance, ico0);
       root.children.add(m);
       m.translate(Vector3f.Y.times(-3.0f));
+
       
-      MeshModel pb = Geometry.createIco(3);
+      MeshModel perlinNoiseBall = Geometry.createIco(3);
       // hmm.. we're bit-rotting.  this function binds "COLOR_ARRAY" in pb to provide a color
       // for each triangle, consisting of 3 values, these being the "random ints" assigned 
       // to the 3 verticies...
       //
       // ... but then, we're not using it at all.   We used to, but fragment3's code is now
       // all perlin-noise stuff.
-      Geometry.everyPointGetsAnInteger(pb, 255);
+      Geometry.everyPointGetsAnInteger(perlinNoiseBall, 255);
+
       
+      MeshModel ball1 = Geometry.createUnitSphere(30,30); //Geometry.createIco(4);
+      stretchyBall = ball1;      
       mobileBalls = new ShaderInstanceModel[4];
+      
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
          
          // Perlin-Ball instance
          Shader.Instance pbInstance = new Shader.Instance(Shader.POINT_COLOR_SHADER);
-         m = new ShaderInstanceModel(pbInstance, pb);
+         m = new ShaderInstanceModel(pbInstance, perlinNoiseBall);
          root.children.add(m);
          mobileBalls[i] = m;
          
@@ -94,7 +104,7 @@ public class DemoWorld extends World {
    // ----------------------------------------------------------------------------------
    
    public void updateDemoWorld(float time) {
-      final int MillisPerCycle = 10000;
+      final int MillisPerCycle = 3000;
       float phase = (float) ((time / MillisPerCycle) * (Math.PI * 2.0));
 
       for (int i = 0; i < 4; i++) {
@@ -110,7 +120,7 @@ public class DemoWorld extends World {
          m.instance.bind(Shader.TRANSLATION_VEC, new Shader.Variable.Uniform.Vec3Binding(translationVec));
       }
 
-      Geometry.warpChoppedCube(choppedCube, phase, 1.0f);
+      //Geometry.warpChoppedCube(choppedCube, phase, 1.0f);
       Geometry.sphereWarp(stretchyBall, phase, 0.05f);
    }
 }

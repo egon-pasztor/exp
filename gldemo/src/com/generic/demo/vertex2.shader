@@ -3,6 +3,7 @@
 uniform mat4 viewMatrix, projMatrix;
  
 in vec4 vertexPosition;
+in vec4 vertexTexCoords;
 in vec3 vertexColor;
 in vec2 vertexBaryCoords;
 
@@ -23,6 +24,7 @@ out vec4 fragmentVPos;
 void main()
 {
     fragColor = vertexColor;
+    fragTexCoords = vertexTexCoords;    
     fragBaryCoords = vertexBaryCoords;    
     
     fragmentV0Pos = projMatrix * viewMatrix * vertexV0Pos;

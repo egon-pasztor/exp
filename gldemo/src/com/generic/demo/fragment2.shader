@@ -4,6 +4,8 @@ uniform bool highlight;
 uniform int windowWidth;
 uniform int windowHeight;
 
+uniform vec2 uvPointer;
+
 in vec4 gl_FragCoord;
 
 in vec4 fragmentV0Pos;
@@ -13,6 +15,7 @@ in vec4 fragmentVPos;
 
 
 in vec3 fragColor;
+in vec4 fragTexCoords;
 in vec2 fragBaryCoords;
 out vec4 outColor;
   
@@ -101,6 +104,16 @@ float edgeDistance2() {
     return lowestD;
 }
 
+float distance(float a, float b) {
+    float nearest = b * int(a/b);
+    float diff = a - nearest;
+    if (diff < 0.0) diff = -diff;
+	return diff;
+}
+
+bool isMultipleOf (float a, float b, float thresh) {
+    return (distance(a,b) < thresh);
+}     
 
 void main()
 {
@@ -137,24 +150,51 @@ void main()
     bool h = (e2 <= 1.0);
 
     if (h) {
-         outColor.r = 0.0;
-         outColor.g = 0.0;
-         outColor.b = 0.0;
-    } else {
        if (highlight) {
          outColor.r = 0.9;
          outColor.g = 0.1;
          outColor.b = 0.1;
        } else {
-         outColor.r = fragColor.r;
-         outColor.g = fragColor.g;
-         outColor.b = fragColor.b;
+         outColor.r = 0.0;
+         outColor.g = 0.0;
+         outColor.b = 0.0;
        }
-       if (e2 < 20) {
-         float f = (e2-1.0)/19.0;
-         outColor.r = (0.7)*(1-f) + outColor.r*f;
-         outColor.g = (0.1)*(1-f) + outColor.g*f;
-         outColor.b = (0.3)*(1-f) + outColor.b*f;
-       }
-    }   
+    } else {
+    
+        // okay here, we need to get TEXTURE COORDS.   do we have them?
+        
+        vec2 lk;
+        lk.x = fragTexCoords.x / fragTexCoords.w;
+        lk.y = fragTexCoords.y;
+        
+        // the question is, are either coords within 1 pixel of a texture X coords that's a muliple of .05?
+        // but how much texture coords correspond to one pixel?   we can compute that,
+        //    only if we knew the texture coords of the TRIANGLE CORNERS.
+
+         float thresh = 0.003f;
+            
+         if ((distance(lk.x, uvPointer.x) < thresh) || (distance(lk.y, uvPointer.y) < thresh)) {
+            outColor.r = 1.0f;
+            outColor.g = 0.0f;
+            outColor.b = 0.0f;         
+         } else {
+	         float frac = 0.0f;
+	         
+	         if (isMultipleOf(lk.x,0.05f,thresh) || isMultipleOf(lk.y,0.05f,thresh)) {
+	            int level = 0;
+	            if (isMultipleOf(lk.x,0.10f,thresh) || isMultipleOf(lk.y,0.10f,thresh)) level++;
+	            if (isMultipleOf(lk.x,0.50f,thresh) || isMultipleOf(lk.y,0.50f,thresh)) level++;
+	            if (isMultipleOf(lk.x,1.00f,thresh) || isMultipleOf(lk.y,1.00f,thresh)) level++;
+	            
+	            if (level == 0) frac = 0.2;
+	            if (level == 1) frac = 0.4;
+	            if (level == 2) frac = 0.6;
+	            if (level == 3) frac = 0.8;
+	         }
+	         
+	         outColor.r = fragColor.r * (1.0f-frac);
+	         outColor.g = fragColor.g * (1.0f-frac);
+	         outColor.b = fragColor.b * (1.0f-frac);
+	       }
+	    }   
 }
