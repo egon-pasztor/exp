@@ -1,9 +1,9 @@
 #version 330
 
-uniform bool highlight;
+uniform int highlight;
 
 in vec3 fragColor;
-in vec2 fragBaryCoords;
+in vec3 fragBaryCoords;
 out vec4 outColor;
 
 
@@ -212,30 +212,26 @@ float edgeDistance(float x, float y) {
  
 void main()
 {
-    float x = fragBaryCoords.x;
-    float y = fragBaryCoords.y;
-    
-    float p0x = 0;
-    float p0y = 0;
-    float p1x = 1;
-    float p1y = 0;
-    float p2x = 0.5;
-    float p2y = 0.8660254;
-    
-    bool h = (edgeDistance(x,y) < 0.005);
-   
-    float d0 = (x-p0x)*(x-p0x) + (y-p0y)*(y-p0y);
-    float d1 = (x-p1x)*(x-p1x) + (y-p1y)*(y-p1y);
-    float d2 = (x-p2x)*(x-p2x) + (y-p2y)*(y-p2y);
+    float bary0 = fragBaryCoords.x;
+    float bary1 = fragBaryCoords.y;
+    float bary2 = fragBaryCoords.z;
+	  
+	float thresh = .02f;
+    if ((bary0 < thresh) || (bary1 < thresh) || (bary2 < thresh)) {
+      if (highlight != 0) {
+	    outColor.r = 0.8;
+	    outColor.g = 0.2;
+	    outColor.b = 0.2;
+	  } else {
+	    outColor.r = 0.2;
+	    outColor.g = 0.2;
+	    outColor.b = 0.2;
+	  }
+      return;
+    }
     
     float colval = (1+snoise(
       vec3(1.5*fragColor)))/2;
-    
-    if (h) {
-         outColor.r = 0.2;
-         outColor.g = 0.2;
-         outColor.b = 0.2;
-    } else {
          
          if (colval < 0.25) {
            outColor.r = 1.0;
@@ -258,5 +254,4 @@ void main()
            outColor.g = 1.0;
            outColor.b = 0.0;
          }
-    }   
 }

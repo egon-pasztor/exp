@@ -15,7 +15,7 @@ public class DemoWorld extends World {
 //   private MeshModel choppedCube;
    
    public MeshModel mappingModel;
-   public Vector2f intersectionPointHack;
+   public Vector2f selectedUVPointIfAny;
 
    public DemoWorld(Image leaImage, Image teapotImage) {
       System.out.format("Starting InitDemoWorld\n");

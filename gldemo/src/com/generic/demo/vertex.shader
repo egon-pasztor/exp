@@ -5,11 +5,11 @@ uniform mat4 viewMatrix, projMatrix;
 in vec4 vertexPosition;
 in vec3 vertexColor;
 in vec4 vertexTexCoords;
-in vec2 vertexBaryCoords;
+in vec3 vertexBaryCoords;
  
 out vec3 fragColor;
 out vec4 fragTexCoords;
-out vec2 fragBaryCoords;
+out vec3 fragBaryCoords;
  
 void main()
 {

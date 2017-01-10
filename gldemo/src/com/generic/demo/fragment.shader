@@ -1,11 +1,11 @@
 #version 330
 
 uniform sampler2D mainTexture;
-uniform bool highlight;
+uniform int highlight;
 
 in vec3 fragColor;
 in vec4 fragTexCoords;
-in vec2 fragBaryCoords;
+in vec3 fragBaryCoords;
 out vec4 outColor;
  
 float distance(float sx, float sy,
@@ -52,26 +52,27 @@ float edgeDistance(float x, float y) {
  
 void main()
 {
+    float bary0 = fragBaryCoords.x;
+    float bary1 = fragBaryCoords.y;
+    float bary2 = fragBaryCoords.z;
+	  
+	float thresh = .02f;
+    if ((bary0 < thresh) || (bary1 < thresh) || (bary2 < thresh)) {
+      if (highlight != 0) {
+	    outColor.r = 0.8f;
+	    outColor.g = 0.2f;
+	    outColor.b = 0.2f;
+	  } else {
+	    outColor.r = 0.2f;
+	    outColor.g = 0.8f;
+	    outColor.b = 0.2f;
+	  }
+      return;
+    }
+    
     vec2 lk;
-    lk.x = fragTexCoords.x / fragTexCoords.w;
+    lk.x = fragTexCoords.x;
     lk.y = fragTexCoords.y;
     
     outColor = texture2D(mainTexture, lk);
-    
-    float x = fragBaryCoords.x;
-    float y = fragBaryCoords.y;
-    bool h = (edgeDistance(x,y) < 0.01);
-
-    if (h) {
-       if (highlight) {
-	      outColor.r = 0.0;
-	      outColor.g = 1.0;
-	      outColor.b = 0.0;
-       } else {
-          outColor.r = 1.0;
-          outColor.g = 0.0;
-          outColor.b = 0.0;
-       }
-    }
-       
 }

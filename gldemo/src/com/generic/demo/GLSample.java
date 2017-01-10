@@ -68,6 +68,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private final GLCanvas glCanvas;   
    private final GUI gui;
    
+   private boolean intersectionIn3d;
    private final long startTimeMillis;
 
    
@@ -79,6 +80,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       Image leaImage = imageFromResource("lea.png");
       Image teapotImage = imageFromResource("teapot.png");
       demoWorld = new DemoWorld(leaImage, teapotImage);
+      intersectionIn3d = false;
       
       // Create "GLCanvas" (extends Canvas):
       
@@ -117,8 +119,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       
       // Create GUI and frame window
-      
-      gui = new GUI(glCanvas, demoWorld);
+      gui = new GUI();
       
       final Frame frame = new Frame() {
          private static final long serialVersionUID = 1L;
@@ -137,6 +138,22 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       System.out.println("GLSample constructor END\n");
    }
+
+   
+   private void updateUVPointer(float x, float y) {
+      Vector2f newSelectedUVPoint = new Vector2f(x,y);
+      if ((demoWorld.selectedUVPointIfAny == null) || !newSelectedUVPoint.equals(demoWorld.selectedUVPointIfAny)) {
+         demoWorld.selectedUVPointIfAny = newSelectedUVPoint;
+         gui.viewController.repaint();
+      }
+   }
+   private void clearUVPointer() {
+      if (demoWorld.selectedUVPointIfAny != null) {
+         demoWorld.selectedUVPointIfAny = null;
+         gui.viewController.repaint();
+      }
+   }
+
 
    // -----------------------------------------------------------
    // Color
@@ -207,10 +224,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    //   we enjoy a style of "beveled border" that we've stuck with for 20 years...
    //   along with a "ColorSchema" class..
    
-   private static class GUI extends Container {
+   private class GUI extends Container {
       private static final long serialVersionUID = 1L;        
       public ViewController viewController;
-      public GLCanvas glCanvas;
       public Label label;
         
       final int outerBorderSize = 2;
@@ -222,16 +238,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       final int leftMargin = 10;
       final int rightMargin = 10;
       
-      public GUI(GLCanvas glCanvas, DemoWorld demoWorld) {
+      public GUI() {
          label = new Label();
          label.setFont(new Font(null, Font.PLAIN, 12));
          label.setBackground(backgroundColorScheme.bgColor);
          add(label);
          
-         this.glCanvas = glCanvas;
          add(glCanvas);
          
-         viewController = new ViewController(demoWorld, label);
+         viewController = new ViewController(label);
          add(viewController);
       }
       
@@ -349,10 +364,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    //
    // 
    
-   
-   
-   
-   private static class ViewController extends Container 
+   private class ViewController extends Container 
               implements MouseListener, MouseMotionListener, MouseWheelListener {
       private static final long serialVersionUID = 1L;
        
@@ -369,14 +381,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       public int dragY;
       public Point2D.Double dragCenterAtStart;
 
-      // This is used to draw the crosshairs
-      public boolean mousePresent;
-      public int mouseX, mouseY;
-       
       // -----------------------------------------------------
       
-      public ViewController(DemoWorld demoWorld, Label statusLabel) {
-         this.view = new Viewport(demoWorld);
+      public ViewController(Label statusLabel) {
+         this.view = new Viewport();
          this.statusLabel = statusLabel;
           
          addMouseListener(this);
@@ -409,28 +417,32 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                renderTimeMillis = (int)(timeAfter - timeBefore);
             }
             g.drawImage(image, 0, 0, null); 
-            String timeStr = String.format("Copy %d ms: ", renderTimeMillis);
             
-            if (mousePresent) {
+            if (demoWorld.selectedUVPointIfAny != null) {
+               int px = view.xToHPixel(demoWorld.selectedUVPointIfAny.x);
+               int py = view.yToVPixel(demoWorld.selectedUVPointIfAny.y);
+               
+               g.setColor(Color.RED);
                int w = image.getWidth(null);
                int h = image.getHeight(null);
-               g.setColor(Color.RED);
-               g.drawLine(0,mouseY,w,mouseY);
-               g.drawLine(mouseX,0,mouseX,h);
-               statusLabel.setText(timeStr+ view.status(mouseX, h-mouseY));
-            } else {
-               statusLabel.setText(timeStr+ view.status(null, null));
+               g.drawLine(0,py,w,py);
+               g.drawLine(px,0,px,h);
+               
+               g.setColor(Color.BLACK);
+               g.fillRect(px-3, py-3,  7, 7);
+               
+               
+               g.setColor(Color.YELLOW);
+               g.fillRect(px-2, py-2,  5, 5);
+               
+               
             }
             
-            if (view.demoWorld.intersectionPointHack != null) {
-               int px = view.xToHPixel(view.demoWorld.intersectionPointHack.x);
-               int py = view.yToVPixel(view.demoWorld.intersectionPointHack.y);
-               g.setColor(Color.YELLOW);
-               g.drawLine(px-1,py-1, px+1,py-1);
-               g.drawLine(px-1,py+1, px+1,py+1);
-               g.drawLine(px-1,py-1, px-1,py+1);
-               g.drawLine(px+1,py-1, px+1,py+1);               
-            }
+            statusLabel.setText(
+                  String.format("Copy %d ms: ", renderTimeMillis) +
+                  view.status() + 
+                  ((demoWorld.selectedUVPointIfAny != null) ? String.format("Pointer: <%g,%g>", 
+                        demoWorld.selectedUVPointIfAny.x, demoWorld.selectedUVPointIfAny.y) : ""));
           }
       }
       public void update(Graphics g) { paint(g); }
@@ -469,19 +481,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          //System.out.printf("Mouse entered (%d,%d)\n", 
          //      e.getX(), e.getY());
             
-         mousePresent = true;
-         mouseX = e.getX();
-         mouseY = e.getY();
-         repaint();
-
+         updateUVPointer(e.getX(), e.getY());
       }
       @Override
       public void mouseExited(MouseEvent e) {
          //System.out.printf("Mouse exited (%d,%d)\n", 
          //      e.getX(), e.getY());
           
-         mousePresent = false;
-         repaint();
+         GLSample.this.clearUVPointer();
       }
       @Override
       public void mouseDragged(MouseEvent e) {
@@ -496,18 +503,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             dragCenterAtStart.x += deviation.x;
             dragCenterAtStart.y += deviation.y;
          }
-         mouseX = e.getX();
-         mouseY = e.getY();
-         repaint();
+         updateUVPointer(e.getX(), e.getY());
       }
       @Override
       public void mouseMoved(MouseEvent e) {
          //System.out.printf("Mouse moved (%d,%d)\n", 
          //      e.getX(), e.getY());
             
-         mouseX = e.getX();
-         mouseY = e.getY();
-         repaint();
+         updateUVPointer(e.getX(), e.getY());
       }
       @Override
       public void mouseWheelMoved(MouseWheelEvent e) {
@@ -520,6 +523,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          }
          repaint();
       }
+      
+      private void updateUVPointer(int x, int y) {
+         GLSample.this.updateUVPointer(view.hPixelToX(x), view.vPixelToY(y));
+      }
    }
    
    
@@ -529,8 +536,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    
 
-   private static class Viewport {
-      public DemoWorld demoWorld;
+   private class Viewport {
       private boolean needsUpdate;
       private int w;
       private int h;
@@ -543,9 +549,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       public int yToVPixel(float y) {
          return h - (int) (h * (y-yMin)/(yMax-yMin));
       }
+      public float hPixelToX(float x) {
+         return xMin + ((float)x)/((float)w) * (xMax-xMin);
+      }
+      public float vPixelToY(int y) {
+         return yMin + ((float)(h-y))/((float)h) * (yMax-yMin);
+      }
       
-      public Viewport(DemoWorld demoWorld) {
-         this.demoWorld = demoWorld;
+      public Viewport() {
          needsUpdate = true;      
       }
       public boolean changed() {
@@ -825,9 +836,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          }
       }
       
-      public String status(Integer xPixel, Integer yPixel) {
-         String result = String.format("Viewport [%d x %d], (%g to %g) by (%g to %g) @ [%d, %d]", 
-               w,h, xMin,xMax, yMin,yMax, xPixel, yPixel);
+      public String status() {
+         String result = String.format("Viewport [%d x %d], (%g to %g) by (%g to %g)", 
+               w,h, xMin,xMax, yMin,yMax);
          return result;
       }
    }
@@ -936,7 +947,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // Implementing MouseListener & MouseMotionListener
    // -----------------------------------------------------------
 
-   int hoverX, hoverY;
+   Integer hoverX, hoverY;
 
    @Override
    public void mouseClicked(MouseEvent e) {
@@ -951,6 +962,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    @Override
    public void mouseExited(MouseEvent e) {
       //System.out.format("GLSample.mouseExited() called\n");
+      if (intersectionIn3d) clearUVPointer();
+      intersectionIn3d = false;
+      
+      hoverX = null;
+      hoverY = null;
    }
 
    @Override
@@ -1069,12 +1085,17 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
          MeshModel model = ((ShaderInstanceModel) m).model;
 
-         Vector2f uvPointer = intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY);
-         if (uvPointer != null) {
+         boolean intersected = ((hoverX != null) && (hoverY != null)) 
+                                  ? intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY)
+                                  : false;
+         if (intersected) {
             shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.Variable.Uniform.IntBinding(1));
-            shaderInstance.bind(Shader.UV_POINTER, new Shader.Variable.Uniform.Vec2Binding(uvPointer));
          } else {
             shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.Variable.Uniform.IntBinding(0));
+         }
+         if (demoWorld.selectedUVPointIfAny != null) {
+            shaderInstance.bind(Shader.UV_POINTER, new Shader.Variable.Uniform.Vec2Binding(demoWorld.selectedUVPointIfAny));
+         } else {
             shaderInstance.bind(Shader.UV_POINTER, new Shader.Variable.Uniform.Vec2Binding(new Vector2f(-1.0f,-1.0f)));
          }
          
@@ -1124,7 +1145,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // --------------------------------------------------------------
    // PICKING VERSION 0 -- let's just answer the question here...
 
-   private Vector2f intersects(MeshModel geometry,  // does this geometry...
+   private boolean intersects(MeshModel geometry,  // does this geometry...
                                Matrix4f modelToCamera,   // transformed by this matrix into camera space...
                                Camera camera,            // where this is the camera,
                                int x, int y) {           // intersect this point in the view?
@@ -1155,7 +1176,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // --------------------
   
       Vector2f intersection = null;
-      int intersectionCount = 0;
+      boolean intersectionOccurred = false;
       for (Geometry.Mesh.Triangle t : geometry.mesh.interiorTriangles) {
          Vector3f v0Pos = t.edge0.getOppositeVertex().getPosition();
          Vector3f v1Pos = t.edge1.getOppositeVertex().getPosition();
@@ -1171,6 +1192,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          Vector2f intersectionA = VectorAlgebra.intersects(t2,s);
          
          if (intersectionA != null) {
+            intersectionOccurred = true;
             if (geometry == demoWorld.mappingModel) {
                Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
                Vector2f t0 = fi.tex0;
@@ -1178,15 +1200,20 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                Vector2f tv = fi.tex2.minus(fi.tex0);
                
                intersection = t0.plus(tu.times(intersectionA.x)).plus(tv.times(intersectionA.y));               
-               intersectionCount++;
             }
          }
       }
       
       if (geometry == demoWorld.mappingModel) {
-         demoWorld.intersectionPointHack = intersection;
+         if (intersection != null) {
+            updateUVPointer(intersection.x, intersection.y);
+            intersectionIn3d = true;
+         } else {
+            if (intersectionIn3d) clearUVPointer();
+            intersectionIn3d = false;
+         }
       }
-      return intersection;
+      return intersectionOccurred;
    }
 
    // -------------------------------------------------------------------

@@ -2,35 +2,39 @@
  
 uniform mat4 viewMatrix, projMatrix;
  
-in vec4 vertexPosition;
-in vec4 vertexTexCoords;
-in vec3 vertexColor;
-in vec2 vertexBaryCoords;
+in vec4 vertexV0pos;
+in vec4 vertexV1pos;
+in vec4 vertexV2pos;
+in vec2 vertexV0uv;
+in vec2 vertexV1uv;
+in vec2 vertexV2uv;
 
-in vec4 vertexV0Pos;
-in vec4 vertexV1Pos;
-in vec4 vertexV2Pos;
+out vec4 V0pos;
+out vec4 V1pos;
+out vec4 V2pos;
+out vec2 V0uv;
+out vec2 V1uv;
+out vec2 V2uv;
+
+in vec3 vertexColor;
+in vec3 vertexBaryCoords;
+in vec4 vertexPosition;
 
 out vec3 fragColor;
-out vec4 fragTexCoords;
-out vec2 fragBaryCoords;
- 
-out vec4 fragmentV0Pos;
-out vec4 fragmentV1Pos;
-out vec4 fragmentV2Pos;
-out vec4 fragmentVPos;
- 
+out vec3 fragBaryCoords;
  
 void main()
 {
     fragColor = vertexColor;
-    fragTexCoords = vertexTexCoords;    
     fragBaryCoords = vertexBaryCoords;    
     
-    fragmentV0Pos = projMatrix * viewMatrix * vertexV0Pos;
-    fragmentV1Pos = projMatrix * viewMatrix * vertexV1Pos;
-    fragmentV2Pos = projMatrix * viewMatrix * vertexV2Pos;
+    V0pos = projMatrix * viewMatrix * vertexV0pos;
+    V1pos = projMatrix * viewMatrix * vertexV1pos;
+    V2pos = projMatrix * viewMatrix * vertexV2pos;
+    
+    V0uv = vertexV0uv;
+    V1uv = vertexV1uv;
+    V2uv = vertexV2uv;
     
     gl_Position = projMatrix * viewMatrix * vertexPosition;
-    fragmentVPos = gl_Position;
 }
