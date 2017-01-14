@@ -714,7 +714,6 @@ public class Geometry {
          setManagedBuffer(Shader.V0POS_ARRAY,    defaultPosArray(mesh,0), name);
          setManagedBuffer(Shader.V2POS_ARRAY,    defaultPosArray(mesh,1), name);
          setManagedBuffer(Shader.V1POS_ARRAY,    defaultPosArray(mesh,2), name);
-         
       }
 
       // ------------------------------------------------------------------------
@@ -796,7 +795,7 @@ public class Geometry {
          @Override public void fillBuffer(float[] array) {
             int pPos = 0;
             for (Mesh.Triangle t : mesh.interiorTriangles) {
-               Vector3f pos = ((index==0)?t.edge0:(index==1)?t.edge1:t.edge2).getOppositeVertex().getPosition();
+               Vector3f pos = ((index==0)?t.edge0:(index==2)?t.edge1:t.edge2).getOppositeVertex().getPosition();
                pPos = Vector4f.fromVector3f(pos).copyToFloatArray(array, pPos);
                pPos = Vector4f.fromVector3f(pos).copyToFloatArray(array, pPos);
                pPos = Vector4f.fromVector3f(pos).copyToFloatArray(array, pPos);
@@ -804,17 +803,20 @@ public class Geometry {
          }
       };
    }
-   
    private static Shader.ManagedBuffer defaultBaryCoords(final Mesh mesh) {
-      return new Shader.ManagedBuffer(2) {
+      return new Shader.ManagedBuffer(3) {
          @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
          @Override public void fillBuffer(float[] array) {
             int pPos = 0;
             float root3 = (float) Math.sqrt(3);
             for (Mesh.Triangle t : mesh.interiorTriangles) {
-               pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(array,  pPos);
-               pPos = (new Vector2f(1.0f,0.0f)).copyToFloatArray(array,  pPos);
-               pPos = (new Vector2f(0.5f,root3 * 0.5f)).copyToFloatArray(array,  pPos);
+//               pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(array,  pPos);
+//               pPos = (new Vector2f(1.0f,0.0f)).copyToFloatArray(array,  pPos);
+//               pPos = (new Vector2f(0.5f,root3 * 0.5f)).copyToFloatArray(array,  pPos);
+
+               pPos = (new Vector3f(1.0f, 0.0f, 0.0f)).copyToFloatArray(array, pPos);
+               pPos = (new Vector3f(0.0f, 1.0f, 0.0f)).copyToFloatArray(array, pPos);
+               pPos = (new Vector3f(0.0f, 0.0f, 1.0f)).copyToFloatArray(array, pPos);
             }
          }
       };
@@ -1331,6 +1333,23 @@ public class Geometry {
          }
       };
    }
+   private static Shader.ManagedBuffer defaultUvArray(final Mesh mesh, final int index) {
+      return new Shader.ManagedBuffer(2) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle t : mesh.interiorTriangles) {
+               FlatFaceInfo faceInfo = (FlatFaceInfo) t.getData();
+               Vector2f pos = ((index==0)?faceInfo.tex0:(index==1)?faceInfo.tex1:faceInfo.tex2);
+               pPos = pos.copyToFloatArray(array, pPos);
+               pPos = pos.copyToFloatArray(array, pPos);
+               pPos = pos.copyToFloatArray(array, pPos);
+            }
+         }
+      };
+   }
+
+   
    
    public static void everyTriangleGetsManualMapping (MeshModel model) {
       Vector2f p0 = new Vector2f(0.0f, 0.0f);
@@ -1349,6 +1368,9 @@ public class Geometry {
          tCount++;
       }
       model.setManagedBuffer(Shader.TEX_COORDS, perTriangleTexCoords(model.mesh));
+      model.setManagedBuffer(Shader.V0UV_ARRAY, defaultUvArray(model.mesh,0));
+      model.setManagedBuffer(Shader.V1UV_ARRAY, defaultUvArray(model.mesh,1));
+      model.setManagedBuffer(Shader.V2UV_ARRAY, defaultUvArray(model.mesh,2));
    }
    
    

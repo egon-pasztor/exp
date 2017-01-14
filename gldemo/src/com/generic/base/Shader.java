@@ -288,7 +288,7 @@ public class Shader {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
          variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
          variables.add(new Variable.Buffer(Shader.TEX_COORDS,     4));
-         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
+         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
          
          variables.add(new Variable.Uniform(Shader.MAIN_TEXTURE,          Variable.Uniform.Type.BGRA_TEXTURE));
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
@@ -303,13 +303,16 @@ public class Shader {
       protected void initVariables() {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
          variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
-         variables.add(new Variable.Buffer(Shader.TEX_COORDS,     4));
          
          variables.add(new Variable.Buffer(Shader.V0POS_ARRAY,    4));
          variables.add(new Variable.Buffer(Shader.V1POS_ARRAY,    4));
          variables.add(new Variable.Buffer(Shader.V2POS_ARRAY,    4));
          
-         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
+         variables.add(new Variable.Buffer(Shader.V0UV_ARRAY,    2));
+         variables.add(new Variable.Buffer(Shader.V1UV_ARRAY,    2));
+         variables.add(new Variable.Buffer(Shader.V2UV_ARRAY,    2));
+         
+         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
          variables.add(new Variable.Uniform(Shader.UV_POINTER,            Variable.Uniform.Type.VECTOR2));
@@ -325,7 +328,7 @@ public class Shader {
       protected void initVariables() {
          variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
          variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
-         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    2));
+         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
          variables.add(new Variable.Uniform(Shader.TRANSLATION_VEC,       Variable.Uniform.Type.VECTOR3));
@@ -337,9 +340,12 @@ public class Shader {
    public static final String POSITION_ARRAY = "vertexPosition";
    public static final String COLOR_ARRAY    = "vertexColor";
    
-   public static final String V0POS_ARRAY    = "vertexV0Pos";
-   public static final String V1POS_ARRAY    = "vertexV1Pos";
-   public static final String V2POS_ARRAY    = "vertexV2Pos";
+   public static final String V0POS_ARRAY    = "vertexV0pos";
+   public static final String V1POS_ARRAY    = "vertexV1pos";
+   public static final String V2POS_ARRAY    = "vertexV2pos";
+   public static final String V0UV_ARRAY     = "vertexV0uv";
+   public static final String V1UV_ARRAY     = "vertexV1uv";
+   public static final String V2UV_ARRAY     = "vertexV2uv";
    
    public static final String TEX_COORDS     = "vertexTexCoords";
    public static final String BARY_COORDS    = "vertexBaryCoords";

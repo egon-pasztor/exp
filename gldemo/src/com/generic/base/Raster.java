@@ -1,5 +1,7 @@
 package com.generic.base;
 
+import java.awt.Color;
+
 public class Raster {
 
    // -------------------------------------------------------------------
@@ -60,6 +62,13 @@ public class Raster {
        }
        public String toString() {
           return String.format("#%02x%02x%02x%02x", r,g,b,a);
+       }
+       
+       public Color color() {
+          float rf = ((float)((int)r&0xff))/255.0f;
+          float gf = ((float)((int)g&0xff))/255.0f;
+          float bf = ((float)((int)b&0xff))/255.0f;
+          return new Color(rf,gf,bf);
        }
    }
    

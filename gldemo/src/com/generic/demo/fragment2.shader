@@ -205,6 +205,7 @@ float scaleToShadingLevel(float scale) {
    if (scale < 81.0f) {
       return 0.6f + ((scale - 27.0f) / (81.0f - 27.0f)) * 0.2f;
    }
+   return 0.8f;
 }
 
 float makeShadingLevel(bool useU, float amt) {
@@ -282,6 +283,14 @@ float getGridShadingLevel() {
     return (a > b) ? a : b;
 }
 
+bool inSelectedFace() {
+    // compute barycentric coords for arbitrary <u,v> point
+    float lambda0 = A*uvPointer.x + B*uvPointer.y + C;
+    float lambda1 = D*uvPointer.x + E*uvPointer.y + F;
+    float lambda2 = G*uvPointer.x + H*uvPointer.y + I;
+    return (lambda0 >= 0) && (lambda1 >= 0) && (lambda2 >= 0);
+}
+
 void main()
 {
    computeInfo();
@@ -324,10 +333,16 @@ void main()
      return;
    } 
    
-   
    float frac = getGridShadingLevel();
    outColor.r = fragColor.r * (1.0f-frac);
    outColor.g = fragColor.g * (1.0f-frac);
    outColor.b = fragColor.b * (1.0f-frac);
+   
+   if (inSelectedFace()) {
+      frac = 0.3;
+      outColor.r = outColor.r * (1.0f-frac) + 1.0f * frac;
+      outColor.g = outColor.g * (1.0f-frac) + 0.0f * frac;
+      outColor.b = outColor.b * (1.0f-frac) + 0.0f * frac;
+   }
 }
 

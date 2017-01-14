@@ -33,6 +33,7 @@ import com.generic.base.VectorAlgebra;
 import com.generic.base.World;
 
 import com.generic.base.Geometry.*;
+import com.generic.base.Raster.ColorARGB;
 import com.generic.base.Raster.Image;
 import com.generic.base.VectorAlgebra.*;
 import com.generic.base.World.*;
@@ -187,9 +188,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          darkTextColor = shiftB(-36);
          
-         darkLineColor = shiftB(-28);
-         mediumLineColor = shiftB(-14);
-         lightLineColor = shiftB(-7);
+         darkLineColor = shiftB(-56);
+         mediumLineColor = shiftB(-28);
+         lightLineColor = shiftB(-14);
       }
       
       public Color shiftB (int shift) {
@@ -745,7 +746,45 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          g.setColor(new Color(120,180,230));
          g.fillRect(0,0,w,h);
          
+         
+         g.setColor(Color.BLACK);
+         int col = 0;         
+         for (Mesh.Triangle t : demoWorld.mappingModel.mesh.interiorTriangles) {
+            Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
+            
+            ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xf0, (byte)0x80) :
+                              (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0x80, (byte)0xf0) :
+                              (col==2) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xe0, (byte)0xe0) :
+                                         new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+                              
+            col = (col+1)%4;
+
+            Vector2f p0 = fi.tex0;
+            int p0x = xToHPixel(p0.x);
+            int p0y = yToVPixel(p0.y);
+            
+            Vector2f p1 = fi.tex1;
+            int p1x = xToHPixel(p1.x);
+            int p1y = yToVPixel(p1.y);
+            
+            Vector2f p2 = fi.tex2;
+            int p2x = xToHPixel(p2.x);
+            int p2y = yToVPixel(p2.y);
+            
+            g.setColor(color.color());
+            g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
+            
+            g.setColor(Color.BLACK);
+            g.drawLine(p0x, p0y, p1x, p1y);
+            g.drawLine(p1x, p1y, p2x, p2y);
+            g.drawLine(p2x, p2y, p0x, p0y);
+         }
+         
+         Composite c0 = g.getComposite();
+         Composite c1 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .6f);
+         g.setComposite(c1);
          paintGrid(g);
+         g.setComposite(c0);
          
          /* --------------------------------------------- */
          // Below is attempt #1 to draw grid lines...
@@ -805,35 +844,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          // -------------------------------------------------------
          // Can we draw each "triangle" in demoWorld.mappingModel?
          // -------------------------------------------------------
-         
-         g.setColor(Color.BLACK);
-         Composite c0 = g.getComposite();
-         Composite c1 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .1f);
-         for (Mesh.Triangle t : demoWorld.mappingModel.mesh.interiorTriangles) {
-            Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
-            
-            Vector2f p0 = fi.tex0;
-            int p0x = xToHPixel(p0.x);
-            int p0y = yToVPixel(p0.y);
-            
-            Vector2f p1 = fi.tex1;
-            int p1x = xToHPixel(p1.x);
-            int p1y = yToVPixel(p1.y);
-            
-            Vector2f p2 = fi.tex2;
-            int p2x = xToHPixel(p2.x);
-            int p2y = yToVPixel(p2.y);
-            
-            g.setComposite(c1);
-            g.setColor(Color.GREEN);
-            g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
-            
-            g.setComposite(c0);
-            g.setColor(Color.BLACK);
-            g.drawLine(p0x, p0y, p1x, p1y);
-            g.drawLine(p1x, p1y, p2x, p2y);
-            g.drawLine(p2x, p2y, p0x, p0y);
-         }
       }
       
       public String status() {
