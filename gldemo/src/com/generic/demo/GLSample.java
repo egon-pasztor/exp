@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 
@@ -75,12 +76,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
-
+      loadBunny();
+      
       // Create "Demo World" object...
       
       Image leaImage = imageFromResource("lea.png");
       Image teapotImage = imageFromResource("teapot.png");
-      demoWorld = new DemoWorld(leaImage, teapotImage);
+      Geometry.Mesh bunny = loadBunny();
+      demoWorld = new DemoWorld(leaImage, teapotImage, bunny);
       intersectionIn3d = false;
       
       // Create "GLCanvas" (extends Canvas):
@@ -129,7 +132,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       frame.add(gui); 
       frame.pack();
       frame.setBackground(backgroundColorScheme.bgColor);
-      frame.setSize(new Dimension(450,450));
+      frame.setSize(new Dimension(1000,1600));
       frame.setTitle("Grid Mapping");
       frame.addWindowListener(new WindowAdapter() { 
          public void windowClosing(WindowEvent evt) 
@@ -749,35 +752,39 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          g.setColor(Color.BLACK);
          int col = 0;         
-         for (Mesh.Triangle t : demoWorld.mappingModel.mesh.interiorTriangles) {
-            Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
-            
-            ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xf0, (byte)0x80) :
-                              (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0x80, (byte)0xf0) :
-                              (col==2) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xe0, (byte)0xe0) :
-                                         new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
-                              
-            col = (col+1)%4;
-
-            Vector2f p0 = fi.tex0;
-            int p0x = xToHPixel(p0.x);
-            int p0y = yToVPixel(p0.y);
-            
-            Vector2f p1 = fi.tex1;
-            int p1x = xToHPixel(p1.x);
-            int p1y = yToVPixel(p1.y);
-            
-            Vector2f p2 = fi.tex2;
-            int p2x = xToHPixel(p2.x);
-            int p2y = yToVPixel(p2.y);
-            
-            g.setColor(color.color());
-            g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
-            
-            g.setColor(Color.BLACK);
-            g.drawLine(p0x, p0y, p1x, p1y);
-            g.drawLine(p1x, p1y, p2x, p2y);
-            g.drawLine(p2x, p2y, p0x, p0y);
+         for (Geometry.MeshModel meshModel : new Geometry.MeshModel[] { demoWorld.mappingModel1, demoWorld.mappingModel2 }) { 
+            for (Mesh.Triangle t : meshModel.mesh.interiorTriangles) {
+               Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
+               
+               ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
+                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
+                                 (col==2) ? new ColorARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
+                                            new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+                                 
+                                 color = new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+                                 
+               col = (col+1)%4;
+   
+               Vector2f p0 = fi.tex0;
+               int p0x = xToHPixel(p0.x);
+               int p0y = yToVPixel(p0.y);
+               
+               Vector2f p1 = fi.tex1;
+               int p1x = xToHPixel(p1.x);
+               int p1y = yToVPixel(p1.y);
+               
+               Vector2f p2 = fi.tex2;
+               int p2x = xToHPixel(p2.x);
+               int p2y = yToVPixel(p2.y);
+               
+               g.setColor(color.color());
+               g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
+               
+               g.setColor(Color.BLACK);
+               g.drawLine(p0x, p0y, p1x, p1y);
+               g.drawLine(p1x, p1y, p2x, p2y);
+               g.drawLine(p2x, p2y, p0x, p0y);
+            }
          }
          
          Composite c0 = g.getComposite();
@@ -902,6 +909,49 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       }
 
       return strBuilder.toString();
+   }
+   
+   
+   // ------- loading the bunny
+   
+   private Geometry.Mesh loadBunny() {
+      String bunnyObj = this.loadStringFileFromCurrentPackage("bunny.obj");
+      
+      Geometry.Mesh mesh = new Geometry.Mesh();
+      ArrayList<Geometry.Mesh.Vertex> vertices = new ArrayList<Geometry.Mesh.Vertex> ();
+      
+      for (String line : bunnyObj.split("\n")) {
+         if (line.charAt(0) == '#') {
+            continue;
+         }
+         if (line.charAt(0) == 'v') {
+            String restOfLine = line.substring(2);
+            String[] pieces = restOfLine.split(" ");
+            if (pieces.length == 3) {
+               Geometry.Mesh.Vertex v = new Geometry.Mesh.Vertex(
+                     new Vector3f(Float.valueOf(pieces[0]), Float.valueOf(pieces[1]), Float.valueOf(pieces[2])).times(60.0f));
+               mesh.vertices.add(v);
+               vertices.add(v);
+            }            
+            continue;
+         }
+         if (line.charAt(0) == 'f') {
+            String restOfLine = line.substring(2);
+            String[] pieces = restOfLine.split(" ");
+            if (pieces.length == 3) {
+               mesh.addTriangle(
+                     vertices.get(Integer.valueOf(pieces[0])-1),
+                     vertices.get(Integer.valueOf(pieces[1])-1),
+                     vertices.get(Integer.valueOf(pieces[2])-1));
+            }
+            continue;
+         }
+      }
+      System.out.format("Returning bunny %d vertices, %d interior triangles, %d boundary triangles\n",
+            mesh.vertices.size(),
+            mesh.interiorTriangles.size(),
+            mesh.boundaryTriangles.size());
+      return mesh;
    }
    
    
@@ -1078,8 +1128,13 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       // Save Camera-To-Clip-Space Matrix
       //sendMatrixToGL(gl, camera.cameraToClipSpace, projMatrixLoc);
       
+      boolean oldIntersectionIn3d = intersectionIn3d;
+      intersectionIn3d = false;
+      
       renderShaderInstances(gl, demoWorld.getRootModel(), camera.worldToCameraSpace);
 
+      if (oldIntersectionIn3d && !intersectionIn3d) clearUVPointer();
+      
       // Check out error
       checkError(gl, "render");
    }
@@ -1203,7 +1258,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          if (intersectionA != null) {
             intersectionOccurred = true;
-            if (geometry == demoWorld.mappingModel) {
+            if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2)) {
                Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
                Vector2f t0 = fi.tex0;
                Vector2f tu = fi.tex1.minus(fi.tex0);
@@ -1214,13 +1269,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          }
       }
       
-      if (geometry == demoWorld.mappingModel) {
+      if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2)) {
          if (intersection != null) {
             updateUVPointer(intersection.x, intersection.y);
             intersectionIn3d = true;
-         } else {
-            if (intersectionIn3d) clearUVPointer();
-            intersectionIn3d = false;
          }
       }
       return intersectionOccurred;

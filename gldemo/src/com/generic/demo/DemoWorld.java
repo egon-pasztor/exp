@@ -4,6 +4,9 @@ import com.generic.base.Geometry;
 import com.generic.base.World;
 import com.generic.base.Geometry.*;
 import com.generic.base.VectorAlgebra.*;
+
+import java.util.ArrayList;
+
 import com.generic.base.Shader;
 import com.generic.base.Raster.*;
 
@@ -14,10 +17,11 @@ public class DemoWorld extends World {
    private ShaderInstanceModel[] mobileBalls;
 //   private MeshModel choppedCube;
    
-   public MeshModel mappingModel;
+   public MeshModel mappingModel1;
+   public MeshModel mappingModel2;
    public Vector2f selectedUVPointIfAny;
 
-   public DemoWorld(Image leaImage, Image teapotImage) {
+   public DemoWorld(Image leaImage, Image teapotImage, Geometry.Mesh bunny) {
       System.out.format("Starting InitDemoWorld\n");
       
       // ----------------------------------------------------------------------------------
@@ -56,14 +60,22 @@ public class DemoWorld extends World {
       
       // ICO
       MeshModel ico0 = Geometry.createIco(0);
-      Geometry.everyTriangleGetsManualMapping(ico0);
-      mappingModel = ico0;
+      Geometry.everyTriangleGetsManualMapping(ico0, 0.0f, 4);
+      mappingModel1 = ico0;
 
       Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
       m = new ShaderInstanceModel(ico0Instance, ico0);
       root.children.add(m);
-      m.translate(Vector3f.Y.times(-3.0f));
+      m.translate(Vector3f.Y.times(+3.0f));
 
+      MeshModel bunnyModel = new MeshModel("bunny", bunny);
+      mappingModel2 = bunnyModel;
+      Geometry.everyTriangleGetsManualMapping(bunnyModel, 8.0f, 80);
+      Shader.Instance bunnyInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      m = new ShaderInstanceModel(bunnyInstance, bunnyModel);
+      root.children.add(m);
+      m.translate(Vector3f.Y.times(+5.0f));
+      
       
       MeshModel perlinNoiseBall = Geometry.createIco(3);
       // hmm.. we're bit-rotting.  this function binds "COLOR_ARRAY" in pb to provide a color
@@ -100,6 +112,7 @@ public class DemoWorld extends World {
       updateDemoWorld(0.0f);      
       setRootModel(root);
    }
+   
    // ----------------------------------------------------------------------------------
    // ----------------------------------------------------------------------------------
    

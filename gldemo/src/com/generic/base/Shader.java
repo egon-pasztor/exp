@@ -313,6 +313,7 @@ public class Shader {
          variables.add(new Variable.Buffer(Shader.V2UV_ARRAY,    2));
          
          variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
+         variables.add(new Variable.Buffer(Shader.DIRECTION_SHADING_ARRAY,    3));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
          variables.add(new Variable.Uniform(Shader.UV_POINTER,            Variable.Uniform.Type.VECTOR2));
@@ -339,6 +340,8 @@ public class Shader {
    
    public static final String POSITION_ARRAY = "vertexPosition";
    public static final String COLOR_ARRAY    = "vertexColor";
+   
+   public static final String DIRECTION_SHADING_ARRAY = "directions";
    
    public static final String V0POS_ARRAY    = "vertexV0pos";
    public static final String V1POS_ARRAY    = "vertexV1pos";

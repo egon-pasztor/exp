@@ -330,9 +330,9 @@ public class VectorAlgebra {
       }
       
       public float determinate() {
-         return (yy*zz-zy*yz) * xx
-              - (yx*zz-zx*yz) * xy
-              + (yx*zy-zx*yy) * xz;
+         return xx * (yy*zz-yz*zy)
+              - xy * (yx*zz-yz*zx)
+              + xz * (yx*zy-yy*zx);
       }
       public Matrix3f inverse() {
          final float d = determinate();
@@ -576,6 +576,28 @@ public class VectorAlgebra {
             a.wx * b.xw + a.wy * b.yw + a.wz * b.zw + a.ww * b.ww);
       }
       
+
+      public float determinate() {
+         return xx * (yy * (zz*ww-wz*zw) - yz * (zy*ww-wy*zw) + yw * (zy*wz-wy*zz))
+              - xy * (yx * (zz*ww-wz*zw) - yz * (zx*ww-wx*zw) + yw * (zx*wz-wx*zz))
+              + xz * (yx * (zy*ww-wy*zw) - yy * (zx*ww-wx*zw) + yw * (zx*wy-wx*zy))
+              - xw * (yx * (zy*wz-wy*zz) - yy * (zx*wz-wx*zz) + yz * (zx*wy-wx*zy));
+      }
+
+      public Matrix4f inverse() {
+         final float d = determinate();
+         return null; //new Matrix4f(
+           // https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+               
+         // given a 4x4 matrix inverse, i can find the X,Y,Z -> U,V,W transform 
+         //   to translate a given <X,Y,Z> vector into <U,V,W> space.
+         //
+         // (is there any faster way of computing the uv offsets of given xyz offsets?)
+         //    it's a simple question, right?
+         // given dx,dy,dz, and the knowedge that it's in the u,v plane, how much is du,dv?
+      }
+      
+      
       // --------------------
       
       public static Matrix4f fromComponents(Matrix3f m, Vector3f t, Vector4f w) {
@@ -607,6 +629,16 @@ public class VectorAlgebra {
    // -----------------------------------------------------------------------
    // Intersections
    // -----------------------------------------------------------------------
+   
+   // we're going to want several more functions...
+   
+   // 1. in 2d, given 3 (u,v) points, what is the area of the triangle
+   //
+   //  (u1-u0) x (u2-u0) ??
+   
+   //
+   // on the other hand, what if i have 2 3d-points?
+   
 
    public static class Segment2d {
       public final Vector2f p0;
@@ -638,6 +670,11 @@ public class VectorAlgebra {
          this.v1 = v1;
          this.v2 = v2;
       }
+      
+      public float area() {
+         return 0.5f * (v2.minus(v1)).cross(v1.minus(v0)).length();
+      }
+      
    }
    public static Vector2f intersects(Triangle t, Segment3d s) {
       Vector3f u = t.v1.minus(t.v0);

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 
 public class Geometry {
    
@@ -15,22 +16,615 @@ public class Geometry {
       if (!cond) throw new RuntimeException("FAILED: " + err);
    }
    
+
+   public static class Mesh2 {
+      
+      public static class Factory {
+         public Vertex   newVertex()    { return new Vertex();   }
+         public Triangle newTriangle()  { return new Triangle(); }
+         public Edge     newEdge()      { return new Edge();     }
+         public Boundary newBoundary()  { return new Boundary(); }
+      }
+
+      public final Indexable.List<Vertex>   vertices   = new Indexable.List<Vertex>();
+      public final Indexable.List<Triangle> triangles  = new Indexable.List<Triangle>();
+      public final Indexable.List<Edge>     edges      = new Indexable.List<Edge>();
+      public final Indexable.List<Boundary> boundaries = new Indexable.List<Boundary>();
+      
+      // -----------------------------------------------------------------
+      // Mesh consists of Vertices, Triangles, Edges, and Boundary edges
+      // -----------------------------------------------------------------
+      
+      public interface Indexable {
+         public static class List<INDEXABLE extends Indexable> implements Iterable<INDEXABLE> {
+            private final ArrayList<INDEXABLE> items = new ArrayList<INDEXABLE>();
+            
+            public int size () {
+               return items.size();
+            }
+            public INDEXABLE get (int index) {
+               return items.get(index);
+            }
+            public void clear() {
+               items.clear();
+            }
+            @Override
+            public Iterator<INDEXABLE> iterator() {
+               return items.iterator();
+            }
+            
+            private void add (INDEXABLE item) {
+               item.setIndex(items.size());
+               items.add(item);
+            }
+            private void remove (INDEXABLE item) {
+               int lastIndex = items.size()-1;
+               INDEXABLE lastItem = items.get(lastIndex);
+               int itemIndex = item.getIndex();
+               
+               items.set(itemIndex, lastItem);
+               lastItem.setIndex(itemIndex);
+               items.remove(lastIndex);
+            }
+         }
+         
+         public int getIndex();
+         public void setIndex(int index);
+      }
+      
+      // -----------------------------------------------
+      // VERTEX
+      // -----------------------------------------------
+      
+      public static class Vertex implements Indexable {
+         public Vertex() {
+            this(Vector3f.ORIGIN);
+         }
+         public Vertex(Vector3f position) {
+            this.position = position;
+            this.oneOutgoingEdge = null;
+         }
+
+         // Each VERTEX has an index
+         public int getIndex()           { return index;       }
+         public void setIndex(int index) { this.index = index; }
+         private int index;
+
+         // Each Vertex holds a pointer to one outgoing DirectedEdge
+         public Triangle.Edge oneOutgoingEdge()          { return oneOutgoingEdge; }
+         private void setOneOutgoingEdge(Triangle.Edge e) { oneOutgoingEdge = e;    }
+         private Triangle.Edge oneOutgoingEdge;
+
+         // By repeatedly calling "nextAroundStart()" on the outgoing DirectedEdges,
+         // we can iterate over all the DirectedEdges pointing outward from this Vertex
+         private Iterable<DirectedEdge> outgoingEdges() {
+            return new Iterable<DirectedEdge>() {
+               @Override
+               public Iterator<DirectedEdge> iterator() {
+                  return new Iterator<DirectedEdge>() {
+                     private DirectedEdge nextOutgoingEdge = oneOutgoingEdge;
+                     
+                     @Override
+                     public boolean hasNext() {
+                        return (nextOutgoingEdge != null);
+                     }
+                     @Override
+                     public DirectedEdge next() {
+                        DirectedEdge result = nextOutgoingEdge;
+                        nextOutgoingEdge = nextOutgoingEdge.nextAroundStart();
+                        if (nextOutgoingEdge == oneOutgoingEdge) {
+                           nextOutgoingEdge = null;
+                        }
+                        return result;
+                     }};
+               }};
+         }
+         
+         // 3D Position 
+         public Vector3f getPosition()              { return position;          }
+         public void setPosition(Vector3f position) { this.position = position; }
+         private Vector3f position;
+
+         // Valence
+         public int getValence() {
+            return valence;
+         }
+         private void update() {
+            valence = 0;            
+            DirectedEdge outgoingEdge = oneOutgoingEdge;
+            do {
+               valence++;
+               outgoingEdge = outgoingEdge.nextAroundStart();
+            } while (outgoingEdge != oneOutgoingEdge);
+         }
+         private Integer valence;
+      }
+      
+      // -----------------------------------------------
+      // TRIANGLE
+      // -----------------------------------------------
+      
+      public static class Triangle implements Indexable {
+         
+         // Each Triangle has three final Edges and Vertices
+         public final Triangle.Edge[] edges;
+         public final Vertex[] vertices;
+         
+         // A Triangle.Edge extends DirectedEdge with "getTriangle" and "getIndex" methods:
+         public class Edge extends DirectedEdge {
+            private Edge(int edgeIndex) {
+               this.edgeIndex = edgeIndex;
+            }
+            public Triangle getTriangle() {
+               return Triangle.this;
+            }
+            public int getEdgeIndex() {
+               return edgeIndex;
+            }
+            private final int edgeIndex;
+            
+            @Override public Vertex start()        { return vertices[(edgeIndex+1) % 3]; }
+            @Override public Vertex end()          { return vertices[(edgeIndex+2) % 3]; }
+            @Override public Triangle.Edge next()  { return edges[(edgeIndex+1) % 3];    }
+            @Override public Triangle.Edge prev()  { return edges[(edgeIndex+2) % 3];    }
+         }
+         
+         // The Triangle constructor creates its three Triangle.Edge objects
+         public Triangle(Vertex v0, Vertex v1, Vertex v2) {
+            vertices = new Vertex[] { v0, v1, v2 };
+            edges    = new Triangle.Edge[]
+               { new Triangle.Edge(0), new Triangle.Edge(1), new Triangle.Edge(2) };
+         }
+         public Triangle() {
+            this(null, null, null);
+         }
+         
+         // Each TRIANGLE has an index.
+         public int getIndex()           { return index;       }
+         public void setIndex(int index) { this.index = index; }
+         private int index;
+         
+         // Normal and Area
+         public Vector3f getNormal() {
+            return normal;
+         }
+         public float getArea() {
+            return area;
+         }
+         private void update() {
+            Vector3f cross = edges[0].getVector().cross(edges[1].getVector());
+            float crossLength = cross.length();
+            area = 0.5f * crossLength;
+            normal = cross.times(1.0f / crossLength);
+         }
+         Vector3f normal;
+         float area;       
+      }
+      
+      // -----------------------------------------------
+      // EDGE
+      // -----------------------------------------------
+      
+      public static class Edge implements Indexable {
+         public Edge() {}
+
+         // Each EDGE has an index
+         public int getIndex()           { return index;       }
+         public void setIndex(int index) { this.index = index; }
+         private int index;
+
+         // Each Edge points to two DirectedEdge objects.
+         // There are only two classes that extend DirectedEdge objects
+         //       Triangle.Edge and Boundary
+         //
+         public DirectedEdge first, second;
+
+         // Accessing the two DirectedEdge objects:
+         private void setDirectedEdge (DirectedEdge directedEdge, boolean isFirst) {
+            if (isFirst) { first = directedEdge; } else { second = directedEdge; }
+            directedEdge.setEdge(this, isFirst);
+         }
+         public DirectedEdge getDirectedEdge (boolean isFirst) {
+            return (isFirst ? first : second); 
+         }
+         
+         // Length
+         public float getLength() {
+            return length;
+         }
+         private void update() {
+            length = first.getVector().length();
+         }
+         float length;
+      }
+      
+      // -----------------------------------------------
+      // DirectedEdge
+      // -----------------------------------------------
+       
+      public abstract static class DirectedEdge {
+         private Edge edge;
+         private boolean isFirst;
+
+         public void setEdge(Edge edge, boolean isFirst) {
+            this.edge = edge;
+            this.isFirst = isFirst;
+         }
+         public Edge getEdge() {
+            return edge;
+         }
+         public boolean isFirst() {
+            return isFirst;
+         }         
+         public Vector3f getVector() {
+            return end().getPosition().minus(start().getPosition());
+         }
+         public boolean isBoundary() {
+            return (this instanceof Boundary);
+         }
+         
+         public abstract Vertex start();
+         public abstract Vertex end();            
+         public abstract DirectedEdge next();
+         public abstract DirectedEdge prev();
+         
+         public DirectedEdge opposite() {
+            return edge.getDirectedEdge(!isFirst);
+         }            
+         public DirectedEdge nextAroundStart() {
+            return prev().opposite();
+         }
+         public DirectedEdge prevAroundStart() {
+            return opposite().next();
+         }
+         public DirectedEdge nextAroundEnd() {
+            return opposite().prev();
+         }
+         public DirectedEdge prevAroundEnd() {
+            return next().opposite();
+         }
+      }
+      
+      // -----------------------------------------------
+      // BOUNDARY
+      // -----------------------------------------------
+
+      public static class Boundary extends DirectedEdge implements Indexable {
+         private Boundary next;
+         private Boundary prev;
+         
+         @Override public Vertex start() {
+            return opposite().end();
+         }
+         @Override public Vertex end() {
+            return opposite().start();
+         }
+         @Override public Boundary next() {
+            return next;
+         }
+         @Override public Boundary prev() {
+            return prev;
+         }
+
+         @Override public Triangle.Edge opposite() {
+            return (Triangle.Edge) super.opposite();
+         }            
+         @Override public Triangle.Edge nextAroundStart() {
+            return (Triangle.Edge) super.nextAroundStart();
+         }
+         @Override public Triangle.Edge prevAroundStart() {
+            return (Triangle.Edge) super.prevAroundStart();
+         }
+         @Override public Triangle.Edge nextAroundEnd() {
+            return (Triangle.Edge) super.nextAroundEnd();
+         }
+         @Override public Triangle.Edge prevAroundEnd() {
+            return (Triangle.Edge) super.prevAroundEnd();
+         }
+         
+         // Each BOUNDARY has an index.
+         public int getIndex()           { return index;       }
+         public void setIndex(int index) { this.index = index; }
+         private int index;
+      }
+      
+
+      
+      // --------------------------------------------------------
+      // AddTriangle
+      // --------------------------------------------------------
+      
+      public Triangle addTriangle (Vertex v0, Vertex v1, Vertex v2) {
+          check((v0 != null) && (v1 != null) && (v2 != null) &&
+                (v1 != v0) && (v2 != v0) && (v2 != v1),
+                "Vertices should be all different");
+         
+          Triangle t = new Triangle(v0,v1,v2);
+          
+          // Look for existing boundaries along our triangle's edges:
+          Boundary[] oldStartToEndBoundaries = new Boundary[3];
+          for (Triangle.Edge triangleEdge : t.edges) {
+             Vertex start = triangleEdge.start();
+             Vertex end   = triangleEdge.end();
+             
+             // For each edge in the NEW TRIANGLE, we want to know if the
+             // edge is being attached alongside an existing triangle.  
+             // A boundary-edge will exist going from start to end if it is:
+             boolean any_outgoing_edges = false;
+             boolean any_outgoing_boundary_edges = false;
+             
+             for (DirectedEdge outgoingEdge : start.outgoingEdges()) {
+                any_outgoing_edges = true;                
+                if (outgoingEdge.isBoundary()) {
+                   any_outgoing_boundary_edges = true;
+                }
+                
+                if (outgoingEdge.end() == end) {
+                  // We've found a pre-existing edge from Start -> End.
+                  // It better be a Boundary, because if it's a Triangle.Edge,
+                  // then the edge we're trying to add apparently already exists.
+                  check(outgoingEdge.isBoundary(), "Attached edge must be a boundary edge");
+                  oldStartToEndBoundaries[triangleEdge.getEdgeIndex()] = (Boundary) outgoingEdge;
+                  break;
+                }
+             }
+             
+             // If this vertex had any edges attached to it, then at least one of those
+             // must be a Boundary, otherwise we have an ERROR.  We can't create a triangle
+             // if a corner is already completely surrounded by triangles.
+             check (!any_outgoing_edges || any_outgoing_boundary_edges,
+                   "Attached vertex must be a boundary vertex");
+          }
+          
+          // Now that the "checks" above are done, we're committed to adding
+          // the new triangle and updating any Boundary and Edge objects:
+          triangles.add(t);
+          
+          // Connect each triangleEdge to either an existing triangle or a new boundary:
+          for (Triangle.Edge triangleEdge : t.edges) {
+             Boundary existingStartToEndBoundary = oldStartToEndBoundaries[triangleEdge.getEdgeIndex()];
+             if (existingStartToEndBoundary == null) {
+                // If there's no existingStartToEndBoundary, then we have to
+                // construct the new Boundary for this "triangleEdge" ourselves,
+                // as well as an Edge that connects to that Boundary:
+                
+                Boundary newEndToStartBoundaryEdge = new Boundary();
+                boundaries.add(newEndToStartBoundaryEdge);
+                
+                Edge newEdge = new Edge();
+                newEdge.setDirectedEdge(triangleEdge, true);
+                newEdge.setDirectedEdge(newEndToStartBoundaryEdge, false);
+                edges.add(newEdge);
+                
+             } else {
+                // If there is an existingStartToEndBoundary, then there's already an Edge
+                // connecting that Boundary to an existing Triangle.  This "triangleEdge"
+                // will replace the existingStartToEndBoundary, which gets deleted:
+                
+                Edge existingEdge = existingStartToEndBoundary.getEdge();
+                existingEdge.setDirectedEdge(triangleEdge, existingStartToEndBoundary.isFirst());
+                boundaries.remove(existingStartToEndBoundary);
+             }
+          }
+          
+          // Now let's consider each VERTEX in turn
+          for (Triangle.Edge oppositeEdge : t.edges) {
+              
+             // Consider a VERTEX
+             Vertex vertex = t.vertices[oppositeEdge.getEdgeIndex()];
+              
+             // When looping counterclockwise around the triangle edges,
+             // we first encounter an edge pointing towards "vertex",
+             // followed by an edge pointing away from "vertex":
+             Triangle.Edge prevEdge = oppositeEdge.next();  // (points towards v)
+             Triangle.Edge nextEdge = oppositeEdge.prev();  // (points away from v)
+          
+             // The "opposite" pointers in these Edges were set above, either to Triangle.Edges
+             // of existing triangles (if attached) or to new Boundary objects:
+             DirectedEdge prevEdgeOpposite = prevEdge.opposite();  // (points away from v)
+             DirectedEdge nextEdgeOpposite = nextEdge.opposite();  // (points towards v)             
+             boolean prevEdgeAttached = !prevEdgeOpposite.isBoundary();
+             boolean nextEdgeAttached = !nextEdgeOpposite.isBoundary();             
+          
+             // There are 4 cases based on whether the prev and next edges are attached:
+             if (!prevEdgeAttached && !nextEdgeAttached) {
+                // CASE 1. We've created two new boundary objects:
+                Boundary prevEdgeBoundary = (Boundary) prevEdgeOpposite;
+                Boundary nextEdgeBoundary = (Boundary) nextEdgeOpposite;
+
+                // Does v have ANY existing edges?
+                if (vertex.oneOutgoingEdge == null) {
+                   // v has NO existing edges, it's a NEW vertex just for this Triangle.
+                   nextEdgeBoundary.next = prevEdgeBoundary;
+                   prevEdgeBoundary.prev = nextEdgeBoundary;
+                   
+                   // We're the first one to set "one-outgoing-edge" for this vertex:
+                   vertex.setOneOutgoingEdge(nextEdge);
+                   
+                } else {
+                   // v has existing edges, but our new triangle doesn't connect with any of them.
+                   // We've already confirmed that v is on the boundary, we actually walked right past
+                   // a Boundary that confirmed it, but we didn't save it anywhere
+                   //
+                   // So now we have to look for it again??!!??!
+                   // (actually we don't if we put this triangle first, right?)
+                   
+                }
+             }
+          }
+                
+                
+                
+//              // CASE 1. Link both "unattached" boundary triangles.
+//              
+//              Triangle.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();    // (points towards v)
+//              Triangle.Edge newBoundaryNext  = nextEdge.cwAroundStart();  // (points away from v)
+//
+//              // Does v have ANY existing edges?
+//              Triangle.Edge firstOutFromV = v.getOneOutgoingEdge();
+//              if (firstOutFromV == null) {      
+//                 // v has NO existing edges, it's a NEW vertex just for this Triangle.
+//                 // Connect the boundary triangles to each other:
+//                 linkOpposingEdges(newBoundaryPrev, newBoundaryNext);
+//                 
+//                 // Since v is a NEW vertex, we're the first one to set its "one-outgoing-edge"
+//                 v.setOneOutgoingEdge(nextEdge);
+//                 
+//              } else {
+//                 // V does have existing edges.  We know it's on the boundary, so there
+//                 // must be two consecutive boundary triangles attached to V.  Find them:
+//                 
+//                 Triangle.Edge outFromV = firstOutFromV;
+//                 boolean foundDoubleBoundary = false;                   
+//                 do {
+//                    if (outFromV.getTriangle().isBoundary() && 
+//                        outFromV.getOppositeEdge().getTriangle().isBoundary()) {
+//                       foundDoubleBoundary = true;
+//                       break;
+//                    }
+//                    
+//                    outFromV = outFromV.ccwAroundStart();
+//                 } while (outFromV != firstOutFromV);
+//              
+//                 check(foundDoubleBoundary, "Attached vertex should have had two consecutive boundary triangles");
+//                 
+//                 Triangle.Edge inToV = outFromV.getOppositeEdge();
+//                 linkOpposingEdges(newBoundaryNext, inToV);
+//                 linkOpposingEdges(newBoundaryPrev, outFromV);
+//              }
+             
+             
+             
+             
+//        // Now let's consider each VERTEX in turn
+//        for (Triangle.Edge oppositeEdge : t.edges) {
+//           
+//           // Consider a VERTEX
+//           Vertex vertex = t.vertices[oppositeEdge.getEdgeIndex()];
+//           
+//           // When looping counterclockwise around the triangle edges,
+//           // we first encounter an edge pointing towards "vertex",
+//           // followed by an edge pointing away from "vertex":
+//           Triangle.Edge prevEdge = oppositeEdge.next();  // (points towards v)
+//           Triangle.Edge nextEdge = oppositeEdge.prev();  // (points away from v)
+//             
+//             // The "opposite" pointers in these Edges were set above, either to NEW boundary
+//             // triangles (if unattached), or existing internal triangles (if attached):          
+//             DirectedEdge oppositePrevEdge = prevEdge.opposite();  // (points away from v)
+//             DirectedEdge oppositeNextEdge = nextEdge.opposite();  // (points towards v)             
+//             boolean prevEdgeAttached = !oppositePrevEdge.isBoundary();
+//             boolean nextEdgeAttached = !oppositeNextEdge.isBoundary();
+//             
+//             // There a 4 cases based on whether the prev and next edges are attached:
+//             if (!prevEdgeAttached && !nextEdgeAttached) {
+//                // CASE 1. Link both "unattached" boundary triangles.
+//                
+//                Triangle.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();    // (points towards v)
+//                Triangle.Edge newBoundaryNext  = nextEdge.cwAroundStart();  // (points away from v)
+//
+//                // Does v have ANY existing edges?
+//                Triangle.Edge firstOutFromV = v.getOneOutgoingEdge();
+//                if (firstOutFromV == null) {      
+//                   // v has NO existing edges, it's a NEW vertex just for this Triangle.
+//                   // Connect the boundary triangles to each other:
+//                   linkOpposingEdges(newBoundaryPrev, newBoundaryNext);
+//                   
+//                   // Since v is a NEW vertex, we're the first one to set its "one-outgoing-edge"
+//                   v.setOneOutgoingEdge(nextEdge);
+//                   
+//                } else {
+//                   // V does have existing edges.  We know it's on the boundary, so there
+//                   // must be two consecutive boundary triangles attached to V.  Find them:
+//                   
+//                   Triangle.Edge outFromV = firstOutFromV;
+//                   boolean foundDoubleBoundary = false;                   
+//                   do {
+//                      if (outFromV.getTriangle().isBoundary() && 
+//                          outFromV.getOppositeEdge().getTriangle().isBoundary()) {
+//                         foundDoubleBoundary = true;
+//                         break;
+//                      }
+//                      
+//                      outFromV = outFromV.ccwAroundStart();
+//                   } while (outFromV != firstOutFromV);
+//                
+//                   check(foundDoubleBoundary, "Attached vertex should have had two consecutive boundary triangles");
+//                   
+//                   Triangle.Edge inToV = outFromV.getOppositeEdge();
+//                   linkOpposingEdges(newBoundaryNext, inToV);
+//                   linkOpposingEdges(newBoundaryPrev, outFromV);
+//                }
+//                
+//             } else if (prevEdgeAttached && !nextEdgeAttached) {
+//                // CASE 2. Link the "unattached" boundary triangle that's opposite "nextEdge":
+//                
+//                Triangle.Edge newBoundaryNext = nextEdge.cwAroundStart();          // (points away from v)
+//                Triangle.Edge oldBoundaryPrev = oppositePrevEdge.cwAroundStart();  // (points away from v)
+//                linkOpposingEdges(newBoundaryNext, oldBoundaryPrev.getOppositeEdge());
+//
+//             } else if (!prevEdgeAttached && nextEdgeAttached) {
+//                // CASE 3. Link the "unattached" boundary triangle that's opposite "prevEdge":
+//                
+//                Triangle.Edge newBoundaryPrev = prevEdge.ccwAroundEnd();           // (points toward v)
+//                Triangle.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)
+//                linkOpposingEdges(newBoundaryPrev, oldBoundaryNext.getOppositeEdge());
+//                
+//             } else {
+//                // CASE 4. BOTH edges are attached.  We need the old boundaries to be adjacent:
+//                
+//                Triangle.Edge oldBoundaryPrev = oppositePrevEdge.cwAroundStart();  // (points away from v)
+//                Triangle.Edge oldBoundaryNext = oppositeNextEdge.ccwAroundEnd();   // (points toward v)    
+//                if (oldBoundaryPrev.getOppositeEdge() != oldBoundaryNext) {
+//                   
+//                   // The old boundaries are not adjacent.  However, we can fix this, there's no topology problem,
+//                   // so long as the vertex v also has another two consecutive boundary triangles.
+//                   
+//                   Triangle.Edge outFromV = oppositePrevEdge.ccwAroundStart();
+//                   Triangle.Edge outFromVEnd = nextEdge.cwAroundStart();
+//                   boolean foundDoubleBoundary = false;                   
+//                   do {
+//                      if (outFromV.getTriangle().isBoundary() && 
+//                          outFromV.getOppositeEdge().getTriangle().isBoundary()) {
+//                         foundDoubleBoundary = true;
+//                         break;
+//                      }
+//                      
+//                      outFromV = outFromV.ccwAroundStart();
+//                   } while (outFromV != outFromVEnd);
+//                   
+//                   check(foundDoubleBoundary, "Triangle filling corner vertex has un-movable extra triangles");
+//                   
+//                   Triangle.Edge inToV = outFromV.getOppositeEdge();
+//                   linkOpposingEdges(inToV, oldBoundaryNext.getOppositeEdge());
+//                   linkOpposingEdges(outFromV, oldBoundaryPrev.getOppositeEdge());
+//                }
+//             }
+//          }
+//
+//          // Finally we d
+//          for (Triangle.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
+//             Triangle.Edge oppositeEi = ei.getOppositeEdge();
+//             boolean isAttached = !oppositeEi.getTriangle().isBoundary();
+//             
+//             if (isAttached) {
+//                Triangle b = oppositeEi.getOppositeEdge().getTriangle();
+//                removeBoundaryTriangle(b);
+//             }
+//             oppositeEi.setOppositeEdge(ei);
+//          }
+//          
+          return t;
+      }
+      
+   }
+      
+   
    // -----------------------------------------------------------------------
    // Mesh Structure
    // -----------------------------------------------------------------------
    
    public static class Mesh {
-            
-      public Mesh() {
-         boundaryTriangles = new HashSet<Triangle>();
-         interiorTriangles = new HashSet<Triangle>();
-         vertices = new HashSet<Vertex>();
-      }
-      
-      public HashSet<Triangle> boundaryTriangles; 
-      public HashSet<Triangle> interiorTriangles; 
-      public HashSet<Vertex> vertices;      
-      
+  
       // -----------------------------------------------
       // VERTEX
       // -----------------------------------------------
@@ -46,17 +640,22 @@ public class Geometry {
          public void setOneOutgoingEdge(Triangle.Edge e) { oneOutgoingEdge = e;    }
          private Triangle.Edge oneOutgoingEdge;
          
-         // Vertex data
-         public Object getData()          { return userdata; }
-         public void setData(Object data) { userdata = data; }         
-         private Object userdata;
-         
-         // Position 
+         // 3D Position 
          public Vector3f getPosition()              { return position;          }
          public void setPosition(Vector3f position) { this.position = position; }
          private Vector3f position;
+
+         // Index
+         public int getIndex()           { return index;       }
+         public void setIndex(int index) { this.index = index; }
+         private int index;
+         
+         // User-specific data
+         public Object getData()          { return userdata; }
+         public void setData(Object data) { userdata = data; }         
+         private Object userdata;
       }
-      
+
       // -----------------------------------------------
       // TRIANGLE
       // -----------------------------------------------
@@ -80,6 +679,9 @@ public class Geometry {
                @Override public Edge ccwAroundTriangle() { return Triangle.this.edge0; }
                @Override public Edge cwAroundTriangle()  { return Triangle.this.edge1; }
             };
+         }
+         public Triangle.Edge getEdge(int i) {
+            return (i == 0) ? edge0 : (i == 1) ? edge1 : edge2;
          }
          
          // Each Triangle has three Edges:
@@ -130,16 +732,116 @@ public class Geometry {
          public Object getData()          { return userdata; }
          public void setData(Object data) { userdata = data; }         
          private Object userdata;
+         
+         // Index
+         public int getIndex()           { return index;       }
+         public void setIndex(int index) { this.index = index; }
+         private int index;
       }
 
+      // -----------------------------------------------
+      // EDGE  
+      //    should we rename Triangle.Edge to Triangle.HalfEdge
+      //    and have each Triangle.HalfEdge point to an Edge.Ref?
+      // -----------------------------------------------
+
+      public static class Edge {
+
+         public Edge(Triangle.Edge forwardEdge) {
+            Triangle.Edge reverseEdge = forwardEdge.getOppositeEdge();
+            
+            // Create three final Edges for this Triangle
+            forward = new Ref() {
+               @Override public boolean isForward()             { return true;        }
+               @Override public Ref   getReverse()              { return reverse;     }
+               @Override public Triangle.Edge getTriangleEdge() { return forwardEdge; }
+            };
+            reverse = new Ref() {
+               @Override public boolean isForward()             { return false;       }
+               @Override public Ref   getReverse()              { return forward;     }
+               @Override public Triangle.Edge getTriangleEdge() { return reverseEdge; }
+            };
+         }
+         
+         // Each Triangle has three Edges:
+         public final Ref forward, reverse;
+         
+         // Each Edge has methods to get/set two fields: "oppositeVertex" and "oppositeEdge":
+         public abstract class Ref {
+            public Edge getEdge() {
+               return Edge.this;
+            }
+            public abstract boolean       isForward();
+            public abstract Ref           getReverse();
+            public abstract Triangle.Edge getTriangleEdge();
+         }
+      }
+      
+      // --------------------------------------------------------
+      // Mesh Constructor
+      // --------------------------------------------------------
+      
+      public Mesh() {
+         boundaryTriangles = new ArrayList<Triangle>();
+         interiorTriangles = new ArrayList<Triangle>();
+         vertices = new ArrayList<Vertex>();
+      }
+
+      public ArrayList<Triangle> boundaryTriangles; 
+      public ArrayList<Triangle> interiorTriangles; 
+      public ArrayList<Vertex> vertices;
+      
+      // --------------------------------------------------------
+      // Private Add/Remove methods
+      // --------------------------------------------------------
+      
+      private void removeVertex (Vertex vertex) {
+         int lastIndex = vertices.size()-1;
+         Vertex lastVertex = vertices.get(lastIndex);
+         int vertexIndex = vertex.getIndex();
+         vertices.set(vertexIndex, lastVertex);
+         lastVertex.setIndex(vertexIndex);
+         vertices.remove(lastIndex);
+      }
+      private void addVertex (Vertex vertex) {
+         vertex.setIndex(vertices.size());
+         vertices.add(vertex);
+      }
+
+      private void removeInteriorTriangle (Triangle triangle) {
+         int lastIndex = interiorTriangles.size()-1;
+         Triangle lastTriangle = interiorTriangles.get(lastIndex);
+         int triangleIndex = triangle.getIndex();
+         interiorTriangles.set(triangleIndex, lastTriangle);
+         lastTriangle.setIndex(triangleIndex);
+         interiorTriangles.remove(lastIndex);
+      }
+      private void addInteriorTriangle (Triangle triangle) {
+         triangle.setIndex(interiorTriangles.size());
+         interiorTriangles.add(triangle);
+      }
+
+      private void removeBoundaryTriangle (Triangle triangle) {
+         int lastIndex = boundaryTriangles.size()-1;
+         Triangle lastTriangle = boundaryTriangles.get(lastIndex);
+         int triangleIndex = triangle.getIndex();
+         boundaryTriangles.set(triangleIndex, lastTriangle);
+         lastTriangle.setIndex(triangleIndex);
+         boundaryTriangles.remove(lastIndex);
+      }
+      private void addBoundaryTriangle (Triangle triangle) {
+         triangle.setIndex(boundaryTriangles.size());
+         boundaryTriangles.add(triangle);
+      }
+      
       // --------------------------------------------------------
       // AddVertex
       // --------------------------------------------------------
       
       public Vertex addVertex (Vector3f position) {
-         Mesh.Vertex v = new Mesh.Vertex(position);
-         vertices.add(v);
-         return v;
+         Vertex vertex = new Vertex(position);
+         addVertex(vertex);
+         return vertex;
       }
       
       // --------------------------------------------------------
@@ -151,7 +853,7 @@ public class Geometry {
                (v1 != v0) && (v2 != v0) && (v2 != v1), "Vertices should be all different");
          
           Triangle t = new Triangle(v0,v1,v2);
-          interiorTriangles.add(t);
+          addInteriorTriangle(t);
           
           // Set the "opposite-edge" pointers in the new triangle.
           for (Triangle.Edge ei : Arrays.asList(t.edge0, t.edge1, t.edge2)) {
@@ -167,12 +869,11 @@ public class Geometry {
 
              // Walk around the edges connected to the "start" vertex to see if
              // such an edge exists:
-             
              Triangle.Edge firstOutFromStart = start.getOneOutgoingEdge();
-             if (firstOutFromStart != null) {      
+             if (firstOutFromStart != null) {
+                
                 // The start vertex already has edges attached to it.
                 // It must be on the boundary then...
-                
                 Triangle.Edge outFromStart = firstOutFromStart;
                 boolean onBoundary = false;
                 do {
@@ -195,22 +896,20 @@ public class Geometry {
              }
              
              // If the existingStartToEndBoundaryEdge exists, then its "opposite-edge"
-             // points to an interior triangle edge that ei is going to be opposite.
-             
+             // points to an interior triangle edge that is going to be opposite.
              if (existingStartToEndBoundaryEdge != null) {
-             
                 ei.setOppositeEdge(existingStartToEndBoundaryEdge.getOppositeEdge());
                 
              } else {
-                
                 // On the other hand, if the NEW TRIANGLE edge is not alongside an existing
                 // triangle, then we'll have to create a new "BOUNDARY TRIANGLE" and point
                 // the "opposite-edge" pointer to that instead.
              
                 // CREATE NEW BOUNDARY TRIANGLES HERE
                 Triangle b = new Triangle(end, start, null);
+                addBoundaryTriangle(b);
+                
                 ei.setOppositeEdge(b.edge2);
-                boundaryTriangles.add(b);
              }
           }
           
@@ -325,8 +1024,7 @@ public class Geometry {
              
              if (isAttached) {
                 Triangle b = oppositeEi.getOppositeEdge().getTriangle();
-                // DELETE OLD BOUNDARY TRIANGLES HERE
-                boundaryTriangles.remove(b);
+                removeBoundaryTriangle(b);
              }
              oppositeEi.setOppositeEdge(ei);
           }
@@ -382,11 +1080,11 @@ public class Geometry {
             boolean isAttached = !oppositeEi.getTriangle().isBoundary();
             
             if (isAttached) {
-               
                // CREATE NEW BOUNDARY TRIANGLES HERE
                Triangle b = new Triangle(ei.getStart(), ei.getEnd(), null);
+               addBoundaryTriangle(b);
+               
                linkOpposingEdges(oppositeEi, b.edge2);
-               boundaryTriangles.add(b);
             }
          }
          
@@ -454,7 +1152,6 @@ public class Geometry {
                Triangle.Edge cwFromNextEdge = oppositeNextEdge.ccwAroundTriangle();  // (points away from v)             
                linkOpposingEdges(newPrevEdge.ccwAroundTriangle(), cwFromNextEdge.getOppositeEdge());
                
-               
             } else if (!prevEdgeAttached && nextEdgeAttached) {
                // CASE 3. Link the "unattached" boundary triangle that's opposite "prevEdge":
 
@@ -500,7 +1197,7 @@ public class Geometry {
             if (!isAttached) {
                // DELETE OLD BOUNDARY TRIANGLES HERE
                Triangle b = oppositeEi.getTriangle();
-               boundaryTriangles.remove(b);
+               removeBoundaryTriangle(b);
             }
             
             ei.setOppositeEdge(null);
@@ -510,10 +1207,9 @@ public class Geometry {
          // adjacent BOUNDARY TRIANGLES were deleted above,
          // adjacent interior triangles are properly connected to new BOUNDARY TRIANGLES,
          // and none of the three vertices refer to us.
-         
-         interiorTriangles.remove(t);
+         removeInteriorTriangle(t);
       }
-
+      
       // --------------------------------------------------------
       // Mesh Assembly
       // --------------------------------------------------------
@@ -703,8 +1399,15 @@ public class Geometry {
       }
       
       public MeshModel(String name) {
+         this(name, new Mesh());
+      }
+      public MeshModel(String name, Mesh mesh) { 
          this.name = name;
-         this.mesh = new Mesh();
+         this.mesh = mesh;
+         
+         for (Geometry.Mesh.Vertex v : mesh.vertices) {
+            updateMaxRadius(v.getPosition().length());
+         }
          
          buffers = new HashMap<String,Shader.ManagedBuffer>();
          setManagedBuffer(Shader.POSITION_ARRAY, defaultPositionBuffer(mesh), name);
@@ -715,7 +1418,7 @@ public class Geometry {
          setManagedBuffer(Shader.V2POS_ARRAY,    defaultPosArray(mesh,1), name);
          setManagedBuffer(Shader.V1POS_ARRAY,    defaultPosArray(mesh,2), name);
       }
-
+      
       // ------------------------------------------------------------------------
       // Building Models
       // ------------------------------------------------------------------------
@@ -829,10 +1532,20 @@ public class Geometry {
             int pPos = 0;
             int col = 0;
             for (Mesh.Triangle t : mesh.interiorTriangles) {
-               ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xf0, (byte)0x80) :
-                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0x80, (byte)0xf0) :
-                                 (col==2) ? new ColorARGB((byte)0x00, (byte)0x00, (byte)0xe0, (byte)0xe0) :
-                                            new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               
+               ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
+                  (col==1) ? new ColorARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
+                  (col==2) ? new ColorARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
+                             new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+                  
+                  color = new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+                  
+/*               
+               ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xc0, (byte)0xf0) :
+                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xc0, (byte)0xf0) :
+                                 (col==2) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xc0, (byte)0xf0) :
+                                            new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xc0, (byte)0xf0);
+                                            */
                col = (col+1)%4;
                pPos = copyColor(array, pPos, color);
                pPos = copyColor(array, pPos, color);
@@ -1349,9 +2062,27 @@ public class Geometry {
       };
    }
 
+
+   private static Shader.ManagedBuffer directionArray(final Vector3f[] directionPerTriangle, final Mesh mesh) {
+      return new Shader.ManagedBuffer(3) {
+         @Override public int getNumElements() { return mesh.interiorTriangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Mesh.Triangle t : mesh.interiorTriangles) {
+               Vector3f v = directionPerTriangle[t.getIndex()];
+//               pPos = (new Vector2f(0.0f,0.0f)).copyToFloatArray(array,  pPos);
+//               pPos = (new Vector2f(1.0f,0.0f)).copyToFloatArray(array,  pPos);
+//               pPos = (new Vector2f(0.5f,root3 * 0.5f)).copyToFloatArray(array,  pPos);
+
+               pPos = (v).copyToFloatArray(array, pPos);
+               pPos = (v).copyToFloatArray(array, pPos);
+               pPos = (v).copyToFloatArray(array, pPos);
+            }
+         }
+      };
+   }
    
-   
-   public static void everyTriangleGetsManualMapping (MeshModel model) {
+   public static void everyTriangleGetsManualMapping (MeshModel model, float xOffset, int div) {
       Vector2f p0 = new Vector2f(0.0f, 0.0f);
       Vector2f p1 = new Vector2f(1.0f, 0.0f);
       Vector2f p2 = new Vector2f(0.5f, 0.866f);
@@ -1359,9 +2090,9 @@ public class Geometry {
       
       int tCount = 0;
       for (Mesh.Triangle t : model.mesh.interiorTriangles) {
-         int yCount = tCount/4;
-         int xCount = tCount - (yCount*4);
-         Vector2f base = new Vector2f(margin + (1.0f+margin) * xCount, margin + (1.0f+margin) * yCount); 
+         int yCount = tCount/div;
+         int xCount = tCount - (yCount*div);
+         Vector2f base = new Vector2f(xOffset + margin + (1.0f+margin) * xCount, margin + (1.0f+margin) * yCount); 
                
          FlatFaceInfo fi = new FlatFaceInfo(base.plus(p0),base.plus(p1),base.plus(p2));
          t.setData(fi);
@@ -1371,6 +2102,11 @@ public class Geometry {
       model.setManagedBuffer(Shader.V0UV_ARRAY, defaultUvArray(model.mesh,0));
       model.setManagedBuffer(Shader.V1UV_ARRAY, defaultUvArray(model.mesh,1));
       model.setManagedBuffer(Shader.V2UV_ARRAY, defaultUvArray(model.mesh,2));
+      
+      Vector3f[] directionPerTriangle = Organizer.rearrangeTextureCoords(model.mesh);
+      
+      model.setManagedBuffer(Shader.DIRECTION_SHADING_ARRAY,
+            directionArray(directionPerTriangle, model.mesh));
    }
    
    

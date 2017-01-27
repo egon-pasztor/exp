@@ -71,8 +71,8 @@ void main()
     }
     
     vec2 lk;
-    lk.x = fragTexCoords.x;
-    lk.y = fragTexCoords.y;
+    lk.x = fragTexCoords.x / fragTexCoords.w;
+    lk.y = fragTexCoords.y / fragTexCoords.w;
     
     outColor = texture2D(mainTexture, lk);
 }
