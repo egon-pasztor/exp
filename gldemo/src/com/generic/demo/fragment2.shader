@@ -24,12 +24,13 @@ in vec2 V1uv;
 in vec2 V2uv;
 
 out vec4 outColor;
-
+in mat4 matt4;
 
 // ------------------------
 // Pixel information
 // ------------------------
 
+float Xh,Yh,Zh,W;
 vec2 myXYPixel;
 vec2 myUVVal;
 
@@ -64,27 +65,19 @@ void computeInfo() {
     D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/den;
     G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/den;
     
-    float x0 = V0pos.x;
-    float y0 = V0pos.y;
-    float w0 = V0pos.w;
-   
-    float x1 = V1pos.x;
-    float y1 = V1pos.y;
-    float w1 = V1pos.w;
+    // Compute the homogenous coords of this pixel.  (we almost have that information in "myXYPixel",
+    // (the fraction (Xh/W) will equal myXPixel and (Yh/W) will equal myYPixel), this gives us
+    // the w component explicitly:    
+    Xh = fragBaryCoords.x * V0pos.x + fragBaryCoords.y * V1pos.x +  fragBaryCoords.z * V2pos.x;
+    Yh = fragBaryCoords.x * V0pos.y + fragBaryCoords.y * V1pos.y +  fragBaryCoords.z * V2pos.y;
+    Zh = fragBaryCoords.x * V0pos.z + fragBaryCoords.y * V1pos.z +  fragBaryCoords.z * V2pos.z;
+    W  = fragBaryCoords.x * V0pos.w + fragBaryCoords.y * V1pos.w +  fragBaryCoords.z * V2pos.w;
     
-    float x2 = V2pos.x;
-    float y2 = V2pos.y;
-    float w2 = V2pos.w;
-    
-    float Xh = fragBaryCoords.x * x0 + fragBaryCoords.y * x1 +  fragBaryCoords.z * x2;
-    float Yh = fragBaryCoords.x * y0 + fragBaryCoords.y * y1 +  fragBaryCoords.z * y2;
-    float W  = fragBaryCoords.x * w0 + fragBaryCoords.y * w1 +  fragBaryCoords.z * w2;
-    // (note (Xh/W) will equal myXPixel and (Yh/W) will equal myYPixel)
-    
-     dxdu = (windowWidth/2.0) *  ((1.0/W) * (A*x0 + D*x1 + G*x2) - (Xh/(W*W)) * (A*w0 + D*w1 + G*w2));
-     dxdv = (windowWidth/2.0) *  ((1.0/W) * (B*x0 + E*x1 + H*x2) - (Xh/(W*W)) * (B*w0 + E*w1 + H*w2));
-     dydu = (windowHeight/2.0) * ((1.0/W) * (A*y0 + D*y1 + G*y2) - (Yh/(W*W)) * (A*w0 + D*w1 + G*w2));
-     dydv = (windowHeight/2.0) * ((1.0/W) * (B*y0 + E*y1 + H*y2) - (Yh/(W*W)) * (B*w0 + E*w1 + H*w2));
+    // Compute the relationship between <x,h> (pixel space) and <u,v> (texture coords)
+    dxdu = (windowWidth/2.0) *  ((1.0/W) * (A*V0pos.x + D*V1pos.x + G*V2pos.x) - (Xh/(W*W)) * (A*V0pos.w + D*V1pos.w + G*V2pos.w));
+    dxdv = (windowWidth/2.0) *  ((1.0/W) * (B*V0pos.x + E*V1pos.x + H*V2pos.x) - (Xh/(W*W)) * (B*V0pos.w + E*V1pos.w + H*V2pos.w));
+    dydu = (windowHeight/2.0) * ((1.0/W) * (A*V0pos.y + D*V1pos.y + G*V2pos.y) - (Yh/(W*W)) * (A*V0pos.w + D*V1pos.w + G*V2pos.w));
+    dydv = (windowHeight/2.0) * ((1.0/W) * (B*V0pos.y + E*V1pos.y + H*V2pos.y) - (Yh/(W*W)) * (B*V0pos.w + E*V1pos.w + H*V2pos.w));
     
     pixelsPerDU = sqrt(dxdu*dxdu + dydu*dydu);
     pixelsPerDV = sqrt(dxdv*dxdv + dydv*dydv);
@@ -116,7 +109,6 @@ vec2 pixelAtUV(vec2 uv) {
     
     return vec2(point0X, point0Y);
 }
-
 float geometricDistance(vec2 s, vec2 e, vec2 p) {
 
    vec2 d = e-s;
@@ -154,11 +146,7 @@ float pixelDistanceToEdge() {
 // ------------------------
 // GRID-SHADING Logic
 // ------------------------
-
-float min(float a, float b) {
-    if (a < b) return a;
-    return b;
-}
+/*
 float nearestMultipleOf (float a, float factor) {
     float candidate0  = factor * int(a/factor);
     float candidate1 = candidate0 - factor;
@@ -239,7 +227,7 @@ float getGridShadingLevel() {
     float b = getGridShadingLevel(false);
     return (a > b) ? a : b;
 }
-
+*/
 
 // ------------------------
 // Selected Face?
@@ -258,6 +246,7 @@ bool inSelectedFace() {
 // DirectionField rendering
 // --------------------------
 
+
 float Value2D( vec2 P )
 {
     //  https://github.com/BrianSharpe/Wombat/blob/master/Value2D.glsl
@@ -275,21 +264,123 @@ float Value2D( vec2 P )
     vec4 hash = fract( Pt * ( 1.0 / 951.135664 ) );
 
     //	blend the results and return
-    //vec2 blend = Pf * Pf * Pf * (Pf * (Pf * 6.0 - 15.0) + 10.0);
-    //vec4 blend2 = vec4( blend, vec2( 1.0 - blend ) );
-    //return dot( hash, blend2.zxzx * blend2.wwyy );
+    vec2 blend = Pf * Pf * Pf * (Pf * (Pf * 6.0 - 15.0) + 10.0);
+    vec4 blend2 = vec4( blend, vec2( 1.0 - blend ) );
+    return dot( hash, blend2.zxzx * blend2.wwyy );
     
     return hash.x;
 }
 
-// okay so.... cpu is going to send us an XYZ vector.
-// we're probably ignoring W (??!)
+
+
+float mod289(float x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
+vec4 mod289(vec4 x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
+vec4 perm(vec4 x){return mod289(((x * 34.0) + 1.0) * x);}
+
+float Value3D(vec3 p){
+    vec3 a = floor(p);
+    vec3 d = p - a;
+    d = d * d * (3.0 - 2.0 * d);
+
+    vec4 b = a.xxyy + vec4(0.0, 1.0, 0.0, 1.0);
+    vec4 k1 = perm(b.xyxy);
+    vec4 k2 = perm(k1.xyxy + b.zzww);
+
+    vec4 c = k2 + a.zzzz;
+    vec4 k3 = perm(c);
+    vec4 k4 = perm(c + 1.0);
+
+    vec4 o1 = fract(k3 * (1.0 / 41.0));
+    vec4 o2 = fract(k4 * (1.0 / 41.0));
+
+    vec4 o3 = o2 * d.z + o1 * (1.0 - d.z);
+    vec2 o4 = o3.yw * d.x + o3.xz * (1.0 - d.x);
+
+    return o4.y * d.y + o4.x * (1.0 - d.y);
+}
+
 
 vec2 directionalShading() {
+    int n = 10;  
+
+
+    float x = Xh/W;
+    float y = Yh/W;
+    float z = Zh/W;
     
-    int uvScale = 30;
+    vec4 ph = vec4(Xh,Yh,Zh,W);
+    vec4 d1h = vec4(direction1.x,direction1.y,direction1.z,0);
+    vec4 d2h = vec4(direction2.x,direction2.y,direction2.z,0);
+    
+    ph = matt4 * ph;
+    //d1h = matt4 * d1h;
+    //d2h = matt4 * d2h;
+    
+    vec3 p = 100 * vec3(ph.x/ph.w, ph.y/ph.w, ph.z/ph.w);
+     
+    vec3 dir1 = normalize(vec3(d1h.x,d1h.y,d1h.z))*0.6;
+    vec3 dir2 = normalize(vec3(d2h.x,d2h.y,d2h.z))*0.6;
+     
+    //vec3 p = 110*vec3(x,y,z);
+     
+   //float dirX1 = (1.0 / W) * direction1.x  - (Xh / (W*W)) * direction1.z;
+   //float dirY1 = (1.0 / W) * direction1.y  - (Yh / (W*W)) * direction1.z;
+   //float dirZ1 = (1.0 / W) * direction1.z  - (Zh / (W*W)) * direction1.z;
+   
+   //float dirX2 = (1.0 / W) * direction2.x  - (Xh / (W*W)) * direction2.z;
+   //float dirY2 = (1.0 / W) * direction2.y  - (Yh / (W*W)) * direction2.z;
+   //float dirZ2 = (1.0 / W) * direction2.z  - (Zh / (W*W)) * direction2.z;
+   
+   //vec3 dir1 = normalize(vec3(windowWidth*dirX1,windowHeight*dirY1,dirZ1))*0.6;
+   //vec3 dir2 = normalize(vec3(windowWidth*dirX2,windowHeight*dirY2,dirZ2))*0.6;
+
+   float f = 0;
+   float fy = 0;
+   int i = 0;
+   
+   for (int i = 0; i < n; ++i) {
+     f += Value3D(p+i*dir1);
+     fy += Value3D(p+i*dir2);
+   }
+   /*
+        f += Value3D(p+0*dir1);
+        f += Value3D(p+1*dir1);
+        f += Value3D(p+2*dir1);
+        f += Value3D(p+3*dir1);
+        f += Value3D(p+4*dir1);
+        f += Value3D(p+5*dir1);
+        f += Value3D(p+6*dir1);
+        f += Value3D(p+7*dir1);
+        f += Value3D(p+8*dir1);
+        f += Value3D(p+9*dir1);
+        
+     fy += Value3D(p+0*dir2);
+     fy += Value3D(p+1*dir2);
+     fy += Value3D(p+2*dir2);
+     fy += Value3D(p+3*dir2);
+     fy += Value3D(p+4*dir2);
+     fy += Value3D(p+5*dir2);
+     fy += Value3D(p+6*dir2);
+     fy += Value3D(p+7*dir2);
+     fy += Value3D(p+8*dir2);
+     fy += Value3D(p+9*dir2);
+     */   
+             
+   f = f/n;
+   f = (f-0.5)*sqrt(n)+0.5;
+   if (f < 0) f = 0;
+   if (f > 1) f = 1;
+   
+   fy = fy/n;
+   fy = (fy-0.5)*sqrt(n)+0.5;
+   if (fy < 0) fy = 0;
+   if (fy > 1) fy = 1;
+   
+   return vec2(f,fy);
+
+/*
+    int uvScale = 25;
     float thresh = 100.0f;
-    int n = 20;  
    
     float u0 = 0.0f,                      v0 = 0.0f;
     float u1 = uvScale * triangleShape.x, v1 = 0.0f;
@@ -316,20 +407,7 @@ vec2 directionalShading() {
     float x2 = V2pos.x;
     float y2 = V2pos.y;
     float w2 = V2pos.w;
-    
-    float Xh = fragBaryCoords.x * x0 + fragBaryCoords.y * x1 +  fragBaryCoords.z * x2;
-    float Yh = fragBaryCoords.x * y0 + fragBaryCoords.y * y1 +  fragBaryCoords.z * y2;
-    float W  = fragBaryCoords.x * w0 + fragBaryCoords.y * w1 +  fragBaryCoords.z * w2;
-    // (note (Xh/W) will equal myXPixel and (Yh/W) will equal myYPixel)
-    
-    //if (abs((windowWidth*((Xh/W)+1.0)/2.0) - myXYPixel.x)  > 0.5f) return 1.0f;
-    //if (abs((windowHeight*((Yh/W)+1.0)/2.0) - myXYPixel.y) > 0.5f) return 1.0f;
-    /*
-    float pdxdu = (windowWidth/2.0) *  ((1.0/W) * (pA*x0 + pD*x1 + pG*x2) - (Xh/(W*W)) * (pA*w0 + pD*w1 + pG*w2));
-    float pdxdv = (windowWidth/2.0) *  ((1.0/W) * (pB*x0 + pE*x1 + pH*x2) - (Xh/(W*W)) * (pB*w0 + pE*w1 + pH*w2));
-    float pdydu = (windowHeight/2.0) * ((1.0/W) * (pA*y0 + pD*y1 + pG*y2) - (Yh/(W*W)) * (pA*w0 + pD*w1 + pG*w2));
-    float pdydv = (windowHeight/2.0) * ((1.0/W) * (pB*y0 + pE*y1 + pH*y2) - (Yh/(W*W)) * (pB*w0 + pE*w1 + pH*w2));
-    */
+        
     float drXhDu = (pA*x0 + pD*x1 + pG*x2);
     float drYhDu = (pA*y0 + pD*y1 + pG*y2);
     float drWDu  = (pA*w0 + pD*w1 + pG*w2);
@@ -476,11 +554,7 @@ vec2 directionalShading() {
    if (fcy < 0) fcy = 0;
    if (fcy > 1) fcy = 1;
    return vec2(fc,fcy);
-   
-   //float res = ((fc+fcy)/2.0 - 0.5)*sqrt(2*n) + 0.5;
-   //if (res < 0) res = 0;
-   //if (res > 1) res = 1;
-   // return res;
+*/
 }
 
 
@@ -491,6 +565,7 @@ vec2 directionalShading() {
 void main()
 {
    computeInfo();
+   
    float pde = pixelDistanceToEdge();
    if (pde < 1.0f) {
      if ((pde < 0.5f) && (highlight != 0)) {
@@ -529,13 +604,15 @@ void main()
      return;
    } 
 
+
    vec2 dd = directionalShading();
    
    float baseR = fragColor.r;
    float baseG = (fragColor.g * (1.0 - dd.x) + 0.3 * dd.x) * (1.0 - dd.y/2.0);
    float baseB = (fragColor.b * (1.0 - dd.y) + 0.0 * dd.y) * (1.0 - dd.x/3.0);
    
-   float frac = getGridShadingLevel();
+   //float frac = getGridShadingLevel();
+   float frac = 0;
    frac = 1.0f - ((1.0f - frac) * tnz);
    outColor.r = baseR * (1.0f-frac);
    outColor.g = baseG * (1.0f-frac);
