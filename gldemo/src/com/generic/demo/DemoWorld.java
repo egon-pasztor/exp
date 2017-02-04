@@ -21,7 +21,7 @@ public class DemoWorld extends World {
    public MeshModel mappingModel2;
    public Vector2f selectedUVPointIfAny;
 
-   public DemoWorld(Image leaImage, Image teapotImage, Geometry.Mesh bunny) {
+   public DemoWorld(Image leaImage, Image teapotImage, Geometry.Mesh1 bunny) {
       System.out.format("Starting InitDemoWorld\n");
       
       // ----------------------------------------------------------------------------------

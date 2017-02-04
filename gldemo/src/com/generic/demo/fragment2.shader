@@ -146,7 +146,6 @@ float pixelDistanceToEdge() {
 // ------------------------
 // GRID-SHADING Logic
 // ------------------------
-/*
 float nearestMultipleOf (float a, float factor) {
     float candidate0  = factor * int(a/factor);
     float candidate1 = candidate0 - factor;
@@ -227,7 +226,6 @@ float getGridShadingLevel() {
     float b = getGridShadingLevel(false);
     return (a > b) ? a : b;
 }
-*/
 
 // ------------------------
 // Selected Face?
@@ -246,64 +244,40 @@ bool inSelectedFace() {
 // DirectionField rendering
 // --------------------------
 
-
 float Value2D( vec2 P )
 {
-    //  https://github.com/BrianSharpe/Wombat/blob/master/Value2D.glsl
-
-    //	establish our grid cell and unit position
-    vec2 Pi = floor(P);
-    vec2 Pf = P - Pi;
-
-    //	calculate the hash.
-    vec4 Pt = vec4( Pi.xy, Pi.xy + 1.0 );
-    Pt = Pt - floor(Pt * ( 1.0 / 71.0 )) * 71.0;
-    Pt += vec2( 26.0, 161.0 ).xyxy;
-    Pt *= Pt;
-    Pt = Pt.xzxz * Pt.yyww;
-    vec4 hash = fract( Pt * ( 1.0 / 951.135664 ) );
-
-    //	blend the results and return
-    vec2 blend = Pf * Pf * Pf * (Pf * (Pf * 6.0 - 15.0) + 10.0);
-    vec4 blend2 = vec4( blend, vec2( 1.0 - blend ) );
-    return dot( hash, blend2.zxzx * blend2.wwyy );
-    
-    return hash.x;
+   //P = P * 2;
+   int p = int(P.x);
+   if (P.x<0) p =p - 1;
+   float f = P.x - p;
+   
+   float pa = 1.0;
+   if (p % 2 == 0) pa = 0.0;
+   
+   float pb = 1.0 - pa;
+   float z =  f + pa * (1 - 2 * f);
+   if (z<0.5) z = 0; else z = 1;
+   return z;
 }
 
+/*
+float Value2D (vec2 st) { 
+    return fract(sin(dot(vec2(int(st.x), int(st.y)),
+                         vec2(12.9898,78.233)))* 
+        43758.5453123);
+}
+*/
 
-
-float mod289(float x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
-vec4 mod289(vec4 x){return x - floor(x * (1.0 / 289.0)) * 289.0;}
-vec4 perm(vec4 x){return mod289(((x * 34.0) + 1.0) * x);}
-
-float Value3D(vec3 p){
-    vec3 a = floor(p);
-    vec3 d = p - a;
-    d = d * d * (3.0 - 2.0 * d);
-
-    vec4 b = a.xxyy + vec4(0.0, 1.0, 0.0, 1.0);
-    vec4 k1 = perm(b.xyxy);
-    vec4 k2 = perm(k1.xyxy + b.zzww);
-
-    vec4 c = k2 + a.zzzz;
-    vec4 k3 = perm(c);
-    vec4 k4 = perm(c + 1.0);
-
-    vec4 o1 = fract(k3 * (1.0 / 41.0));
-    vec4 o2 = fract(k4 * (1.0 / 41.0));
-
-    vec4 o3 = o2 * d.z + o1 * (1.0 - d.z);
-    vec2 o4 = o3.yw * d.x + o3.xz * (1.0 - d.x);
-
-    return o4.y * d.y + o4.x * (1.0 - d.y);
+float Value3D (vec3 st) { 
+    return fract(sin(dot(vec3(int(st.x), int(st.y), int(st.z)),
+                         vec3(12.9898,78.233, 34.342)))* 
+        43758.5453123);
 }
 
 
 vec2 directionalShading() {
     int n = 10;  
-
-
+/*
     float x = Xh/W;
     float y = Yh/W;
     float z = Zh/W;
@@ -338,11 +312,10 @@ vec2 directionalShading() {
    float fy = 0;
    int i = 0;
    
-   for (int i = 0; i < n; ++i) {
-     f += Value3D(p+i*dir1);
-     fy += Value3D(p+i*dir2);
-   }
-   /*
+   //for (int i = 0; i < n; ++i) {
+   //  f += Value3D(p+i*dir1);
+   //  fy += Value3D(p+i*dir2);
+  // }
         f += Value3D(p+0*dir1);
         f += Value3D(p+1*dir1);
         f += Value3D(p+2*dir1);
@@ -364,7 +337,6 @@ vec2 directionalShading() {
      fy += Value3D(p+7*dir2);
      fy += Value3D(p+8*dir2);
      fy += Value3D(p+9*dir2);
-     */   
              
    f = f/n;
    f = (f-0.5)*sqrt(n)+0.5;
@@ -377,10 +349,11 @@ vec2 directionalShading() {
    if (fy > 1) fy = 1;
    
    return vec2(f,fy);
+*/
 
-/*
     int uvScale = 25;
-    float thresh = 100.0f;
+    //float thresh = 100.0f;
+    float thresh = 300.0f;
    
     float u0 = 0.0f,                      v0 = 0.0f;
     float u1 = uvScale * triangleShape.x, v1 = 0.0f;
@@ -390,6 +363,7 @@ vec2 directionalShading() {
     vec2 pmyUVVal   = vec2(u0 * fragBaryCoords.x + u1 * fragBaryCoords.y + u2 * fragBaryCoords.z, 
                            v0 * fragBaryCoords.x + v1 * fragBaryCoords.y + v2 * fragBaryCoords.z);
                             
+
     // we can compute the matrix that produces barycentric coordinates for an arbitrary <u,v> point
     float den = u0 * (v1-v2) + u1 * (v2-v0) + u2 * (v0-v1);
     float pA = (v1-v2)/den;  float pB = (u2-u1)/den;  float pC = (u1*v2-u2*v1)/den;
@@ -455,7 +429,25 @@ vec2 directionalShading() {
    float du1 = dir1.x * pdudx + dir1.y * pdudy;
    float dv1 = dir1.x * pdvdx + dir1.y * pdvdy;
    vec2 fd1 = normalize(vec2(du1,dv1));
-
+   
+   
+   // ------------------------------------
+   
+   float angle1 = atan(fd1.y,fd1.x);//angle1=0;
+   float sinangle1 = sin(angle1);
+   float cosangle1 = cos(angle1);
+   
+   vec2 r  = vec2(pmyUVVal.x * cosangle1 + pmyUVVal.y * sinangle1,
+                - pmyUVVal.x * sinangle1 + pmyUVVal.y * cosangle1);
+            
+   float angle2 = atan(fd2.y,fd2.x);//angle2=0;
+   float sinangle2 = sin(angle2);
+   float cosangle2 = cos(angle2);
+   
+   vec2 r2 = vec2(pmyUVVal.x * cosangle2 + pmyUVVal.y * sinangle2,
+                - pmyUVVal.x * sinangle2 + pmyUVVal.y * cosangle2);
+   
+   // ------------------------------------
    
    // this should be the change in u,v that moves us one 
    //
@@ -491,8 +483,22 @@ vec2 directionalShading() {
    //blend2 = 0.0f;
    //blend3 = 0.0f;
 
-   int fn = 2*n;    
+ // ------------------------------------
 
+   float fin1 = Value2D(r);
+   float fin1y = Value2D(r2);
+   
+   float fin2 = Value2D(3*r);
+   float fin2y = Value2D(3*r2);
+   
+   float fin3 = Value2D(9*r);
+   float fin3y = Value2D(9*r2);
+
+   float fin4 = Value2D(27*r);
+   float fin4y = Value2D(27*r2);
+ 
+ // ------------------------------------
+ /*
    float final1 = 0.0f;
    float final1y = 0.0f;
    for (int i = 0; i < n; ++i) {
@@ -536,7 +542,8 @@ vec2 directionalShading() {
    }   
    float fin4 = final4/n;
    float fin4y = final4y/n;
-   
+*/
+
    float fa = (fin1 * (1.0 - blend1)) + fin2 * blend1;
    float fb = (fa   * (1.0 - blend2)) + fin3 * blend2;
    float fc = (fb   * (1.0 - blend3)) + fin4 * blend3;
@@ -544,8 +551,6 @@ vec2 directionalShading() {
    float fay = (fin1y * (1.0 - blend1)) + fin2y * blend1;
    float fby = (fay   * (1.0 - blend2)) + fin3y * blend2;
    float fcy = (fby   * (1.0 - blend3)) + fin4y * blend3;
-   
-   //float fin4 = sqrt(fn) * (((final4 + final4y)/(fn)) - 0.5f) + 0.5f;
 
    fc = (fc-0.5)*sqrt(n) + 0.5;
    fcy = (fcy-0.5)*sqrt(n) + 0.5;
@@ -554,7 +559,6 @@ vec2 directionalShading() {
    if (fcy < 0) fcy = 0;
    if (fcy > 1) fcy = 1;
    return vec2(fc,fcy);
-*/
 }
 
 
@@ -606,13 +610,16 @@ void main()
 
 
    vec2 dd = directionalShading();
+   dd = dd/2;
    
+   float avg = (dd.x + dd.y)/2;
+   dd.x=avg; dd.y=avg;
    float baseR = fragColor.r;
    float baseG = (fragColor.g * (1.0 - dd.x) + 0.3 * dd.x) * (1.0 - dd.y/2.0);
    float baseB = (fragColor.b * (1.0 - dd.y) + 0.0 * dd.y) * (1.0 - dd.x/3.0);
    
-   //float frac = getGridShadingLevel();
-   float frac = 0;
+   float frac = getGridShadingLevel();
+   //float frac = 0;
    frac = 1.0f - ((1.0f - frac) * tnz);
    outColor.r = baseR * (1.0f-frac);
    outColor.g = baseG * (1.0f-frac);

@@ -82,7 +82,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       Image leaImage = imageFromResource("lea.png");
       Image teapotImage = imageFromResource("teapot.png");
-      Geometry.Mesh bunny = loadBunny();
+      Geometry.Mesh1 bunny = loadBunny();
       demoWorld = new DemoWorld(leaImage, teapotImage, bunny);
       intersectionIn3d = false;
       
@@ -753,7 +753,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          g.setColor(Color.BLACK);
          int col = 0;         
          for (Geometry.MeshModel meshModel : new Geometry.MeshModel[] { demoWorld.mappingModel1, demoWorld.mappingModel2 }) { 
-            for (Mesh.Triangle t : meshModel.mesh.interiorTriangles) {
+            for (Mesh1.Triangle t : meshModel.mesh.interiorTriangles) {
                Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
                
                ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
@@ -914,11 +914,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    // ------- loading the bunny
    
-   private Geometry.Mesh loadBunny() {
+   private Geometry.Mesh1 loadBunny() {
       String bunnyObj = this.loadStringFileFromCurrentPackage("bunny.obj");
       
-      Geometry.Mesh mesh = new Geometry.Mesh();
-      ArrayList<Geometry.Mesh.Vertex> vertices = new ArrayList<Geometry.Mesh.Vertex> ();
+      Geometry.Mesh1 mesh = new Geometry.Mesh1();
+      ArrayList<Geometry.Mesh1.Vertex> vertices = new ArrayList<Geometry.Mesh1.Vertex> ();
       
       for (String line : bunnyObj.split("\n")) {
          if (line.charAt(0) == '#') {
@@ -928,7 +928,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             String restOfLine = line.substring(2);
             String[] pieces = restOfLine.split(" ");
             if (pieces.length == 3) {
-               Geometry.Mesh.Vertex v = new Geometry.Mesh.Vertex(
+               Geometry.Mesh1.Vertex v = new Geometry.Mesh1.Vertex(
                      new Vector3f(Float.valueOf(pieces[0]), Float.valueOf(pieces[1]), Float.valueOf(pieces[2])).times(60.0f));
                mesh.vertices.add(v);
                vertices.add(v);
@@ -1242,7 +1242,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
   
       Vector2f intersection = null;
       boolean intersectionOccurred = false;
-      for (Geometry.Mesh.Triangle t : geometry.mesh.interiorTriangles) {
+      for (Geometry.Mesh1.Triangle t : geometry.mesh.interiorTriangles) {
          Vector3f v0Pos = t.edge0.getOppositeVertex().getPosition();
          Vector3f v1Pos = t.edge1.getOppositeVertex().getPosition();
          Vector3f v2Pos = t.edge2.getOppositeVertex().getPosition();

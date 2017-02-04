@@ -97,14 +97,13 @@ void main()
     //vec3 d1_3 = (newX + newY)/sqrt(2);
     //vec3 d2_3 = (-newX + newY)/sqrt(2);
     
-    /*
     vec4 d1 = projMatrix * viewMatrix * vec4(d1_3.x,d1_3.y,d1_3.z,0);
     vec4 d2 = projMatrix * viewMatrix * vec4(d2_3.x,d2_3.y,d2_3.z,0);
     direction1 = vec3(d1.x,d1.y,d1.z);
     direction2 = vec3(d2.x,d2.y,d2.z);
-    */
-    direction1 = d1_3;
-    direction2 = d2_3;
+    
+    //direction1 = d1_3;
+    //direction2 = d2_3;
     
     matt4 = inverse (projMatrix * viewMatrix);
     

@@ -4,7 +4,7 @@ import com.generic.base.VectorAlgebra.*;
 
 import java.util.ArrayList;
 
-import com.generic.base.Geometry.Mesh;
+import com.generic.base.Geometry.Mesh1;
 import com.generic.base.Raster.*;
 
 // as if.
@@ -539,9 +539,9 @@ public class Organizer {
       public final Vector3f normal;
       public Vector3f selectedDirection;
       
-      public Mesh.Edge.Ref edge0, edge1, edge2;
+      public Mesh1.Edge.Ref edge0, edge1, edge2;
       
-      public FaceInfo(Mesh.Vertex v0, Mesh.Vertex v1, Mesh.Vertex v2) {
+      public FaceInfo(Mesh1.Vertex v0, Mesh1.Vertex v1, Mesh1.Vertex v2) {
          area = 0.0f;
          normal = Vector3f.ORIGIN;
          selectedDirection = new Vector3f(
@@ -551,12 +551,12 @@ public class Organizer {
          
          selectedDirection = Vector3f.X;
       }
-      public void setMeshEdgeRef(int index, Mesh.Edge.Ref edge) {
+      public void setMeshEdgeRef(int index, Mesh1.Edge.Ref edge) {
          if (index == 0) edge0 = edge;
          if (index == 1) edge1 = edge;
          if (index == 2) edge2 = edge;
       }
-      public Mesh.Edge.Ref getMeshEdgeRef(int index) {
+      public Mesh1.Edge.Ref getMeshEdgeRef(int index) {
          return (index == 0) ? edge0 : (index == 1) ? edge1 : edge2;
       }
    }
@@ -570,43 +570,43 @@ public class Organizer {
    
    
    
-   public static Vector3f[] rearrangeTextureCoords(Geometry.Mesh mesh) {
+   public static Vector3f[] rearrangeTextureCoords(Geometry.Mesh1 mesh) {
       int numTriangles = mesh.interiorTriangles.size();
       int numVertices  = mesh.vertices.size();
       
       
       // Copy the COORDS into an array, freeing up the Triangle pointers
       Geometry.FlatFaceInfo[] coords = new Geometry.FlatFaceInfo[numTriangles];
-      for (Mesh.Triangle t : mesh.interiorTriangles) {
+      for (Mesh1.Triangle t : mesh.interiorTriangles) {
          Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
          coords[t.getIndex()] = fi;
          t.setData(null);
       }
       
       FaceInfo[] faceInfo = new FaceInfo[numTriangles];
-      for (Mesh.Triangle t : mesh.interiorTriangles) {
+      for (Mesh1.Triangle t : mesh.interiorTriangles) {
          int triangleIndex = t.getIndex();
          FaceInfo fi = new FaceInfo(t.edge0.getOppositeVertex(), t.edge1.getOppositeVertex(), t.edge2.getOppositeVertex());
          faceInfo[triangleIndex] = fi;
       }
       
-      ArrayList<Mesh.Edge> interiorEdges = new ArrayList<Mesh.Edge>();
-      ArrayList<Mesh.Edge> boundaryEdges = new ArrayList<Mesh.Edge>();
+      ArrayList<Mesh1.Edge> interiorEdges = new ArrayList<Mesh1.Edge>();
+      ArrayList<Mesh1.Edge> boundaryEdges = new ArrayList<Mesh1.Edge>();
       
       int triangleCount = mesh.interiorTriangles.size();
       
-      for (Mesh.Triangle thisTriangle : mesh.interiorTriangles) {
+      for (Mesh1.Triangle thisTriangle : mesh.interiorTriangles) {
          int thisTriangleIndex = thisTriangle.getIndex();
          FaceInfo thisTriangleInfo = faceInfo[thisTriangleIndex];
          
          for (int i = 0; i < 3; ++i) {
-            Mesh.Triangle.Edge thisTriangleEdge = thisTriangle.getEdge(i);
+            Mesh1.Triangle.Edge thisTriangleEdge = thisTriangle.getEdge(i);
             if (thisTriangleInfo.getMeshEdgeRef(i) == null) {
-               Mesh.Edge newEdge = new Mesh.Edge(thisTriangleEdge);
+               Mesh1.Edge newEdge = new Mesh1.Edge(thisTriangleEdge);
                thisTriangleInfo.setMeshEdgeRef(i, newEdge.forward);
                
-               Mesh.Triangle.Edge oppositeTriangleEdge = thisTriangleEdge.getOppositeEdge();
-               Mesh.Triangle oppositeTriangle = oppositeTriangleEdge.getTriangle();
+               Mesh1.Triangle.Edge oppositeTriangleEdge = thisTriangleEdge.getOppositeEdge();
+               Mesh1.Triangle oppositeTriangle = oppositeTriangleEdge.getTriangle();
                
                if (oppositeTriangle.isBoundary()) {
                   // newEdge is a BOUNDARY EDGE
@@ -623,6 +623,15 @@ public class Organizer {
          }
       }
       
+      // -----------------------------------------------------------
+      // "todo": set "selectedDirection" to sensible values
+      // -----------------------------------------------------------
+      
+      
+      
+      // -----------------------------------------------------------
+      // -----------------------------------------------------------
+      
       Vector3f[] directions = new Vector3f[numTriangles];
       for (int i = 0; i < directions.length; ++i) {
          directions[i] = faceInfo[i].selectedDirection;
@@ -633,7 +642,7 @@ public class Organizer {
       
       
       // Return the new COORDS to the Triangle pointers
-      for (Mesh.Triangle t : mesh.interiorTriangles) {
+      for (Mesh1.Triangle t : mesh.interiorTriangles) {
          t.setData(coords[t.getIndex()]);
       }
       return directions;
