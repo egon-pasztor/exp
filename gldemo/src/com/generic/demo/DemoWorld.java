@@ -3,7 +3,8 @@ package com.generic.demo;
 import com.generic.base.Geometry;
 import com.generic.base.World;
 import com.generic.base.Geometry.*;
-import com.generic.base.VectorAlgebra.*;
+import com.generic.base.Mesh;
+import com.generic.base.Algebra.*;
 
 import java.util.ArrayList;
 
@@ -14,14 +15,14 @@ import com.generic.base.Raster.*;
 public class DemoWorld extends World {
    
    private MeshModel stretchyBall;
-   private ShaderInstanceModel[] mobileBalls;
+   private ShaderExecutingModel[] mobileBalls;
 //   private MeshModel choppedCube;
    
    public MeshModel mappingModel1;
    public MeshModel mappingModel2;
-   public Vector2f selectedUVPointIfAny;
+   public Vector2 selectedUVPointIfAny;
 
-   public DemoWorld(Image leaImage, Image teapotImage, Geometry.Mesh1 bunny) {
+   public DemoWorld(Image leaImage, Image teapotImage, Mesh bunny) {
       System.out.format("Starting InitDemoWorld\n");
       
       // ----------------------------------------------------------------------------------
@@ -32,82 +33,82 @@ public class DemoWorld extends World {
       Shader.ManagedTexture teapotImageT = new Shader.ManagedTexture(teapotImage);
       
       CompoundModel root = new CompoundModel();
-      ShaderInstanceModel m;
+      ShaderExecutingModel m;
       
       // Build root instance
       MeshModel cube0 = Geometry.createUnitCube();
       Shader.Instance cube0Instance = new Shader.Instance(Shader.TEXTURE_SHADER);
-      cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(leaImageT));
-      m = new ShaderInstanceModel(cube0Instance, cube0);
+      cube0Instance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Sampler.Binding(leaImageT));
+      m = new ShaderExecutingModel(cube0Instance, cube0);
       root.children.add(m);
       
-/*
-      // Demo cylinder instance
-      MeshModel cyl = Geometry.createCylinder(Vector3f.Z.times(-1.0f), Vector3f.Z, 1.0f, 1.0f, 8);
-      Shader.Instance cylInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-      m = new ShaderInstanceModel(cylInstance, cyl);
-      root.children.add(m);
-      m.scale(0.2f, 0.2f, 2.0f);
-      m.translate(Vector3f.Y.times(3.0f));
-
-      // Demo cylinder instance
-      choppedCube = Geometry.createChoppedCube();
-      Shader.Instance createChoppedCubeInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-      m = new ShaderInstanceModel(createChoppedCubeInstance, choppedCube);
-      root.children.add(m);
-      m.translate(Vector3f.Y.times(7.0f));
-*/
+//      // Demo cylinder instance
+//      MeshModel cyl = Geometry.createCylinder(Vector3f.Z.times(-1.0f), Vector3f.Z, 1.0f, 1.0f, 8);
+//      Shader.Instance cylInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+//      m = new ShaderInstanceModel(cylInstance, cyl);
+//      root.children.add(m);
+//      m.scale(0.2f, 0.2f, 2.0f);
+//      m.translate(Vector3f.Y.times(3.0f));
+//
+//      // Demo cylinder instance
+//      choppedCube = Geometry.createChoppedCube();
+//      Shader.Instance createChoppedCubeInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+//      m = new ShaderInstanceModel(createChoppedCubeInstance, choppedCube);
+//      root.children.add(m);
+//      m.translate(Vector3f.Y.times(7.0f));
       
       // ICO
       MeshModel ico0 = Geometry.createIco(0);
-      Geometry.everyTriangleGetsManualMapping(ico0, 0.0f, 4);
+      ico0.updateMesh(Geometry.newQuadCoverMesh());
+      Geometry.doQuadCover(ico0, 0.0f, 4);
       mappingModel1 = ico0;
 
       Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-      m = new ShaderInstanceModel(ico0Instance, ico0);
+      m = new ShaderExecutingModel(ico0Instance, ico0);
       root.children.add(m);
-      m.translate(Vector3f.Y.times(+3.0f));
+      m.translate(Vector3.Y.times(+3.0f));
 
-      MeshModel bunnyModel = new MeshModel("bunny", bunny);
+      MeshModel bunnyModel = new MeshModel(bunny);
       mappingModel2 = bunnyModel;
-      Geometry.everyTriangleGetsManualMapping(bunnyModel, 8.0f, 80);
+      Geometry.doQuadCover(bunnyModel, 8.0f, 80);
       Shader.Instance bunnyInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-      m = new ShaderInstanceModel(bunnyInstance, bunnyModel);
+      m = new ShaderExecutingModel(bunnyInstance, bunnyModel);
       root.children.add(m);
-      m.translate(Vector3f.Y.times(+5.0f));
+      m.translate(Vector3.Y.times(+5.0f));
       
       
       MeshModel perlinNoiseBall = Geometry.createIco(3);
-      // hmm.. we're bit-rotting.  this function binds "COLOR_ARRAY" in pb to provide a color
-      // for each triangle, consisting of 3 values, these being the "random ints" assigned 
-      // to the 3 verticies...
       //
-      // ... but then, we're not using it at all.   We used to, but fragment3's code is now
-      // all perlin-noise stuff.
-      Geometry.everyPointGetsAnInteger(perlinNoiseBall, 255);
+      // TODO: previously 
+      //
+      //   Geometry.everyPointGetsAnInteger(perlinNoiseBall, 255);
+      //
+      // The shader we use for perlinNoiseBall no longer uses this data,
+      // but if it DID, we'd have trouble, because new Mesh objects no longer allow this.
 
       
       MeshModel ball1 = Geometry.createUnitSphere(30,30); //Geometry.createIco(4);
       stretchyBall = ball1;      
-      mobileBalls = new ShaderInstanceModel[4];
+      mobileBalls = new ShaderExecutingModel[4];
       
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
          
          // Perlin-Ball instance
          Shader.Instance pbInstance = new Shader.Instance(Shader.POINT_COLOR_SHADER);
-         m = new ShaderInstanceModel(pbInstance, perlinNoiseBall);
+         m = new ShaderExecutingModel(pbInstance, perlinNoiseBall);
          root.children.add(m);
          mobileBalls[i] = m;
          
          // Build pulsing textured ball instance
          Shader.Instance texBallInstance = new Shader.Instance(Shader.TEXTURE_SHADER);
-         texBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Uniform.TextureBinding(teapotImageT));
-         m = new ShaderInstanceModel(texBallInstance, ball1);
+         texBallInstance.bind(Shader.MAIN_TEXTURE, new Shader.Variable.Sampler.Binding(teapotImageT));
+         m = new ShaderExecutingModel(texBallInstance, ball1);
          
          root.children.add(m);
-         m.translate(Vector3f.X.times(6).rotated(Vector3f.Y, angle));
+         m.translate(Vector3.X.times(6).rotated(Vector3.Y, angle));
       }
+      
       System.out.format("DONE..\n");
       updateDemoWorld(0.0f);      
       setRootModel(root);
@@ -122,9 +123,9 @@ public class DemoWorld extends World {
 
       for (int i = 0; i < 4; i++) {
          float angle = (float)(i * (Math.PI/2.0));
-         ShaderInstanceModel m = mobileBalls[i];
-         m.setModelToWorld(Matrix4f.IDENTITY);
-         Vector3f translationVec = Vector3f.X.times(3.0f + (float) Math.cos(phase + angle)).rotated(Vector3f.Y, angle);
+         ShaderExecutingModel m = mobileBalls[i];
+         m.setModelToWorld(Matrix4x4.IDENTITY);
+         Vector3 translationVec = Vector3.X.times(3.0f + (float) Math.cos(phase + angle)).rotated(Vector3.Y, angle);
          m.translate(translationVec);
          
          // okay.. i see.   "m.translate" above changes the viewMatrix which is passed into vertexShader and 
@@ -134,6 +135,6 @@ public class DemoWorld extends World {
       }
 
       //Geometry.warpChoppedCube(choppedCube, phase, 1.0f);
-      Geometry.sphereWarp(stretchyBall, phase, 0.05f);
+      Geometry.sphereWarp2(stretchyBall, phase, 0.05f);
    }
 }

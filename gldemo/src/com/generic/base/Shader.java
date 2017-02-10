@@ -1,8 +1,8 @@
 package com.generic.base;
 
-import com.generic.base.VectorAlgebra.Matrix4f;
-import com.generic.base.VectorAlgebra.Vector2f;
-import com.generic.base.VectorAlgebra.Vector3f;
+import com.generic.base.Algebra.Matrix4x4;
+import com.generic.base.Algebra.Vector2;
+import com.generic.base.Algebra.Vector3;
 import com.generic.base.Raster.Image;
 
 import java.nio.ByteBuffer;
@@ -41,12 +41,30 @@ public class Shader {
       // "Buffer" Variable Types
       // ----------------------------------------------
       
-      public static class Buffer extends Variable {
-         public final int floatsPerElement;
+      public static class VertexBuffer extends Variable {
+         public final Type type;
          
-         public Buffer(String name, int floatsPerElement) {
+         public enum Type {
+            UINT  (false, 1), FLOAT (true, 1),
+            UVEC2 (false, 2), VEC2  (true, 2), 
+            UVEC3 (false, 3), VEC3  (true, 3), 
+            UVEC4 (false, 4), VEC4  (true, 4);
+            
+            private Type(boolean baseIsFloat, int numElementsPerVertex) {
+               this.baseIsFloat = baseIsFloat;
+               this.numElementsPerVertex = numElementsPerVertex;
+            }
+            public boolean baseIsFloat;
+            public int numElementsPerVertex;
+         }
+         
+         public VertexBuffer(String name, Type type) {
             super(name);
-            this.floatsPerElement = floatsPerElement;
+            this.type = type;
+         }
+         public String toString() {
+            return String.format("VertexBuffer variable([%s/(%s x %d)])",
+                  name, type.baseIsFloat ? "float":"int", type.numElementsPerVertex);
          }
          
          public static class Binding implements Variable.Binding {
@@ -55,7 +73,7 @@ public class Shader {
                this.buffer = buffer;
             }
             public String toString() {
-               return String.format("Per-vertex binding([%s])", (buffer!=null) ? buffer.toString():"NULL");
+               return String.format("binding to [%s]", (buffer!=null) ? buffer.toString():"NULL");
             }
          }
       }
@@ -71,14 +89,16 @@ public class Shader {
             super(name);
             this.type = type;
          }
+         public String toString() {
+            return String.format("Uniform variable([%s/%s])", name, type.toString());
+         }
          
          public enum Type {
-            INTEGER,
-            VECTOR3,
-            VECTOR2,
+            UINT,  FLOAT,
+            UVEC2, VEC2, 
+            UVEC3, VEC3, 
+            UVEC4, VEC4,
             MATRIX4,
-            BGRA_TEXTURE,
-            GRAY_TEXTURE
          }
          
          public static class IntBinding implements Variable.Binding {
@@ -86,29 +106,66 @@ public class Shader {
             public IntBinding(int value) {
                this.value = value;
             }
+            public String toString() {
+               return String.format("binding to [%s]", (value==null)?"null":Integer.valueOf(value).toString());
+            }
          }
          public static class Vec3Binding implements Variable.Binding {
-            public final Vector3f value;
-            public Vec3Binding(Vector3f value) {
+            public final Vector3 value;
+            public Vec3Binding(Vector3 value) {
                this.value = value;
+            }
+            public String toString() {
+               return String.format("binding to [%s]", (value==null)?"null":value.toString());
             }
          }
          public static class Vec2Binding implements Variable.Binding {
-            public final Vector2f value;
-            public Vec2Binding(Vector2f value) {
+            public final Vector2 value;
+            public Vec2Binding(Vector2 value) {
                this.value = value;
+            }
+            public String toString() {
+               return String.format("binding to [%s]", (value==null)?"null":value.toString());
             }
          }
          public static class Mat4Binding implements Variable.Binding {
-            public final Matrix4f value;
-            public Mat4Binding(Matrix4f value) {
+            public final Matrix4x4 value;
+            public Mat4Binding(Matrix4x4 value) {
                this.value = value;
             }
+            public String toString() {
+               return String.format("binding to [%s]", (value==null)?"null":value.toString());
+            }
          }
-         public static class TextureBinding implements Variable.Binding {
+      }
+         
+      // ----------------------------------------------
+      // "Sampler" Variable Types
+      // ----------------------------------------------         
+
+      public static class Sampler extends Variable {
+         public final Type type;
+         
+         public Sampler(String name, Type type) {
+            super(name);
+            this.type = type;
+         }
+         public String toString() {
+            return String.format("Uniform SAMPLER variable([%s/%s])", name, type.getClass().getSimpleName());
+         }
+         
+         public enum Type {
+            TEXTURE_32BIT,
+            TEXTURE_8BIT
+         }
+         
+         public static class Binding implements Variable.Binding {
             public final ManagedTexture texture;
-            public TextureBinding(ManagedTexture texture) {
+            public Binding(ManagedTexture texture) {
                this.texture = texture;
+            }
+            public String toString() {
+               return String.format("binding to ([%s])", (texture==null)?"null":texture.toString());
             }
          }
       }
@@ -193,11 +250,10 @@ public class Shader {
    // -----------------------------
    
    public static abstract class ManagedBuffer {
-      public final int numFloatsPerElement;
-      public String name;
+      public final Variable.VertexBuffer.Type type;
       
-      public ManagedBuffer(int numFloatsPerElement) {
-         this.numFloatsPerElement = numFloatsPerElement;
+      public ManagedBuffer(Variable.VertexBuffer.Type type) {
+         this.type = type;
          this.modified = true;
          this.glBufferID = null;
          this.glBufferSize = null;
@@ -205,7 +261,6 @@ public class Shader {
       
       // Abstract Methods -----------------------
       public abstract int getNumElements();
-      public abstract void fillBuffer(float[] array);
          
       // Modified Bool -----------------------
          
@@ -217,11 +272,24 @@ public class Shader {
       }
       private boolean modified;
 
-      // Buffer Updates-----------------------
+      // GL Buffer Id ----------------------
       
+      public abstract void setup();
+      public Integer glBufferID;
+      public Integer glBufferSize;
+   }
+
+   public static abstract class ManagedFloatBuffer extends ManagedBuffer {
+      public ManagedFloatBuffer(int numFloatsPerVertex) {
+         super((numFloatsPerVertex == 4) ? Variable.VertexBuffer.Type.VEC4  :
+               (numFloatsPerVertex == 3) ? Variable.VertexBuffer.Type.VEC3  :
+               (numFloatsPerVertex == 2) ? Variable.VertexBuffer.Type.VEC2  :
+                                           Variable.VertexBuffer.Type.FLOAT);
+      }
+
       public void setup() {
          int newNumElements = getNumElements();
-         int newNumFloats = newNumElements * numFloatsPerElement;
+         int newNumFloats = newNumElements * type.numElementsPerVertex;
          if (newNumFloats == 0) {
             floatBuffer = null;
             array = null;
@@ -229,7 +297,7 @@ public class Shader {
             if ((array == null) || (array.length != newNumFloats)) {
                array = new float[newNumFloats];
                
-               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * 4);
+               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * Float.SIZE);
                byteBuffer.order(ByteOrder.nativeOrder());
                floatBuffer = byteBuffer.asFloatBuffer();
             }
@@ -238,15 +306,45 @@ public class Shader {
             floatBuffer.put(array);
             floatBuffer.position(0);
          }
-         modified = false;
+         setModified(false);
       }
+      public abstract void fillBuffer(float[] array);
       public float[] array;
       public FloatBuffer floatBuffer;
+   }
+   
+   public static abstract class ManagedIntBuffer extends ManagedBuffer {
+      public ManagedIntBuffer(int numIntsPerVertex) {
+         super((numIntsPerVertex == 4) ? Variable.VertexBuffer.Type.UVEC4  :
+               (numIntsPerVertex == 3) ? Variable.VertexBuffer.Type.UVEC3  :
+               (numIntsPerVertex == 2) ? Variable.VertexBuffer.Type.UVEC2  :
+                                         Variable.VertexBuffer.Type.UINT);
+      }
 
-      // GL Buffer Id ----------------------
-      
-      public Integer glBufferID;
-      public Integer glBufferSize;
+      public void setup() {
+         int newNumElements = getNumElements();
+         int newNumInts = newNumElements * type.numElementsPerVertex;
+         if (newNumInts == 0) {
+            intBuffer = null;
+            array = null;
+         } else {
+            if ((array == null) || (array.length != newNumInts)) {
+               array = new int[newNumInts];
+               
+               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * Integer.SIZE);
+               byteBuffer.order(ByteOrder.nativeOrder());
+               intBuffer = byteBuffer.asIntBuffer();
+            }
+            fillBuffer(array);
+            intBuffer.position(0);
+            intBuffer.put(array);
+            intBuffer.position(0);
+         }
+         setModified(false);
+      }
+      public abstract void fillBuffer(int[] array);
+      public int[] array;
+      public IntBuffer intBuffer;
    }
    
    // -----------------------------
@@ -285,40 +383,40 @@ public class Shader {
          "vertex.shader", "fragment.shader") {
       @Override
       protected void initVariables() {
-         variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
-         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
-         variables.add(new Variable.Buffer(Shader.TEX_COORDS,     4));
-         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
+         variables.add(new Variable.VertexBuffer(Shader.POSITION_ARRAY,  Variable.VertexBuffer.Type.VEC4));
+         variables.add(new Variable.VertexBuffer(Shader.COLOR_ARRAY,     Variable.VertexBuffer.Type.VEC3));
+         variables.add(new Variable.VertexBuffer(Shader.BARY_COORDS,     Variable.VertexBuffer.Type.VEC3));         
+         variables.add(new Variable.VertexBuffer(Shader.TEX_COORDS,      Variable.VertexBuffer.Type.VEC4));         
          
-         variables.add(new Variable.Uniform(Shader.MAIN_TEXTURE,          Variable.Uniform.Type.BGRA_TEXTURE));
-         variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
+         variables.add(new Variable.Sampler(Shader.MAIN_TEXTURE, Variable.Sampler.Type.TEXTURE_32BIT));
+         
+         variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.UINT));
          variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
          variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
       }
    };
-   
    public static final Program FACE_COLOR_SHADER = new Program("face_color_shader",
          "vertex2.shader", "fragment2.shader") {
       @Override
       protected void initVariables() {
-         variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
-         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
+         variables.add(new Variable.VertexBuffer(Shader.POSITION_ARRAY, Variable.VertexBuffer.Type.VEC4));
+         variables.add(new Variable.VertexBuffer(Shader.COLOR_ARRAY,    Variable.VertexBuffer.Type.VEC3));
+         variables.add(new Variable.VertexBuffer(Shader.BARY_COORDS,    Variable.VertexBuffer.Type.VEC3));         
          
-         variables.add(new Variable.Buffer(Shader.V0POS_ARRAY,    4));
-         variables.add(new Variable.Buffer(Shader.V1POS_ARRAY,    4));
-         variables.add(new Variable.Buffer(Shader.V2POS_ARRAY,    4));
+         variables.add(new Variable.VertexBuffer(Shader.V0POS_ARRAY,    Variable.VertexBuffer.Type.VEC4));
+         variables.add(new Variable.VertexBuffer(Shader.V1POS_ARRAY,    Variable.VertexBuffer.Type.VEC4));
+         variables.add(new Variable.VertexBuffer(Shader.V2POS_ARRAY,    Variable.VertexBuffer.Type.VEC4));
          
-         variables.add(new Variable.Buffer(Shader.V0UV_ARRAY,    2));
-         variables.add(new Variable.Buffer(Shader.V1UV_ARRAY,    2));
-         variables.add(new Variable.Buffer(Shader.V2UV_ARRAY,    2));
+         variables.add(new Variable.VertexBuffer(Shader.V0UV_ARRAY,     Variable.VertexBuffer.Type.VEC2));
+         variables.add(new Variable.VertexBuffer(Shader.V1UV_ARRAY,     Variable.VertexBuffer.Type.VEC2));
+         variables.add(new Variable.VertexBuffer(Shader.V2UV_ARRAY,     Variable.VertexBuffer.Type.VEC2));
          
-         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
-         variables.add(new Variable.Buffer(Shader.DIRECTION_SHADING_ARRAY,    3));
+         variables.add(new Variable.VertexBuffer(Shader.DIRECTION_SHADING_ARRAY,  Variable.VertexBuffer.Type.VEC3));
          
-         variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
-         variables.add(new Variable.Uniform(Shader.UV_POINTER,            Variable.Uniform.Type.VECTOR2));
-         variables.add(new Variable.Uniform(Shader.WINDOW_WIDTH,          Variable.Uniform.Type.INTEGER));
-         variables.add(new Variable.Uniform(Shader.WINDOW_HEIGHT,         Variable.Uniform.Type.INTEGER));
+         variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.UINT));
+         variables.add(new Variable.Uniform(Shader.UV_POINTER,            Variable.Uniform.Type.VEC2));
+         variables.add(new Variable.Uniform(Shader.WINDOW_WIDTH,          Variable.Uniform.Type.UINT));
+         variables.add(new Variable.Uniform(Shader.WINDOW_HEIGHT,         Variable.Uniform.Type.UINT));
          variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
          variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
       }
@@ -327,12 +425,11 @@ public class Shader {
          "vertex3.shader", "fragment3.shader") {
       @Override
       protected void initVariables() {
-         variables.add(new Variable.Buffer(Shader.POSITION_ARRAY, 4));
-         variables.add(new Variable.Buffer(Shader.COLOR_ARRAY,    3));
-         variables.add(new Variable.Buffer(Shader.BARY_COORDS,    3));
+         variables.add(new Variable.VertexBuffer(Shader.POSITION_ARRAY, Variable.VertexBuffer.Type.VEC4));
+         variables.add(new Variable.VertexBuffer(Shader.BARY_COORDS,    Variable.VertexBuffer.Type.VEC3));
          
-         variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.INTEGER));
-         variables.add(new Variable.Uniform(Shader.TRANSLATION_VEC,       Variable.Uniform.Type.VECTOR3));
+         variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.UINT));
+         variables.add(new Variable.Uniform(Shader.TRANSLATION_VEC,       Variable.Uniform.Type.VEC3));
          variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
          variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
       }

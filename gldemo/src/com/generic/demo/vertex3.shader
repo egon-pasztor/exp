@@ -3,7 +3,6 @@
 uniform mat4 viewMatrix, projMatrix;
  
 in vec4 vertexPosition;
-in vec3 vertexColor;
 in vec3 vertexBaryCoords;
 
 uniform vec3 translation;

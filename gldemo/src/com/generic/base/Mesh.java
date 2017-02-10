@@ -1,6 +1,6 @@
 package com.generic.base;
 
-import com.generic.base.VectorAlgebra.Vector3f;
+import com.generic.base.Algebra.Vector3;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -62,25 +62,6 @@ public class Mesh {
             lastItem.setIndex(itemIndex);
             items.remove(lastIndex);
          }
-         
-         /*
-         public <T extends INDEXABLE> Iterable<T> as() {
-            return new Iterable<T>(){
-               private Iterator<INDEXABLE> iterator = items.iterator();
-               @Override
-               public Iterator<T> iterator() {
-                  return new Iterator<T>(){
-                     @Override
-                     public boolean hasNext() {
-                        return iterator.hasNext();
-                     }
-                     @Override
-                     public T next() {
-                        return (T) iterator.next();
-                     }};
-               }};
-         }
-         */
       }
       
       public int getIndex();
@@ -93,9 +74,9 @@ public class Mesh {
    
    public static class Vertex implements Indexable {
       public Vertex() {
-         this(Vector3f.ORIGIN);
+         this(Vector3.ORIGIN);
       }
-      public Vertex(Vector3f position) {
+      public Vertex(Vector3 position) {
          this.position = position;
          this.oneOutgoingEdge = null;
       }
@@ -136,9 +117,9 @@ public class Mesh {
       }
       
       // 3D Position 
-      public Vector3f getPosition()              { return position;          }
-      public void setPosition(Vector3f position) { this.position = position; }
-      private Vector3f position;
+      public Vector3 getPosition()              { return position;          }
+      public void setPosition(Vector3 position) { this.position = position; }
+      private Vector3 position;
 
       // Valence
       public int getValence() {
@@ -197,19 +178,19 @@ public class Mesh {
       private int index;
       
       // Normal and Area
-      public Vector3f getNormal() {
+      public Vector3 getNormal() {
          return normal;
       }
       public float getArea() {
          return area;
       }
       private void update() {
-         Vector3f cross = edges[0].getVector().cross(edges[1].getVector());
+         Vector3 cross = edges[0].getVector().cross(edges[1].getVector());
          float crossLength = cross.length();
          area = 0.5f * crossLength;
          normal = cross.times(1.0f / crossLength);
       }
-      Vector3f normal;
+      Vector3 normal;
       float area;       
    }
    
@@ -225,19 +206,25 @@ public class Mesh {
       public void setIndex(int index) { this.index = index; }
       private int index;
 
-      // Each Edge points to two DirectedEdge objects.
-      // There are only two classes that extend DirectedEdge objects
-      //       Triangle.Edge and Boundary
+      // Each EDGE points either to two Triangle.Edges,
+      // or to one Triangle.Edge and one Boundary.
       //
-      public DirectedEdge first, second;
-
-      // Accessing the two DirectedEdge objects:
-      private void setDirectedEdge (DirectedEdge directedEdge, boolean isFirst) {
-         if (isFirst) { first = directedEdge; } else { second = directedEdge; }
-         directedEdge.setEdge(this, isFirst);
+      private Triangle.Edge first;
+      private DirectedEdge second;
+      
+      public Triangle.Edge getFirst() {
+         return first;
       }
-      public DirectedEdge getDirectedEdge (boolean isFirst) {
-         return (isFirst ? first : second); 
+      public void setFirst(Triangle.Edge edge) {
+         edge.setEdge(this, true);
+         first = edge;
+      }
+      public DirectedEdge getSecond() {
+         return second;
+      }
+      public void setSecond(DirectedEdge edge) {
+         edge.setEdge(this, false);
+         second = edge;
       }
       
       // Length
@@ -268,7 +255,7 @@ public class Mesh {
       public boolean isFirst() {
          return isFirst;
       }         
-      public Vector3f getVector() {
+      public Vector3 getVector() {
          return end().getPosition().minus(start().getPosition());
       }
       public boolean isBoundary() {
@@ -281,7 +268,7 @@ public class Mesh {
       public abstract DirectedEdge prev();
       
       public DirectedEdge opposite() {
-         return edge.getDirectedEdge(!isFirst);
+         return isFirst ? edge.getSecond() : edge.getFirst();
       }            
       public DirectedEdge nextAroundStart() {
          return prev().opposite();
@@ -365,7 +352,7 @@ public class Mesh {
       
       Triangle t = factory.newTriangle();
       t.vertices[0] = v0; t.vertices[1] = v1; t.vertices[2] = v2;
-       
+      
       // Look for existing boundaries along our triangle's edges:
       Boundary[] oldBoundaries = new Boundary[3];
       for (Triangle.Edge triangleEdge : t.edges) {
@@ -384,22 +371,23 @@ public class Mesh {
             if (outgoingEdge.isBoundary()) {
                 any_outgoing_boundary_edges = true;
             }
-             
             if (outgoingEdge.end() == end) {
                // We've found a pre-existing edge from Start -> End.
                // It better be a Boundary, because if it's a Triangle.Edge,
                // then the edge we're trying to add apparently already exists.
-               check(outgoingEdge.isBoundary(), "Attached edge must be a boundary edge");
+               check(outgoingEdge.isBoundary(), String.format(
+                     "Attached edge (from %d to %d) must be a boundary edge", 
+                     start.getIndex(), end.getIndex()));
                oldBoundaries[triangleEdge.getEdgeIndex()] = (Boundary) outgoingEdge;
                break;
             }
          }
           
-          // If this vertex had any edges attached to it, then at least one of those
-          // must be a Boundary, otherwise we have an ERROR.  We can't create a triangle
-          // if a corner is already completely surrounded by triangles.
-          check (!any_outgoing_edges || any_outgoing_boundary_edges,
-                "Attached vertex must be a boundary vertex");
+         // If this vertex had any edges attached to it, then at least one of those
+         // must be a Boundary, otherwise we have an ERROR.  We can't create a triangle
+         // if a corner is already completely surrounded by triangles.
+         check (!any_outgoing_edges || any_outgoing_boundary_edges,
+            "Attached vertex must be a boundary vertex");
        }
        
        // Now that the "checks" above are done, we're committed to adding
@@ -418,8 +406,8 @@ public class Mesh {
              boundaries.add(newBoundary);
              
              Edge newEdge = factory.newEdge();
-             newEdge.setDirectedEdge(triangleEdge, true);
-             newEdge.setDirectedEdge(newBoundary, false);
+             newEdge.setFirst(triangleEdge);
+             newEdge.setSecond(newBoundary);
              edges.add(newEdge);
              
           } else {
@@ -428,7 +416,11 @@ public class Mesh {
              // will replace the existingBoundary, which gets deleted:
              
              Edge existingEdge = existingBoundary.getEdge();
-             existingEdge.setDirectedEdge(triangleEdge, existingBoundary.isFirst());
+             if (existingBoundary.isFirst()) {
+                existingEdge.setFirst(triangleEdge);
+             } else {
+                existingEdge.setSecond(triangleEdge);
+             }
              boundaries.remove(existingBoundary);
           }
        }
@@ -518,7 +510,6 @@ public class Mesh {
               
            } else {
               // CASE 4. BOTH edges are attached.  The two boundaries should be adjacent:
-              
               Boundary boundaryReplacedByNextEdge = oldBoundaries[nextEdge.getEdgeIndex()];
               Boundary boundaryReplacedByPrevEdge = oldBoundaries[prevEdge.getEdgeIndex()];
               
@@ -542,8 +533,8 @@ public class Mesh {
                        Boundary startingBoundary = (Boundary) outFromV;
                        Boundary endingBoundary = startingBoundary.prev;
                        
-                       endingBoundary.prev = orphanSectionFirstIncoming;
-                       orphanSectionFirstIncoming.next = endingBoundary;
+                       startingBoundary.prev = orphanSectionFirstIncoming;
+                       orphanSectionFirstIncoming.next = startingBoundary;
                        
                        endingBoundary.next = orphanSectionLastOutgoing;
                        orphanSectionLastOutgoing.prev = endingBoundary;
@@ -558,7 +549,7 @@ public class Mesh {
                  check(foundBoundary, "Triangle filling corner vertex has un-movable extra triangles");
               }
            }
-       }          
+       }
        return t;
    }
 
@@ -611,10 +602,12 @@ public class Mesh {
       Boundary[] oldBoundaries = new Boundary[3];
 
       for (Triangle.Edge triangleEdge : t.edges) {
-         DirectedEdge oppositeTriangleEdge = triangleEdge.opposite();
-         boolean isAttached = !oppositeTriangleEdge.isBoundary();
+         DirectedEdge oppositeEdge = triangleEdge.opposite();
+         boolean isAttached = !oppositeEdge.isBoundary();
          
          if (isAttached) {
+            Triangle.Edge oppositeTriangleEdge = (Triangle.Edge) oppositeEdge; 
+            
             // There's an existing Triangle opposite this triangleEdge.
             // We're going to have to construct a new Boundary that will
             // replace "triangleEdge" as the opposite to "oppositeTriangleEdge"
@@ -624,18 +617,21 @@ public class Mesh {
             newBoundaries[triangleEdge.getEdgeIndex()] = (Boundary) newBoundary;
             
             Edge existingEdge = triangleEdge.getEdge();
-            existingEdge.setDirectedEdge(newBoundary, triangleEdge.isFirst());
+            if (triangleEdge.isFirst()) {
+               existingEdge.setFirst(oppositeTriangleEdge);
+            }
+            existingEdge.setSecond(newBoundary);
             
          } else {
+            Boundary oppositeBoundaryEdge = (Boundary) oppositeEdge;
+            
             // If there's no existing Triangle opposite this triangleEdge,
             // then this triangleEdge is connected to Edge and Boundary objects
             // that we'll have to delete along with this Triangle:
+            Edge oldEdge = oppositeBoundaryEdge.getEdge();
+            oldBoundaries[triangleEdge.getEdgeIndex()] = oppositeBoundaryEdge;
             
-            Boundary oldBoundary = (Boundary) oppositeTriangleEdge;
-            Edge oldEdge = oldBoundary.getEdge();
-            oldBoundaries[triangleEdge.getEdgeIndex()] = oldBoundary;
-            
-            boundaries.remove(oldBoundary);
+            boundaries.remove(oppositeBoundaryEdge);
             edges.remove(oldEdge);
          }
       }
@@ -708,8 +704,126 @@ public class Mesh {
       }
    }
    
-
+   // --------------------------------------------------------
+   // CLEAR
+   // --------------------------------------------------------
    
+   public void clear() {
+      triangles.clear();
+      boundaries.clear();
+      vertices.clear();
+      edges.clear();
+   }
+   
+   // --------------------------------------------------------
+   // COPY
+   // --------------------------------------------------------
+   
+   public void copyFrom(Mesh m) {
+      clear();
+      
+      // Copy vertices, setting 3D position
+      for (Vertex v : m.vertices) {
+         Vertex newVertex = factory.newVertex();
+         vertices.add(newVertex);
+         newVertex.setPosition(v.getPosition());
+      }
+      // Copy triangles, setting Vertex pointers
+      for (Triangle t : m.triangles) {
+         Triangle newTriangle = factory.newTriangle();
+         triangles.add(newTriangle);
+         newTriangle.vertices[0] = vertices.get(t.vertices[0].getIndex());
+         newTriangle.vertices[1] = vertices.get(t.vertices[1].getIndex());
+         newTriangle.vertices[2] = vertices.get(t.vertices[2].getIndex());
+      }
+      // Create boundaries
+      for (Boundary b : m.boundaries) {
+         Boundary newBoundary = factory.newBoundary();
+         boundaries.add(newBoundary);
+      }
+      // Link the boundaries up in loops
+      for (Boundary b : m.boundaries) {
+         Boundary boundary = boundaries.get(b.getIndex());
+         boundary.next = boundaries.get(b.next.getIndex());
+         boundary.prev = boundaries.get(b.prev.getIndex());
+      }
+      // Create Edges and link them to the Triangles and Boundaries:
+      for (Edge e : m.edges) {
+         Edge edge = factory.newEdge();
+         
+         Triangle.Edge eFirst = e.first;
+         edge.setFirst(triangles.get(eFirst.getTriangle().getIndex()).edges[eFirst.getEdgeIndex()]);
+         
+         DirectedEdge eSecond = e.second;         
+         if (!eSecond.isBoundary()) {
+            Triangle.Edge teSecond = (Triangle.Edge) eSecond;
+            edge.setSecond(triangles.get(teSecond.getTriangle().getIndex()).edges[teSecond.getEdgeIndex()]);
+         } else {
+            edge.setSecond(boundaries.get(((Boundary)eSecond).getIndex()));
+         }
+      }
+   }
+   
+   // --------------------------------------------------------
+   // LOAD
+   // --------------------------------------------------------
+
+   public void loadFromString(String serialized) {
+      clear();
+
+      for (String line : serialized.split("\n")) {
+         if (line.charAt(0) == '#') {
+            continue;
+         }
+         if (line.charAt(0) == 'v') {
+            String restOfLine = line.substring(2);
+            String[] pieces = restOfLine.split(" ");
+            if (pieces.length == 3) {
+               Mesh.Vertex v = addVertex();
+               v.setPosition(new Vector3(Float.valueOf(pieces[0]), Float.valueOf(pieces[1]), Float.valueOf(pieces[2])).times(60.0f));
+            }            
+            continue;
+         }
+         if (line.charAt(0) == 'f') {
+            String restOfLine = line.substring(2);
+            String[] pieces = restOfLine.split(" ");
+            if (pieces.length == 3) {
+               int v0 = Integer.valueOf(pieces[0])-1;
+               int v1 = Integer.valueOf(pieces[1])-1;
+               int v2 = Integer.valueOf(pieces[2])-1;
+               System.out.format("Triangle %d,%d,%d\n", v0,v1,v2);
+               addTriangle(vertices.get(v0),vertices.get(v1),vertices.get(v2));
+            }
+            continue;
+         }
+      }  
+   }   
+
+   // --------------------------------------------------------
+   // Buggy
+   // --------------------------------------------------------
+   /*
+   public Triangle.Edge swap(Triangle.Edge e) {
+      Triangle.Edge oe = e.getOppositeEdge();
+      
+      Triangle.Edge trInner = oe.cwAroundTriangle();
+      Triangle.Edge brInner = oe.ccwAroundTriangle();
+      Triangle.Edge tlInner = e.ccwAroundTriangle();
+      Triangle.Edge blInner = e.cwAroundTriangle();
+      
+      Triangle.Edge trOuter = trInner.getOppositeEdge();
+      Triangle.Edge blOuter = blInner.getOppositeEdge();         
+      
+      tlInner.setOppositeVertex(oe.getOppositeVertex());
+      brInner.setOppositeVertex(e.getOppositeVertex());
+      // WAIT WAIT WAIT ... by calling setOppositeVertex, don't we also maybe have to change outOutgoingEdge??
+      
+      linkOpposingEdges(trOuter, e);
+      linkOpposingEdges(blOuter, oe);
+      linkOpposingEdges(trInner, blInner);         
+      return blInner;
+   }
+   */
    // --------------------------------------------------------
    // Validation -- is this mesh actually hooked up right?
    // --------------------------------------------------------
@@ -770,7 +884,7 @@ public class Mesh {
       check(e.first != null, "Null first discovered in edge");
       check(e.second != null, "Null second discovered in edge");
       check((e.first.getEdge() == e) && (e.second.getEdge() == e), "DirectedEdges point back to Edges");
-      check(e.first.isFirst && !e.second.isFirst, "DirectedEdges know their order in the Edges");
+      check(e.first.isFirst() && !e.second.isFirst(), "DirectedEdges know their order in the Edges");
    }      
    public void checkVertex(Vertex v,  HashSet<Vertex> verticesReferenced) {
       if (verticesReferenced.contains(v)) {

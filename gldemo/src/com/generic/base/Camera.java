@@ -1,15 +1,15 @@
 package com.generic.base;
 
-import com.generic.base.VectorAlgebra.Matrix4f;
-import com.generic.base.VectorAlgebra.Vector3f;
-import com.generic.base.VectorAlgebra.Vector2f;
+import com.generic.base.Algebra.Matrix4x4;
+import com.generic.base.Algebra.Vector3;
+import com.generic.base.Algebra.Vector2;
 
 public class Camera {
 
    public Camera(int windowWidth, int windowHeight,
-                  Vector3f lookAtPoint,
-                  Vector3f cameraPosition,
-                  Vector3f cameraUpVector,
+                  Vector3 lookAtPoint,
+                  Vector3 cameraPosition,
+                  Vector3 cameraUpVector,
                   float verticalFovInDegrees) {
 
       // A Camera provides a method to project from points
@@ -34,7 +34,7 @@ public class Camera {
       // To build this transform, the first thing we do
       // is TRANSLATE by "-cameraPosition":
 
-      Matrix4f worldToCameraSpaceSoFar = new Matrix4f(
+      Matrix4x4 worldToCameraSpaceSoFar = new Matrix4x4(
          1.0f, 0.0f, 0.0f, -cameraPosition.x,
          0.0f, 1.0f, 0.0f, -cameraPosition.y,
          0.0f, 0.0f, 1.0f, -cameraPosition.z,
@@ -43,7 +43,7 @@ public class Camera {
       // Now the CAMERA is at the origin,
       // and the TARGET is at "cameraToLookat":
 
-      Vector3f cameraToLookat = lookAtPoint.minus(cameraPosition);
+      Vector3 cameraToLookat = lookAtPoint.minus(cameraPosition);
       distanceToTarget = cameraToLookat.length();
 
       // We want to ROTATE to put the TARGET on the -Z axis.
@@ -54,16 +54,16 @@ public class Camera {
 
       this.cameraUpVector = cameraUpVector;
       camZ = cameraToLookat.times(-1.0f / distanceToTarget);
-      camX = Vector3f.crossProduct(cameraUpVector, camZ).normalized();
-      camY = Vector3f.crossProduct(camZ, camX).normalized();
+      camX = Vector3.crossProduct(cameraUpVector, camZ).normalized();
+      camY = Vector3.crossProduct(camZ, camX).normalized();
 
-      Matrix4f rotateSoTargetIsOnNegativeZ = new Matrix4f(
+      Matrix4x4 rotateSoTargetIsOnNegativeZ = new Matrix4x4(
          camX.x, camX.y, camX.z, 0.0f,
          camY.x, camY.y, camY.z, 0.0f,
          camZ.x, camZ.y, camZ.z, 0.0f,
          0.0f, 0.0f, 0.0f, 1.0f);
 
-      worldToCameraSpaceSoFar = Matrix4f.product(rotateSoTargetIsOnNegativeZ,
+      worldToCameraSpaceSoFar = Matrix4x4.product(rotateSoTargetIsOnNegativeZ,
          worldToCameraSpaceSoFar);
 
       // Now the CAMERA is at the origin,
@@ -71,13 +71,13 @@ public class Camera {
       // The final step is to scale by 1/distanceToTarget:
 
       float scale = 1.0f / distanceToTarget;
-      Matrix4f scaleByDistanceToTarget = new Matrix4f(
+      Matrix4x4 scaleByDistanceToTarget = new Matrix4x4(
          scale, 0.0f, 0.0f, 0.0f,
          0.0f, scale, 0.0f, 0.0f,
          0.0f, 0.0f, scale, 0.0f,
          0.0f, 0.0f, 0.0f, 1.0f);
 
-      worldToCameraSpaceSoFar = Matrix4f.product(scaleByDistanceToTarget,
+      worldToCameraSpaceSoFar = Matrix4x4.product(scaleByDistanceToTarget,
          worldToCameraSpaceSoFar);
 
       // Now we're fully in CAMERA-SPACE:
@@ -102,7 +102,7 @@ public class Camera {
       //
       // We're going to scale the x and y dimensions non-linearly so these become +/-1:
 
-      Matrix4f scaleXYByFieldOfView = new Matrix4f(
+      Matrix4x4 scaleXYByFieldOfView = new Matrix4x4(
          1 / fWidth, 0.0f, 0.0f, 0.0f,
          0.0f, 1 / fHeight, 0.0f, 0.0f,
          0.0f, 0.0f, 1.0f, 0.0f,
@@ -183,13 +183,13 @@ public class Camera {
       float A =    - farZ      / (farZ - nearZ);
       float B = (farZ * nearZ) / (farZ - nearZ);
 
-      Matrix4f perspectiveTransform = new Matrix4f(
+      Matrix4x4 perspectiveTransform = new Matrix4x4(
          1.0f, 0.0f,  0.0f,  0.0f,
          0.0f, 1.0f,  0.0f,  0.0f,
          0.0f, 0.0f,   A,     B,
          0.0f, 0.0f, -1.0f,  0.0f);
 
-      cameraToClipSpace = Matrix4f.product(perspectiveTransform,
+      cameraToClipSpace = Matrix4x4.product(perspectiveTransform,
          scaleXYByFieldOfView);
    }
 
@@ -197,14 +197,14 @@ public class Camera {
 
    public final int width, height;
 
-   public final Vector3f cameraPosition;
-   public final Vector3f cameraUpVector;
-   public final Vector3f lookAtPoint;
+   public final Vector3 cameraPosition;
+   public final Vector3 cameraUpVector;
+   public final Vector3 lookAtPoint;
    public final float verticalFovInDegrees;
 
-   public final Matrix4f worldToCameraSpace;
-   public final Matrix4f cameraToClipSpace;
-   public final Vector3f camX, camY, camZ;
+   public final Matrix4x4 worldToCameraSpace;
+   public final Matrix4x4 cameraToClipSpace;
+   public final Vector3 camX, camY, camZ;
 
    public final float distanceToTarget;
    public final float fHeight, fWidth;
@@ -241,8 +241,8 @@ public class Camera {
       private GrabState grabState;
 
       // Point(s) where the grab began in Camera Space:
-      private Vector3f grabPointCameraSpace;
-      private Vector3f grabPointCameraSpace2;
+      private Vector3 grabPointCameraSpace;
+      private Vector3 grabPointCameraSpace2;
 
       // If this Controller has been "Grabbed", we recall the
       // Camera parameters when the grab began:
@@ -256,12 +256,12 @@ public class Camera {
       private float lastAngle;
       private float tScale;
 
-      private Vector3f getCameraSpacePosition(int ix, int iy) {
+      private Vector3 getCameraSpacePosition(int ix, int iy) {
          int width = camera.width;
          int height = camera.height;
          float y  = grabCamera.fHeight * ((height/2-iy) / ((float) (height/2)));
          float x  =  grabCamera.fWidth * ((ix-width/2)  / ((float) (width/2)));
-         return new Vector3f(x,y,-1.0f);
+         return new Vector3(x,y,-1.0f);
       }
 
       public void grabPinch(int ix, int iy, int ix2, int iy2) {
@@ -273,11 +273,11 @@ public class Camera {
             grabPointCameraSpace2.x-grabPointCameraSpace.x);
       }
       public void movePinch(int ix, int iy, int ix2, int iy2) {
-         Vector3f pointCameraSpace = getCameraSpacePosition(ix,iy);
-         Vector3f pointCameraSpace2 = getCameraSpacePosition(ix2,iy2);
+         Vector3 pointCameraSpace = getCameraSpacePosition(ix,iy);
+         Vector3 pointCameraSpace2 = getCameraSpacePosition(ix2,iy2);
 
          // so yeah.. there's a base translation:
-         Vector3f cameraSpaceTranslation = pointCameraSpace.plus(pointCameraSpace2).times(0.5f)
+         Vector3 cameraSpaceTranslation = pointCameraSpace.plus(pointCameraSpace2).times(0.5f)
             .minus(grabPointCameraSpace.plus(grabPointCameraSpace2).times(0.5f));
 
          // But in addition to this there's a ZOOM
@@ -287,12 +287,12 @@ public class Camera {
          float distanceToTargetMultiplier = d1/d2;
 
          // the sum is a translation in all three dimensions
-         Vector3f lookAtTranslation = grabCamera.camX.times(-cameraSpaceTranslation.x)
+         Vector3 lookAtTranslation = grabCamera.camX.times(-cameraSpaceTranslation.x)
                                 .plus(grabCamera.camY.times(-cameraSpaceTranslation.y))
                                 .times(grabCamera.distanceToTarget);
 
-         Vector3f newCameraLookAtPoint = grabCamera.lookAtPoint.plus(lookAtTranslation);
-         Vector3f newCameraPosition = newCameraLookAtPoint.plus(
+         Vector3 newCameraLookAtPoint = grabCamera.lookAtPoint.plus(lookAtTranslation);
+         Vector3 newCameraPosition = newCameraLookAtPoint.plus(
                grabCamera.cameraPosition.minus(grabCamera.lookAtPoint)
                                         .times(distanceToTargetMultiplier));
 
@@ -310,7 +310,7 @@ public class Camera {
          lastAngle = angle;
          float deltaAngle = - (angle - grabAngle);
 
-         Vector3f newCameraUpVector = grabCamera.camY.rotated(grabCamera.camZ, deltaAngle);
+         Vector3 newCameraUpVector = grabCamera.camY.rotated(grabCamera.camZ, deltaAngle);
 
          camera = new Camera(grabCamera.width, grabCamera.height,
                              newCameraLookAtPoint,
@@ -325,7 +325,7 @@ public class Camera {
          grabState = newGrabState;
          grabPointCameraSpace = getCameraSpacePosition(ix,iy);
 
-         roll = (new Vector2f(grabPointCameraSpace.x,grabPointCameraSpace.y)).lengthSq()
+         roll = (new Vector2(grabPointCameraSpace.x,grabPointCameraSpace.y)).lengthSq()
                > grabCamera.fHeight*grabCamera.fWidth;
 
          grabAngle = (float) Math.atan2(grabPointCameraSpace.y, grabPointCameraSpace.x);
@@ -339,12 +339,12 @@ public class Camera {
          if ((grabState == GrabState.Ungrabbed) ||
              (grabState == GrabState.Pinch)) return;
 
-         Vector3f pointCameraSpace = getCameraSpacePosition(ix,iy);
-         Vector3f deltaCameraSpace = pointCameraSpace.minus(grabPointCameraSpace);
+         Vector3 pointCameraSpace = getCameraSpacePosition(ix,iy);
+         Vector3 deltaCameraSpace = pointCameraSpace.minus(grabPointCameraSpace);
 
-         Vector3f newCameraLookAtPoint = grabCamera.lookAtPoint;
-         Vector3f newCameraPosition    = grabCamera.cameraPosition;
-         Vector3f newCameraUpVector    = grabCamera.camY;
+         Vector3 newCameraLookAtPoint = grabCamera.lookAtPoint;
+         Vector3 newCameraPosition    = grabCamera.cameraPosition;
+         Vector3 newCameraUpVector    = grabCamera.camY;
          float newCameraVerticalFOV    = grabCamera.verticalFovInDegrees;
 
          if (grabState == GrabState.Rotate) {
@@ -354,7 +354,7 @@ public class Camera {
                newCameraUpVector = grabCamera.camY;
 
             } else {
-               Vector3f cameraSpaceAxis;
+               Vector3 cameraSpaceAxis;
                float deltaAngle;
 
                if (roll) {
@@ -371,10 +371,10 @@ public class Camera {
 
                   newCameraUpVector = grabCamera.camY.rotated(grabCamera.camZ, deltaAngle);
                } else {
-                  cameraSpaceAxis = new Vector3f (-deltaCameraSpace.y,deltaCameraSpace.x, 0).normalized();
+                  cameraSpaceAxis = new Vector3 (-deltaCameraSpace.y,deltaCameraSpace.x, 0).normalized();
                   deltaAngle = - (float)((deltaCameraSpace.length() / grabCamera.fHeight) * (Math.PI/1.5f));
 
-                  Vector3f rotationAxis = grabCamera.camX.times(cameraSpaceAxis.x)
+                  Vector3 rotationAxis = grabCamera.camX.times(cameraSpaceAxis.x)
                                     .plus(grabCamera.camY.times(cameraSpaceAxis.y))
                                     .normalized();
 
@@ -387,7 +387,7 @@ public class Camera {
             }
 
          } else if (grabState == GrabState.Pan) {
-            Vector3f lookAtTranslation = grabCamera.camX.times(-deltaCameraSpace.x)
+            Vector3 lookAtTranslation = grabCamera.camX.times(-deltaCameraSpace.x)
                                    .plus(grabCamera.camY.times(-deltaCameraSpace.y))
                                    .times(grabCamera.distanceToTarget);
 

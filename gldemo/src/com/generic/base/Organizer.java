@@ -1,10 +1,10 @@
 package com.generic.base;
 
-import com.generic.base.VectorAlgebra.*;
+import com.generic.base.Algebra.*;
 
 import java.util.ArrayList;
 
-import com.generic.base.Geometry.Mesh1;
+import com.generic.base.Geometry.QuadCoverTriangle;
 import com.generic.base.Raster.*;
 
 // as if.
@@ -18,9 +18,9 @@ public class Organizer {
    public class DisplayList {
       
       public void setColor(ColorARGB a) {}
-      public void moveTo(Vector2f point) {}
-      public void lineTo(Vector2f point) {}
-      public void curveTo(Vector2f point) {}
+      public void moveTo(Vector2 point) {}
+      public void lineTo(Vector2 point) {}
+      public void curveTo(Vector2 point) {}
       public void fillPath() {}
       
    }
@@ -532,120 +532,31 @@ public class Organizer {
          
          
     */
-   
 
-   public static class FaceInfo {
-      public final float    area;
-      public final Vector3f normal;
-      public Vector3f selectedDirection;
+   
+   public static void rearrangeTextureCoords(Mesh mesh) {
+      int triangleCount = mesh.triangles.size();
       
-      public Mesh1.Edge.Ref edge0, edge1, edge2;
+      System.out.format("\nWe have a MESH with %d triangles, %d vertices, %d edges, %d boundaries\n\n", 
+            mesh.triangles.size(), mesh.vertices.size(), mesh.edges.size(), mesh.boundaries.size());
       
-      public FaceInfo(Mesh1.Vertex v0, Mesh1.Vertex v1, Mesh1.Vertex v2) {
-         area = 0.0f;
-         normal = Vector3f.ORIGIN;
-         selectedDirection = new Vector3f(
+      for (Mesh.Triangle tb : mesh.triangles) {
+         QuadCoverTriangle t = (QuadCoverTriangle) tb;
+         
+         Vector3 selectedDirection;
+         selectedDirection = new Vector3(
                2.0f * ((float)Math.random() - 0.5f),
                2.0f * ((float)Math.random() - 0.5f),
                2.0f * ((float)Math.random() - 0.5f));
          
-         selectedDirection = Vector3f.X;
-      }
-      public void setMeshEdgeRef(int index, Mesh1.Edge.Ref edge) {
-         if (index == 0) edge0 = edge;
-         if (index == 1) edge1 = edge;
-         if (index == 2) edge2 = edge;
-      }
-      public Mesh1.Edge.Ref getMeshEdgeRef(int index) {
-         return (index == 0) ? edge0 : (index == 1) ? edge1 : edge2;
-      }
-   }
-   public static class VertexInfo {
-      public final float curvature;
-      
-      public VertexInfo() {
-         curvature = 0.0f;
-      }
-   }
-   
-   
-   
-   public static Vector3f[] rearrangeTextureCoords(Geometry.Mesh1 mesh) {
-      int numTriangles = mesh.interiorTriangles.size();
-      int numVertices  = mesh.vertices.size();
-      
-      
-      // Copy the COORDS into an array, freeing up the Triangle pointers
-      Geometry.FlatFaceInfo[] coords = new Geometry.FlatFaceInfo[numTriangles];
-      for (Mesh1.Triangle t : mesh.interiorTriangles) {
-         Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
-         coords[t.getIndex()] = fi;
-         t.setData(null);
-      }
-      
-      FaceInfo[] faceInfo = new FaceInfo[numTriangles];
-      for (Mesh1.Triangle t : mesh.interiorTriangles) {
-         int triangleIndex = t.getIndex();
-         FaceInfo fi = new FaceInfo(t.edge0.getOppositeVertex(), t.edge1.getOppositeVertex(), t.edge2.getOppositeVertex());
-         faceInfo[triangleIndex] = fi;
-      }
-      
-      ArrayList<Mesh1.Edge> interiorEdges = new ArrayList<Mesh1.Edge>();
-      ArrayList<Mesh1.Edge> boundaryEdges = new ArrayList<Mesh1.Edge>();
-      
-      int triangleCount = mesh.interiorTriangles.size();
-      
-      for (Mesh1.Triangle thisTriangle : mesh.interiorTriangles) {
-         int thisTriangleIndex = thisTriangle.getIndex();
-         FaceInfo thisTriangleInfo = faceInfo[thisTriangleIndex];
-         
-         for (int i = 0; i < 3; ++i) {
-            Mesh1.Triangle.Edge thisTriangleEdge = thisTriangle.getEdge(i);
-            if (thisTriangleInfo.getMeshEdgeRef(i) == null) {
-               Mesh1.Edge newEdge = new Mesh1.Edge(thisTriangleEdge);
-               thisTriangleInfo.setMeshEdgeRef(i, newEdge.forward);
-               
-               Mesh1.Triangle.Edge oppositeTriangleEdge = thisTriangleEdge.getOppositeEdge();
-               Mesh1.Triangle oppositeTriangle = oppositeTriangleEdge.getTriangle();
-               
-               if (oppositeTriangle.isBoundary()) {
-                  // newEdge is a BOUNDARY EDGE
-                  boundaryEdges.add(newEdge);
-                  
-               } else {
-                  int otherTriangleIndex = oppositeTriangle.getIndex();
-                  FaceInfo otherTriangleInfo = faceInfo[otherTriangleIndex];
-                  otherTriangleInfo.setMeshEdgeRef(oppositeTriangleEdge.getIndex(), newEdge.reverse);
-                  
-                  interiorEdges.add(newEdge);
-               }
-            }
-         }
+         selectedDirection = Vector3.X;
+         t.direction = selectedDirection;
       }
       
       // -----------------------------------------------------------
       // "todo": set "selectedDirection" to sensible values
       // -----------------------------------------------------------
       
-      
-      
-      // -----------------------------------------------------------
-      // -----------------------------------------------------------
-      
-      Vector3f[] directions = new Vector3f[numTriangles];
-      for (int i = 0; i < directions.length; ++i) {
-         directions[i] = faceInfo[i].selectedDirection;
-      }
-            
-      System.out.format("\nWe have a MESH with %d interior-triangles, %d vertices, %d interior-edges, %d boundary-triangles, %d boundary-edges\n\n", 
-            numTriangles, numVertices, interiorEdges.size(), mesh.boundaryTriangles.size(), boundaryEdges.size());
-      
-      
-      // Return the new COORDS to the Triangle pointers
-      for (Mesh1.Triangle t : mesh.interiorTriangles) {
-         t.setData(coords[t.getIndex()]);
-      }
-      return directions;
    }
    
    

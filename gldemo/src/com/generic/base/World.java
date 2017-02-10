@@ -1,8 +1,7 @@
 package com.generic.base;
 
 import com.generic.base.Geometry.*;
-import com.generic.base.VectorAlgebra.*;
-import com.generic.base.World.ShaderInstanceModel;
+import com.generic.base.Algebra.*;
 import com.generic.base.Raster;
 import com.generic.base.Raster.*;
 
@@ -38,28 +37,28 @@ public class World {
 
    public static abstract class Model {
       public Model() {
-         modelToWorld = Matrix4f.IDENTITY;
+         modelToWorld = Matrix4x4.IDENTITY;
       }
       
-      private Matrix4f modelToWorld;
+      private Matrix4x4 modelToWorld;
 
-      public Matrix4f getModelToWorld() {
+      public Matrix4x4 getModelToWorld() {
          return modelToWorld;
       }
-      public void setModelToWorld(Matrix4f modelToWorld) {
+      public void setModelToWorld(Matrix4x4 modelToWorld) {
          this.modelToWorld = modelToWorld;
       }
-      public void translate(Vector3f t) {
-         modelToWorld = Matrix4f.product(Matrix4f.translation(t), modelToWorld);
+      public void translate(Vector3 t) {
+         modelToWorld = Matrix4x4.product(Matrix4x4.translation(t), modelToWorld);
       }
-      public void rotate(Vector3f axis, float angle) {
-         modelToWorld = Matrix4f.product(Matrix4f.fromMatrix3f(Matrix3f.rotation(axis, angle)), modelToWorld);
+      public void rotate(Vector3 axis, float angle) {
+         modelToWorld = Matrix4x4.product(Matrix4x4.fromMatrix3f(Matrix3x3.rotation(axis, angle)), modelToWorld);
       }
       public void scale(float s) {
-         modelToWorld = Matrix4f.product(Matrix4f.fromMatrix3f(Matrix3f.scaling(s)), modelToWorld);
+         modelToWorld = Matrix4x4.product(Matrix4x4.fromMatrix3f(Matrix3x3.scaling(s)), modelToWorld);
       }
       public void scale(float sx, float sy, float sz) {
-         modelToWorld = Matrix4f.product(Matrix4f.fromMatrix3f(Matrix3f.scaling(sx,sy,sz)), modelToWorld);
+         modelToWorld = Matrix4x4.product(Matrix4x4.fromMatrix3f(Matrix3x3.scaling(sx,sy,sz)), modelToWorld);
       }
       
    }
@@ -76,17 +75,59 @@ public class World {
         
    // ------- Shader-Instance Models
    
-   public static class ShaderInstanceModel extends Model {
-      public ShaderInstanceModel(Shader.Instance instance, MeshModel model) {
+   public static class ShaderExecutingModel extends Model {
+      
+      // ------------------------------------------------------------------
+      // Let's review:
+      // ------------------------------------------------------------------
+      //
+      // A Shader.Program is the program the GPU will execute.
+      // It has a set of Shader.Variables that need to be BOUND first.
+      //
+      // --------------------
+      //
+      // A Shader.Instance holds the information necessary to 
+      // execute a Shader.Program during the rendering process. 
+      //
+      // It holds a reference to the particular Shader.Program being executed,
+      // plus a map of Shader.Variable.Bindings.   This map connects the set of
+      // { uniform, sampler, and vertexBuffer } Shader.Variables that the program
+      // needs, with specific { values, textures, or bufferManagers }, respectively.
+      //
+      // --------------------
+      //
+      // A ShaderExecutingModel holds a Shader.Instance but adds two things.
+      // 
+      // First, a ShaderExecutingModel has a specific position as a leaf within 
+      // a Model TREE hierarchy.   The function World.bindPositions() traverses 
+      // this Model TREE, computes the separate MODEL_TO_WORLD_MATRIX bindings
+      // for each ShaderExecutingModel, and sets that uniform variable binding
+      // in each Shader.Instance.   Three other uniform variable bindings are also
+      // set by that function:  WORLD_TO_CLIP_MATRIX, WINDOW_WIDTH, and WINDOW_HEIGHT.
+      //
+      // Second, a ShaderExecutingModel holds a reference to a MeshModel, and any 
+      // VertexBuffer bindings required by the Shader.Instance are bound, each in turn, 
+      // to a BufferManager of the same name, if one is owned by the MeshModel.
+      //
+      // Note that, for a Shader.Instance to be runnable, all its variables must
+      // have bindings, and many Shader.Instances have uniform or vertexBuffer
+      // variables in addition to the few that are bound by ShaderExecutingModel,
+      // that must be bound by the caller.
+      
+      
+      public ShaderExecutingModel(Shader.Instance instance, MeshModel model) {
          this.model = model;
          this.instance = instance;
+         
+         // When the ShaderExecutingModel is constructed, we bind any VertexBuffer
+         // variables to matching BufferManager's provided by the mesh:
          for (Shader.Variable variable : instance.program.variables) {
-            if (variable instanceof Shader.Variable.Buffer) {
+            if (variable instanceof Shader.Variable.VertexBuffer) {
                Shader.ManagedBuffer buffer = model.getManagedBuffer(variable.name);
                if (buffer != null) {
                   // Note that binding by "name" does not check that "variable.floatsPerElement" is
                   // the same as "buffer.numFloatsPerElement".  It certainly should be...
-                  instance.bind(variable.name, new Shader.Variable.Buffer.Binding(buffer));
+                  instance.bind(variable.name, new Shader.Variable.VertexBuffer.Binding(buffer));
                }
             }
          }
@@ -110,12 +151,12 @@ public class World {
             addBuffers(child, buffers);
          }
       }
-      if (m instanceof ShaderInstanceModel) {
-         Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
+      if (m instanceof ShaderExecutingModel) {
+         Shader.Instance shaderInstance = ((ShaderExecutingModel) m).instance;
          for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
             Shader.Variable.Binding binding = entry.getValue();
-            if (binding instanceof Shader.Variable.Buffer.Binding) {
-               Shader.Variable.Buffer.Binding perVertexBinding = (Shader.Variable.Buffer.Binding) binding;
+            if (binding instanceof Shader.Variable.VertexBuffer.Binding) {
+               Shader.Variable.VertexBuffer.Binding perVertexBinding = (Shader.Variable.VertexBuffer.Binding) binding;
                buffers.add(perVertexBinding.buffer);
             }
          }
@@ -133,8 +174,8 @@ public class World {
             addShaderInstances(child, shaderInstances);
          }
       }
-      if (m instanceof ShaderInstanceModel) {
-         shaderInstances.add(((ShaderInstanceModel) m).instance);
+      if (m instanceof ShaderExecutingModel) {
+         shaderInstances.add(((ShaderExecutingModel) m).instance);
       }
    }
 
@@ -148,9 +189,9 @@ public class World {
          
          // Walk through all the buffers in this instance:
          for (Shader.Variable variable : shaderInstance.program.variables) {
-            if (variable instanceof Shader.Variable.Buffer) {
+            if (variable instanceof Shader.Variable.VertexBuffer) {
                Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
-               Shader.ManagedBuffer buffer = ((Shader.Variable.Buffer.Binding) binding).buffer;
+               Shader.ManagedBuffer buffer = ((Shader.Variable.VertexBuffer.Binding) binding).buffer;
                buffers.add(buffer);
             }
          }
@@ -163,8 +204,8 @@ public class World {
       for (Shader.Instance shaderInstance : shaderInstances) {
          for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
             Shader.Variable.Binding binding = entry.getValue();
-            if (binding instanceof Shader.Variable.Uniform.TextureBinding) {
-               textures.add(((Shader.Variable.Uniform.TextureBinding) binding).texture);
+            if (binding instanceof Shader.Variable.Sampler.Binding) {
+               textures.add(((Shader.Variable.Sampler.Binding) binding).texture);
             }
          }
       }
@@ -176,10 +217,10 @@ public class World {
    // Pre-Render-Pass
    // ---------------------------------------------
    
-   public void bindPositions(Model m, Matrix4f projMatrix, Matrix4f viewMatrix, int windowWidth, int windowHeight) {
-      viewMatrix = Matrix4f.product(viewMatrix, m.getModelToWorld());
-      if (m instanceof ShaderInstanceModel) {
-         Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
+   public void bindPositions(Model m, Matrix4x4 projMatrix, Matrix4x4 viewMatrix, int windowWidth, int windowHeight) {
+      viewMatrix = Matrix4x4.product(viewMatrix, m.getModelToWorld());
+      if (m instanceof ShaderExecutingModel) {
+         Shader.Instance shaderInstance = ((ShaderExecutingModel) m).instance;
          
          shaderInstance.bind(Shader.WORLD_TO_CLIP_MATRIX, new Shader.Variable.Uniform.Mat4Binding(projMatrix));
          shaderInstance.bind(Shader.MODEL_TO_WORLD_MATRIX, new Shader.Variable.Uniform.Mat4Binding(viewMatrix));
@@ -193,7 +234,7 @@ public class World {
          }
       }
    }
-   public void bindPositions(Matrix4f projMatrix, Matrix4f viewMatrix, int windowWidth, int windowHeight) {
+   public void bindPositions(Matrix4x4 projMatrix, Matrix4x4 viewMatrix, int windowWidth, int windowHeight) {
       bindPositions(rootModel, projMatrix, viewMatrix, windowWidth, windowHeight);
    }
 }

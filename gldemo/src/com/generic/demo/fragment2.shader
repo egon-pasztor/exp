@@ -73,7 +73,7 @@ void computeInfo() {
     Zh = fragBaryCoords.x * V0pos.z + fragBaryCoords.y * V1pos.z +  fragBaryCoords.z * V2pos.z;
     W  = fragBaryCoords.x * V0pos.w + fragBaryCoords.y * V1pos.w +  fragBaryCoords.z * V2pos.w;
     
-    // Compute the relationship between <x,h> (pixel space) and <u,v> (texture coords)
+    // Compute the relationship between <x,y> (pixels in the window) and <u,v> (texture coords)
     dxdu = (windowWidth/2.0) *  ((1.0/W) * (A*V0pos.x + D*V1pos.x + G*V2pos.x) - (Xh/(W*W)) * (A*V0pos.w + D*V1pos.w + G*V2pos.w));
     dxdv = (windowWidth/2.0) *  ((1.0/W) * (B*V0pos.x + E*V1pos.x + H*V2pos.x) - (Xh/(W*W)) * (B*V0pos.w + E*V1pos.w + H*V2pos.w));
     dydu = (windowHeight/2.0) * ((1.0/W) * (A*V0pos.y + D*V1pos.y + G*V2pos.y) - (Yh/(W*W)) * (A*V0pos.w + D*V1pos.w + G*V2pos.w));

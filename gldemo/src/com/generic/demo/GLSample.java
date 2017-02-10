@@ -30,13 +30,14 @@ import java.util.HashSet;
 import com.generic.base.Camera;
 import com.generic.base.Shader;
 import com.generic.base.Geometry;
-import com.generic.base.VectorAlgebra;
+import com.generic.base.Mesh;
 import com.generic.base.World;
+import com.generic.base.Algebra.*;
+import com.generic.base.Algebra;
 
 import com.generic.base.Geometry.*;
 import com.generic.base.Raster.ColorARGB;
 import com.generic.base.Raster.Image;
-import com.generic.base.VectorAlgebra.*;
 import com.generic.base.World.*;
 
 import com.jogamp.opengl.GL;
@@ -76,13 +77,12 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    public GLSample() {
       System.out.println("GLSample constructor BEGIN\n");
-      loadBunny();
       
       // Create "Demo World" object...
       
       Image leaImage = imageFromResource("lea.png");
       Image teapotImage = imageFromResource("teapot.png");
-      Geometry.Mesh1 bunny = loadBunny();
+      Mesh bunny = loadBunny();
       demoWorld = new DemoWorld(leaImage, teapotImage, bunny);
       intersectionIn3d = false;
       
@@ -145,7 +145,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    
    private void updateUVPointer(float x, float y) {
-      Vector2f newSelectedUVPoint = new Vector2f(x,y);
+      Vector2 newSelectedUVPoint = new Vector2(x,y);
       if ((demoWorld.selectedUVPointIfAny == null) || !newSelectedUVPoint.equals(demoWorld.selectedUVPointIfAny)) {
          demoWorld.selectedUVPointIfAny = newSelectedUVPoint;
          gui.viewController.repaint();
@@ -753,8 +753,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          g.setColor(Color.BLACK);
          int col = 0;         
          for (Geometry.MeshModel meshModel : new Geometry.MeshModel[] { demoWorld.mappingModel1, demoWorld.mappingModel2 }) { 
-            for (Mesh1.Triangle t : meshModel.mesh.interiorTriangles) {
-               Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
+            if (meshModel == null) continue;
+            
+            for (Mesh.Triangle tc : meshModel.mesh.triangles) {
+               TextureCoordProvider t = (TextureCoordProvider) tc;
+               Triangle2 texCoords = t.getTextureCoords();
                
                ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
                                  (col==1) ? new ColorARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
@@ -765,15 +768,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                                  
                col = (col+1)%4;
    
-               Vector2f p0 = fi.tex0;
+               Vector2 p0 = texCoords.v0;
                int p0x = xToHPixel(p0.x);
                int p0y = yToVPixel(p0.y);
                
-               Vector2f p1 = fi.tex1;
+               Vector2 p1 = texCoords.v1;
                int p1x = xToHPixel(p1.x);
                int p1y = yToVPixel(p1.y);
                
-               Vector2f p2 = fi.tex2;
+               Vector2 p2 = texCoords.v2;
                int p2x = xToHPixel(p2.x);
                int p2y = yToVPixel(p2.y);
                
@@ -792,65 +795,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          g.setComposite(c1);
          paintGrid(g);
          g.setComposite(c0);
-         
-         /* --------------------------------------------- */
-         // Below is attempt #1 to draw grid lines...
-         /* --------------------------------------------- */
-         /*
-         float xWidth = (xMax-xMin);
-         float exp = 1.0f;
-         while (xWidth >= 10.0f) {
-            xWidth /= 10.0;
-            exp /= 10;
-         }
-         while (xWidth < 1.0f) {
-            xWidth *= 10.0;
-            exp *= 10;
-         }
-         
-         float sxMin = exp*xMin;
-         float sxMax = exp*xMax;
-         float syMin = exp*yMin;
-         float syMax = exp*yMax;
-         
-         int xLineL = (int) sxMin; while (xLineL > sxMin) xLineL--;
-         int xLineR = (int) sxMax; while (xLineR < sxMax) xLineR++;         
-         int yLineL = (int) syMin; while (yLineL > syMin) yLineL--;
-         int yLineR = (int) syMax; while (yLineR < syMax) yLineR++;
-         
-         g.setColor(backgroundColorScheme.darkLineColor);
-         for (int xLine = xLineL; xLine <= xLineR; xLine++) {
-            int x = xToHPixel(xLine/exp);
-            g.drawLine(x, 0, x, h);
-            if ((xLine%10)==0) {
-               g.drawLine(x+1, 0, x+1, h);
-            }
-            if (xLine==0) {
-               g.drawLine(x-1, 0, x-1, h);
-            }
-         }
-         for (int yLine = yLineL; yLine <= yLineR; yLine++) {
-            int y = yToVPixel(yLine/exp);
-            g.drawLine(0, y, w, y);
-            if ((yLine%10)==0) {
-               g.drawLine(0, y+1, w, y+1);
-            }
-            if (yLine==0) {
-               g.drawLine(0, y-1, w, y-1);
-            }
-         }
-           */
-         /* --------------------------------------------- */
-         // find the smallest DX that maps to greater than 30 pixels ...
-         //   
-         
-         /* --------------------------------------------- */
-
-         
-         
-         // -------------------------------------------------------
-         // Can we draw each "triangle" in demoWorld.mappingModel?
-         // -------------------------------------------------------
       }
       
       public String status() {
@@ -914,45 +858,19 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    // ------- loading the bunny
    
-   private Geometry.Mesh1 loadBunny() {
-      String bunnyObj = this.loadStringFileFromCurrentPackage("bunny.obj");
+   private Mesh loadBunny() {
+      Mesh mesh = Geometry.newQuadCoverMesh();      
+      mesh.loadFromString(loadStringFileFromCurrentPackage("bunny.obj"));
       
-      Geometry.Mesh1 mesh = new Geometry.Mesh1();
-      ArrayList<Geometry.Mesh1.Vertex> vertices = new ArrayList<Geometry.Mesh1.Vertex> ();
-      
-      for (String line : bunnyObj.split("\n")) {
-         if (line.charAt(0) == '#') {
-            continue;
-         }
-         if (line.charAt(0) == 'v') {
-            String restOfLine = line.substring(2);
-            String[] pieces = restOfLine.split(" ");
-            if (pieces.length == 3) {
-               Geometry.Mesh1.Vertex v = new Geometry.Mesh1.Vertex(
-                     new Vector3f(Float.valueOf(pieces[0]), Float.valueOf(pieces[1]), Float.valueOf(pieces[2])).times(60.0f));
-               mesh.vertices.add(v);
-               vertices.add(v);
-            }            
-            continue;
-         }
-         if (line.charAt(0) == 'f') {
-            String restOfLine = line.substring(2);
-            String[] pieces = restOfLine.split(" ");
-            if (pieces.length == 3) {
-               mesh.addTriangle(
-                     vertices.get(Integer.valueOf(pieces[0])-1),
-                     vertices.get(Integer.valueOf(pieces[1])-1),
-                     vertices.get(Integer.valueOf(pieces[2])-1));
-            }
-            continue;
-         }
-      }
-      System.out.format("Returning bunny %d vertices, %d interior triangles, %d boundary triangles\n",
+      System.out.format("Loaded bunny %d vertices, %d edges, %d triangles, %d boundary-edges\n",
             mesh.vertices.size(),
-            mesh.interiorTriangles.size(),
-            mesh.boundaryTriangles.size());
+            mesh.edges.size(),
+            mesh.triangles.size(),
+            mesh.boundaries.size());
+      
       return mesh;
    }
+   
    
    
    // -----------------------------------------------------------
@@ -981,9 +899,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       System.out.format("GLSample.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
 
       Camera initialCamera = new Camera(width, height,
-         new Vector3f(0.0f, 0.0f, 0.0f),   // look-at
-         new Vector3f(0.0f, 0.0f, 18.0f),   // camera-pos
-         new Vector3f(0.0f, 1.0f, 0.0f),   // camera-up
+         new Vector3(0.0f, 0.0f, 0.0f),   // look-at
+         new Vector3(0.0f, 0.0f, 18.0f),   // camera-pos
+         new Vector3(0.0f, 1.0f, 0.0f),   // camera-up
          53.13f/2.0f);
 
       cameraController = new Camera.Controller(initialCamera);
@@ -1139,16 +1057,16 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       checkError(gl, "render");
    }
    
-   public void renderShaderInstances(GL3 gl, Model m, Matrix4f viewMatrix) {
-      viewMatrix = Matrix4f.product(viewMatrix, m.getModelToWorld());
+   public void renderShaderInstances(GL3 gl, Model m, Matrix4x4 viewMatrix) {
+      viewMatrix = Matrix4x4.product(viewMatrix, m.getModelToWorld());
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel)m).children) {
             renderShaderInstances(gl, child, viewMatrix);
          }
       }
-      if (m instanceof ShaderInstanceModel) {
-         Shader.Instance shaderInstance = ((ShaderInstanceModel) m).instance;
-         MeshModel model = ((ShaderInstanceModel) m).model;
+      if (m instanceof ShaderExecutingModel) {
+         Shader.Instance shaderInstance = ((ShaderExecutingModel) m).instance;
+         MeshModel model = ((ShaderExecutingModel) m).model;
 
          boolean intersected = ((hoverX != null) && (hoverY != null)) 
                                   ? intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY)
@@ -1161,7 +1079,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          if (demoWorld.selectedUVPointIfAny != null) {
             shaderInstance.bind(Shader.UV_POINTER, new Shader.Variable.Uniform.Vec2Binding(demoWorld.selectedUVPointIfAny));
          } else {
-            shaderInstance.bind(Shader.UV_POINTER, new Shader.Variable.Uniform.Vec2Binding(new Vector2f(-1.0f,-1.0f)));
+            shaderInstance.bind(Shader.UV_POINTER, new Shader.Variable.Uniform.Vec2Binding(new Vector2(-1.0f,-1.0f)));
          }
          
          // Tell GL to use the shader program for this instance...
@@ -1174,21 +1092,21 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                gl.glUniform1i(variable.getGLPProgramLocation(), value);
             }
             if (binding instanceof Shader.Variable.Uniform.Vec3Binding) {
-               Vector3f value = ((Shader.Variable.Uniform.Vec3Binding) binding).value;
+               Vector3 value = ((Shader.Variable.Uniform.Vec3Binding) binding).value;
                gl.glUniform3f(variable.getGLPProgramLocation(), value.x, value.y, value.z);
             }
             if (binding instanceof Shader.Variable.Uniform.Vec2Binding) {
-               Vector2f value = ((Shader.Variable.Uniform.Vec2Binding) binding).value;
+               Vector2 value = ((Shader.Variable.Uniform.Vec2Binding) binding).value;
                gl.glUniform2f(variable.getGLPProgramLocation(), value.x, value.y);
             }
             if (binding instanceof Shader.Variable.Uniform.Mat4Binding) {
-               Matrix4f value = ((Shader.Variable.Uniform.Mat4Binding) binding).value;
+               Matrix4x4 value = ((Shader.Variable.Uniform.Mat4Binding) binding).value;
                float arr[] = new float[16];
                value.copyToFloatArray(arr);
                gl.glUniformMatrix4fv(variable.getGLPProgramLocation(), 1, false, arr, 0);     
             }
-            if (binding instanceof Shader.Variable.Uniform.TextureBinding) {
-               Shader.ManagedTexture texture = ((Shader.Variable.Uniform.TextureBinding) binding).texture;
+            if (binding instanceof Shader.Variable.Sampler.Binding) {
+               Shader.ManagedTexture texture = ((Shader.Variable.Sampler.Binding) binding).texture;
                gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID); 
             }
          }
@@ -1197,11 +1115,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          gl.glBindVertexArray(shaderInstance.getGLVertexArraySetupID());
 
          // Draw the bound arrays...
-         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * model.getNumTriangles());
+         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * model.mesh.triangles.size());
       }
    }
    
-   public void sendMatrixToGL(GL3 gl, Matrix4f m, int glLoc) {
+   public void sendMatrixToGL(GL3 gl, Matrix4x4 m, int glLoc) {
       float arr[] = new float[16];
       m.copyToFloatArray(arr);
       gl.glUniformMatrix4fv(glLoc, 1, false, arr, 0);     
@@ -1211,7 +1129,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // PICKING VERSION 0 -- let's just answer the question here...
 
    private boolean intersects(MeshModel geometry,  // does this geometry...
-                               Matrix4f modelToCamera,   // transformed by this matrix into camera space...
+                               Matrix4x4 modelToCamera,   // transformed by this matrix into camera space...
                                Camera camera,            // where this is the camera,
                                int x, int y) {           // intersect this point in the view?
 
@@ -1236,34 +1154,33 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       float xPos = -fWidth + pixelWidth*x    + pixelWidth  * 0.5f;
       float yPos = fHeight - pixelHeight*y   + pixelHeight * 0.5f;
 
-      Vector3f camPos = new Vector3f(xPos,yPos,-1.0f);
-      Segment3d s = new Segment3d(Vector3f.ORIGIN, camPos);
+      Vector3 camPos = new Vector3(xPos,yPos,-1.0f);
+      Segment3 s = new Segment3(Vector3.ORIGIN, camPos);
       // --------------------
   
-      Vector2f intersection = null;
+      Vector2 intersection = null;
       boolean intersectionOccurred = false;
-      for (Geometry.Mesh1.Triangle t : geometry.mesh.interiorTriangles) {
-         Vector3f v0Pos = t.edge0.getOppositeVertex().getPosition();
-         Vector3f v1Pos = t.edge1.getOppositeVertex().getPosition();
-         Vector3f v2Pos = t.edge2.getOppositeVertex().getPosition();
+      for (Mesh.Triangle t : geometry.mesh.triangles) {
+         Vector3 v0Pos = t.vertices[0].getPosition();
+         Vector3 v1Pos = t.vertices[1].getPosition();
+         Vector3 v2Pos = t.vertices[2].getPosition();
 
-         Vector3f camV0 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v0Pos)).toVector3f();
-         Vector3f camV1 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v1Pos)).toVector3f();
-         Vector3f camV2 = Matrix4f.product(modelToCamera, Vector4f.fromVector3f(v2Pos)).toVector3f();
+         Vector3 camV0 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v0Pos)).toVector3f();
+         Vector3 camV1 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v1Pos)).toVector3f();
+         Vector3 camV2 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v2Pos)).toVector3f();
 
          //System.out.format("Triangle is\n%s---\n%s---\n%s---\n", camV0.toString(), camV1.toString(), camV2.toString());
 
-         Triangle t2 = new Triangle(camV0, camV1, camV2);
-         Vector2f intersectionA = VectorAlgebra.intersects(t2,s);
+         Triangle3 t2 = new Triangle3(camV0, camV1, camV2);
+         Vector2 intersectionA = Algebra.intersects(t2,s);
          
          if (intersectionA != null) {
             intersectionOccurred = true;
             if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2)) {
-               Geometry.FlatFaceInfo fi = (Geometry.FlatFaceInfo) t.getData();
-               Vector2f t0 = fi.tex0;
-               Vector2f tu = fi.tex1.minus(fi.tex0);
-               Vector2f tv = fi.tex2.minus(fi.tex0);
-               
+               Triangle2 texCoords = ((TextureCoordProvider) t).getTextureCoords();
+               Vector2 t0 = texCoords.v0;
+               Vector2 tu = texCoords.v1.minus(texCoords.v0);
+               Vector2 tv = texCoords.v2.minus(texCoords.v0);
                intersection = t0.plus(tu.times(intersectionA.x)).plus(tv.times(intersectionA.y));               
             }
          }
@@ -1313,15 +1230,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          // Extract variable "locations":
          for (Shader.Variable variable : shaderProgram.variables) {
-            if (variable instanceof Shader.Variable.Buffer) {
+            if (variable instanceof Shader.Variable.VertexBuffer) {
                variable.setGLProgramLocation(gl.glGetAttribLocation(programID, variable.name));
-            }
-            if (variable instanceof Shader.Variable.Uniform) {
-               Shader.Variable.Uniform uniformVariable = (Shader.Variable.Uniform) variable;
+            } else {
                variable.setGLProgramLocation(gl.glGetUniformLocation(programID, variable.name));
-               if ((uniformVariable.type == Shader.Variable.Uniform.Type.BGRA_TEXTURE) ||
-                   (uniformVariable.type == Shader.Variable.Uniform.Type.GRAY_TEXTURE)) {
-                  
+               if (variable instanceof Shader.Variable.Sampler) {
                   gl.glUniform1i(variable.getGLPProgramLocation(), 0);
                }
             }
@@ -1439,11 +1352,22 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          buffer.glBufferID = generateBufferId(gl);
 
          gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);
-         gl.glBufferData(GL.GL_ARRAY_BUFFER,
-               buffer.array.length * Float.SIZE / 8,
-               buffer.floatBuffer, GL.GL_STATIC_DRAW);
-         buffer.glBufferSize = buffer.array.length;
-         System.out.format("Created GL buffer %d for %s\n", buffer.glBufferID, buffer.name);
+         if (buffer.type.baseIsFloat) {
+            Shader.ManagedFloatBuffer managedFloatBuffer = (Shader.ManagedFloatBuffer) buffer;
+            gl.glBufferData(GL.GL_ARRAY_BUFFER,
+                  managedFloatBuffer.array.length * Float.SIZE / 8,
+                  managedFloatBuffer.floatBuffer, GL.GL_STATIC_DRAW);
+            
+            buffer.glBufferSize = managedFloatBuffer.array.length;
+         } else {
+            Shader.ManagedIntBuffer managedIntBuffer = (Shader.ManagedIntBuffer) buffer;
+            gl.glBufferData(GL.GL_ARRAY_BUFFER,
+                  managedIntBuffer.array.length * Integer.SIZE / 8,
+                  managedIntBuffer.intBuffer, GL.GL_STATIC_DRAW);
+            
+            buffer.glBufferSize = managedIntBuffer.array.length;
+         }
+         System.out.format("Created GL buffer %d\n", buffer.glBufferID);
       }
 
       // Second, for each shader-instance, create a "vertex array object" to hold the vertex array bindings
@@ -1455,14 +1379,17 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          // Walk through all the buffers in this instance:
          for (Shader.Variable variable : shaderInstance.program.variables) {
-            if (variable instanceof Shader.Variable.Buffer) {
+            if (variable instanceof Shader.Variable.VertexBuffer) {
                Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
-               Shader.ManagedBuffer buffer = ((Shader.Variable.Buffer.Binding) binding).buffer;
+               Shader.ManagedBuffer buffer = ((Shader.Variable.VertexBuffer.Binding) binding).buffer;
                int programLocation = variable.getGLPProgramLocation();
                if (programLocation >= 0) {
                   gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);               
                   gl.glEnableVertexAttribArray(variable.getGLPProgramLocation());
-                  gl.glVertexAttribPointer(variable.getGLPProgramLocation(), buffer.numFloatsPerElement, GL.GL_FLOAT, false, 0, 0);
+                  gl.glVertexAttribPointer(variable.getGLPProgramLocation(), 
+                        buffer.type.numElementsPerVertex, 
+                        buffer.type.baseIsFloat ? GL.GL_FLOAT : GL.GL_UNSIGNED_INT,
+                        false, 0, 0);
                }
             }            
          }
@@ -1476,9 +1403,17 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          if (buffer.isModified()) {
             buffer.setup();
             gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);
-            gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
-                  buffer.array.length * Float.SIZE / 8,
-                  buffer.floatBuffer);
+            if (buffer.type.baseIsFloat) {
+               Shader.ManagedFloatBuffer managedFloatBuffer = (Shader.ManagedFloatBuffer) buffer;
+               gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
+                     managedFloatBuffer.array.length * Float.SIZE / 8,
+                     managedFloatBuffer.floatBuffer);
+            } else {
+               Shader.ManagedIntBuffer managedIntBuffer = (Shader.ManagedIntBuffer) buffer;
+               gl.glBufferSubData(GL.GL_ARRAY_BUFFER, 0, 
+                     managedIntBuffer.array.length * Integer.SIZE / 8,
+                     managedIntBuffer.intBuffer);
+            }
          }
       }
    }

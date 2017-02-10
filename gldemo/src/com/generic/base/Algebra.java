@@ -1,50 +1,50 @@
 package com.generic.base;
 
-public class VectorAlgebra {
+public class Algebra {
 
    // -----------------------------------------------------------------------
-   // Vector2f
+   // Vector2
    // -----------------------------------------------------------------------
    
-   public static class Vector2f {
+   public static class Vector2 {
       
       public final float x, y;
 
-      public Vector2f(float x_, float y_) {
+      public Vector2(float x_, float y_) {
          x = x_;  y = y_;
       }
       
       public String toString() {
          return String.format("( %10.3f )\n( %10.3f )\n", x,y);
       }
-      public boolean equals(Vector3f v) {
+      public boolean equals(Vector3 v) {
          return (x == v.x) && (y == v.y);
       }
       
-      public Vector2f plus(Vector2f v) {
-          return new Vector2f(x + v.x, y + v.y);
+      public Vector2 plus(Vector2 v) {
+          return new Vector2(x + v.x, y + v.y);
       }
-      public Vector2f minus(Vector2f v) {
-          return new Vector2f(x - v.x, y - v.y);
+      public Vector2 minus(Vector2 v) {
+          return new Vector2(x - v.x, y - v.y);
       }
-      public Vector2f times(float s) {   
-          return new Vector2f(x * s, y * s);
+      public Vector2 times(float s) {   
+          return new Vector2(x * s, y * s);
       }       
       
-      public static float innerProduct(Vector2f a, Vector2f b) {
+      public static float innerProduct(Vector2 a, Vector2 b) {
          return a.x * b.x + a.y * b.y;
       }
-      public static Vector2f termwiseProduct(Vector2f a, Vector2f b) {
-         return new Vector2f(a.x * b.x, a.y * b.y);
+      public static Vector2 termwiseProduct(Vector2 a, Vector2 b) {
+         return new Vector2(a.x * b.x, a.y * b.y);
       }
-      public static Matrix2f outerProduct(Vector2f a, Vector2f b) {
-         return new Matrix2f(
+      public static Matrix2x2 outerProduct(Vector2 a, Vector2 b) {
+         return new Matrix2x2(
             a.x * b.x, a.x * b.y,
             a.y * b.x, a.y * b.y);
-     }
+      }
 
-      public float dot(Vector2f v) {
-         return Vector2f.innerProduct(this, v);
+      public float dot(Vector2 v) {
+         return Vector2.innerProduct(this, v);
       }
 
       public float lengthSq() {
@@ -53,7 +53,7 @@ public class VectorAlgebra {
       public float length() {
          return (float) Math.sqrt(lengthSq());
       }
-      public Vector2f normalized() {
+      public Vector2 normalized() {
          return this.times(1.0f / length());
       }
 
@@ -64,21 +64,21 @@ public class VectorAlgebra {
          return offset+2;
       }
 
-      public static final Vector2f ORIGIN = new Vector2f(0.0f, 0.0f);
-      public static final Vector2f X      = new Vector2f(1.0f, 0.0f);
-      public static final Vector2f Y      = new Vector2f(0.0f, 1.0f);
+      public static final Vector2 ORIGIN = new Vector2(0.0f, 0.0f);
+      public static final Vector2 X      = new Vector2(1.0f, 0.0f);
+      public static final Vector2 Y      = new Vector2(0.0f, 1.0f);
    }
 
    // -----------------------------------------------------------------------
-   // Matrix2f
+   // Matrix2x2
    // -----------------------------------------------------------------------
    
-   public static class Matrix2f {
+   public static class Matrix2x2 {
       
       public final float xx, xy,
                          yx, yy;
   
-      public Matrix2f(float xx_, float xy_,
+      public Matrix2x2(float xx_, float xy_,
                       float yx_, float yy_) {
 
           xx = xx_;  xy = xy_;
@@ -89,43 +89,43 @@ public class VectorAlgebra {
          return String.format("( %10.3f %10.f )\n( %10.3f %10.f )\n", 
                xx,xy, yx,yy);
       }
-      public boolean equals(Matrix3f m) {
+      public boolean equals(Matrix3x3 m) {
          return (xx == m.xx) && (xy == m.xy)
              && (yx == m.yx) && (yy == m.yy);
       }
       
-      public Matrix2f plus(Matrix2f m) {
-         return new Matrix2f(
+      public Matrix2x2 plus(Matrix2x2 m) {
+         return new Matrix2x2(
             xx + m.xx, xy + m.xy,
             yx + m.yx, yy + m.yy);
       }
-      public Matrix2f minus(Matrix2f m) {
-         return new Matrix2f(
+      public Matrix2x2 minus(Matrix2x2 m) {
+         return new Matrix2x2(
             xx - m.xx, xy - m.xy,
             yx - m.yx, yy - m.yy);
       }
-      public Matrix2f times(float s) {
-         return new Matrix2f(
+      public Matrix2x2 times(float s) {
+         return new Matrix2x2(
             xx * s, xy * s,
             yx * s, yy * s);
       }
-      public Matrix2f transposed() {
-         return new Matrix2f(xx, yx,
+      public Matrix2x2 transposed() {
+         return new Matrix2x2(xx, yx,
                              xy, yy);
       }
 
-      public static Vector2f product(Vector2f a, Matrix2f b) {
-         return new Vector2f (
+      public static Vector2 product(Vector2 a, Matrix2x2 b) {
+         return new Vector2 (
             a.x * b.xx + a.y * b.yx,
             a.x * b.xy + a.y * b.yy); 
       }
-      public static Vector2f product(Matrix2f a, Vector2f b) {
-         return new Vector2f (
+      public static Vector2 product(Matrix2x2 a, Vector2 b) {
+         return new Vector2 (
             a.xx * b.x + a.xy * b.y,
             a.yx * b.x + a.yy * b.y); 
       }
-      public static Matrix2f product(Matrix2f a, Matrix2f b) {
-         return new Matrix2f (
+      public static Matrix2x2 product(Matrix2x2 a, Matrix2x2 b) {
+         return new Matrix2x2 (
             a.xx * b.xx + a.xy * b.yx,
             a.xx * b.xy + a.xy * b.yy,
                
@@ -136,81 +136,81 @@ public class VectorAlgebra {
       public float determinate() {
          return (xx*yy-xy*yx);
       }
-      public Matrix2f inverse() {
+      public Matrix2x2 inverse() {
          final float d = determinate();
-         return new Matrix2f(
+         return new Matrix2x2(
               +yy/d, -xy/d,
               -yx/d, +xx/d);
       }
       
-      public static Matrix2f scaling(float s) {
-         return new Matrix2f (   s, 0.0f,
+      public static Matrix2x2 scaling(float s) {
+         return new Matrix2x2 (   s, 0.0f,
                               0.0f,    s);
       }
-      public static Matrix2f rotation(float angle) {
+      public static Matrix2x2 rotation(float angle) {
          final float sa = (float) Math.sin(angle);
          final float ca = (float) Math.cos(angle);
-         return new Matrix2f (ca, -sa,
+         return new Matrix2x2 (ca, -sa,
                               sa,  ca);
       }      
       
-      public static final Matrix2f IDENTITY = new Matrix2f(1.0f, 0.0f,
+      public static final Matrix2x2 IDENTITY = new Matrix2x2(1.0f, 0.0f,
                                                            0.0f, 1.0f);
    }
 
    // -----------------------------------------------------------------------
-   // Vector3f
+   // Vector3
    // -----------------------------------------------------------------------
    
-   public static class Vector3f {
+   public static class Vector3 {
       
       public final float x, y, z;
    
-      public Vector3f(float x_, float y_, float z_) {
+      public Vector3(float x_, float y_, float z_) {
          x = x_;  y = y_;  z = z_;
       }
       
       public String toString() {
          return String.format("( %10.5f )\n( %10.5f )\n( %10.5f )\n", x,y,z);
       }
-      public boolean equals(Vector3f v) {
+      public boolean equals(Vector3 v) {
          return (x == v.x) && (y == v.y) && (z == v.z);
       }
        
-      public Vector3f plus(Vector3f v) {
-         return new Vector3f(x + v.x, y + v.y, z + v.z);
+      public Vector3 plus(Vector3 v) {
+         return new Vector3(x + v.x, y + v.y, z + v.z);
       }
-      public Vector3f minus(Vector3f v) {
-         return new Vector3f(x - v.x, y - v.y, z - v.z);
+      public Vector3 minus(Vector3 v) {
+         return new Vector3(x - v.x, y - v.y, z - v.z);
       }
-      public Vector3f times(float s) {   
-         return new Vector3f(x * s, y * s, z * s);
+      public Vector3 times(float s) {   
+         return new Vector3(x * s, y * s, z * s);
       }       
        
-      public static float innerProduct(Vector3f a, Vector3f b) {
+      public static float innerProduct(Vector3 a, Vector3 b) {
          return a.x * b.x + a.y * b.y + a.z * b.z;
       }
-      public static Vector3f termwiseProduct(Vector3f a, Vector3f b) {
-         return new Vector3f(a.x * b.x, a.y * b.y, a.z * b.z);
+      public static Vector3 termwiseProduct(Vector3 a, Vector3 b) {
+         return new Vector3(a.x * b.x, a.y * b.y, a.z * b.z);
       }
-      public static Vector3f crossProduct(Vector3f a, Vector3f b) {
-         return new Vector3f(
+      public static Vector3 crossProduct(Vector3 a, Vector3 b) {
+         return new Vector3(
             a.y * b.z - a.z * b.y,
             a.z * b.x - a.x * b.z,
             a.x * b.y - a.y * b.x);
       }
-      public static Matrix3f outerProduct(Vector3f a, Vector3f b) {
-         return new Matrix3f(
+      public static Matrix3x3 outerProduct(Vector3 a, Vector3 b) {
+         return new Matrix3x3(
             a.x * b.x, a.x * b.y, a.x * b.z,
             a.y * b.x, a.y * b.y, a.y * b.z,
             a.z * b.x, a.z * b.y, a.z * b.z);
       }
 
-      public float dot(Vector3f v) {
-         return Vector3f.innerProduct(this, v);
+      public float dot(Vector3 v) {
+         return Vector3.innerProduct(this, v);
       }       
-      public Vector3f cross(Vector3f v) {
-         return Vector3f.crossProduct(this, v);
+      public Vector3 cross(Vector3 v) {
+         return Vector3.crossProduct(this, v);
       }
       
       public float lengthSq() {
@@ -219,19 +219,19 @@ public class VectorAlgebra {
       public float length() {
          return (float) Math.sqrt(lengthSq());
       }
-      public Vector3f normalized() {
+      public Vector3 normalized() {
          return this.times(1.0f / length());
       }
 
-      public Vector3f rotated(Vector3f normalizedAxis, float angle) {
-         Vector3f qv = normalizedAxis.times((float) Math.sin(angle / 2.0f));
+      public Vector3 rotated(Vector3 normalizedAxis, float angle) {
+         Vector3 qv = normalizedAxis.times((float) Math.sin(angle / 2.0f));
          float    qs = (float) Math.cos(angle / 2.0f);
-         Vector3f mv = qv.cross(this).plus(this.times(qs));
+         Vector3 mv = qv.cross(this).plus(this.times(qs));
          return qv.cross(mv).plus(mv.times(qs)).plus(qv.times(this.dot(qv)));
       }
-      public Vector3f interpolated(Vector3f target, float fraction) {
+      public Vector3 interpolated(Vector3 target, float fraction) {
          float remainder = 1.0f - fraction;
-         return new Vector3f(x * remainder + target.x * fraction,
+         return new Vector3(x * remainder + target.x * fraction,
                              y * remainder + target.y * fraction,
                              z * remainder + target.z * fraction);
       }
@@ -243,23 +243,23 @@ public class VectorAlgebra {
          return offset+3;
       }
 
-      public static final Vector3f ORIGIN = new Vector3f(0.0f, 0.0f, 0.0f);
-      public static final Vector3f X      = new Vector3f(1.0f, 0.0f, 0.0f);
-      public static final Vector3f Y      = new Vector3f(0.0f, 1.0f, 0.0f);
-      public static final Vector3f Z      = new Vector3f(0.0f, 0.0f, 1.0f);
+      public static final Vector3 ORIGIN = new Vector3(0.0f, 0.0f, 0.0f);
+      public static final Vector3 X      = new Vector3(1.0f, 0.0f, 0.0f);
+      public static final Vector3 Y      = new Vector3(0.0f, 1.0f, 0.0f);
+      public static final Vector3 Z      = new Vector3(0.0f, 0.0f, 1.0f);
    }
    
    // -----------------------------------------------------------------------
-   // Matrix3f
+   // Matrix3x3
    // -----------------------------------------------------------------------
    
-   public static class Matrix3f {
+   public static class Matrix3x3 {
       
       public final float xx, xy, xz,
                          yx, yy, yz,
                          zx, zy, zz;
   
-      public Matrix3f(float xx_, float xy_, float xz_,
+      public Matrix3x3(float xx_, float xy_, float xz_,
                       float yx_, float yy_, float yz_,
                       float zx_, float zy_, float zz_) {
          
@@ -272,50 +272,50 @@ public class VectorAlgebra {
          return String.format("( %10.3f %10.3f %10.3f )\n( %10.3f %10.3f %10.3f )\n"
                     +"( %10.3f %10.3f %10.3f )\n", xx,xy,xz, yx,yy,yz, zx,zy,zz);
       }
-      public boolean equals(Matrix3f m) {
+      public boolean equals(Matrix3x3 m) {
          return (xx == m.xx) && (xy == m.xy) && (xz == m.xz)
              && (yx == m.yx) && (yy == m.yy) && (yz == m.yz)
              && (zx == m.zx) && (zy == m.zy) && (zz == m.zz);
       }
       
-      public Matrix3f plus(Matrix3f m) {
-         return new Matrix3f(
+      public Matrix3x3 plus(Matrix3x3 m) {
+         return new Matrix3x3(
             xx + m.xx, xy + m.xy, xz + m.xz,
             yx + m.yx, yy + m.yy, yz + m.yz,
             zx + m.zx, zy + m.zy, zz + m.zz);
       }
-      public Matrix3f minus(Matrix3f m) {
-         return new Matrix3f(
+      public Matrix3x3 minus(Matrix3x3 m) {
+         return new Matrix3x3(
             xx - m.xx, xy - m.xy, xz - m.xz,
             yx - m.yx, yy - m.yy, yz - m.yz,
             zx - m.zx, zy - m.zy, zz - m.zz);
       }
-      public Matrix3f times(float s) {
-         return new Matrix3f(
+      public Matrix3x3 times(float s) {
+         return new Matrix3x3(
             xx * s, xy * s, xz * s,
             yx * s, yy * s, yz * s,
             zx * s, zy * s, zz * s);
       }
-      public Matrix3f transposed() {
-         return new Matrix3f(xx, yx, zx,
+      public Matrix3x3 transposed() {
+         return new Matrix3x3(xx, yx, zx,
                              xy, yy, zy,
                              xz, yz, zz);
       }
 
-      public static Vector3f product(Vector3f a, Matrix3f b) {
-         return new Vector3f (
+      public static Vector3 product(Vector3 a, Matrix3x3 b) {
+         return new Vector3 (
             a.x * b.xx + a.y * b.yx + a.z * b.zx,
             a.x * b.xy + a.y * b.yy + a.z * b.zy,
             a.x * b.xz + a.y * b.yz + a.z * b.zz); 
       }
-      public static Vector3f product(Matrix3f a, Vector3f b) {
-         return new Vector3f (
+      public static Vector3 product(Matrix3x3 a, Vector3 b) {
+         return new Vector3 (
             a.xx * b.x + a.xy * b.y + a.xz * b.z,
             a.yx * b.x + a.yy * b.y + a.yz * b.z,
             a.zx * b.x + a.zy * b.y + a.zz * b.z); 
       }
-      public static Matrix3f product(Matrix3f a, Matrix3f b) {
-         return new Matrix3f (
+      public static Matrix3x3 product(Matrix3x3 a, Matrix3x3 b) {
+         return new Matrix3x3 (
             a.xx * b.xx + a.xy * b.yx + a.xz * b.zx,  
             a.xx * b.xy + a.xy * b.yy + a.xz * b.zy,
             a.xx * b.xz + a.xy * b.yz + a.xz * b.zz,
@@ -330,13 +330,13 @@ public class VectorAlgebra {
       }
       
       public float determinate() {
-         return (yy*zz-zy*yz) * xx
-              - (yx*zz-zx*yz) * xy
-              + (yx*zy-zx*yy) * xz;
+         return xx * (yy*zz-yz*zy)
+              - xy * (yx*zz-yz*zx)
+              + xz * (yx*zy-yy*zx);
       }
-      public Matrix3f inverse() {
+      public Matrix3x3 inverse() {
          final float d = determinate();
-         return new Matrix3f(
+         return new Matrix3x3(
               +(yy*zz-zy*yz)/d, -(xy*zz-zy*xz)/d, +(xy*yz-yy*xz)/d, 
               -(yx*zz-zx*yz)/d, +(xx*zz-zx*xz)/d, -(xx*yz-yx*xz)/d,  
               +(yx*zy-zx*yy)/d, -(xx*zy-zx*xy)/d, +(xx*yy-yx*xy)/d);
@@ -344,101 +344,92 @@ public class VectorAlgebra {
 
       // -------------------------------------------------------
 
-      public static Matrix3f scaling(float s) {
-         return new Matrix3f (   s,  0.0f,  0.0f,
+      public static Matrix3x3 scaling(float s) {
+         return new Matrix3x3 (   s,  0.0f,  0.0f,
                               0.0f,     s,  0.0f,
                               0.0f,  0.0f,    s);
       }
-      public static Matrix3f scaling(float sx, float sy, float sz) {
-         return new Matrix3f (  sx,  0.0f,  0.0f,
+      public static Matrix3x3 scaling(float sx, float sy, float sz) {
+         return new Matrix3x3 (  sx,  0.0f,  0.0f,
                               0.0f,    sy,  0.0f,
                               0.0f,  0.0f,   sz);
       }
-      public static Matrix3f nonuniformScaling(Vector3f s) {
-         return new Matrix3f ( s.x,  0.0f,  0.0f,
+      public static Matrix3x3 nonuniformScaling(Vector3 s) {
+         return new Matrix3x3 ( s.x,  0.0f,  0.0f,
                               0.0f,   s.y,  0.0f,
                               0.0f,  0.0f,   s.z);
       }
-      public static Matrix3f rotation(Vector3f normalizedAxis, float angle) {
+      public static Matrix3x3 rotation(Vector3 normalizedAxis, float angle) {
          final float sa = (float) Math.sin(angle);
          final float ca = (float) Math.cos(angle);
          final float x = normalizedAxis.x, y = normalizedAxis.y, z = normalizedAxis.z;
-         return new Matrix3f (x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
+         return new Matrix3x3 (x*x*(1-ca)+ ca,   x*y*(1-ca)- sa*z, x*z*(1-ca)+ sa*y,
                               y*x*(1-ca)+ sa*z, y*y*(1-ca)+ ca,   y*z*(1-ca)- sa*x,
                               z*x*(1-ca)- sa*y, z*y*(1-ca)+ sa*x, z*z*(1-ca)+ ca    );   
       }
-      public static Matrix3f fromRowVectors(Vector3f x, Vector3f y, Vector3f z) {
-	      return new Matrix3f (x.x, x.y, x.z,
+      public static Matrix3x3 fromRowVectors(Vector3 x, Vector3 y, Vector3 z) {
+	      return new Matrix3x3 (x.x, x.y, x.z,
                               y.x, y.y, y.z,
                               z.x, z.y, z.z);
       }
-      public static Matrix3f fromColumnVectors(Vector3f x, Vector3f y, Vector3f z) {
-	      return new Matrix3f (x.x, y.x, z.x,
+      public static Matrix3x3 fromColumnVectors(Vector3 x, Vector3 y, Vector3 z) {
+	      return new Matrix3x3 (x.x, y.x, z.x,
                               x.y, y.y, z.y,
                               x.z, y.z, z.z);
       }
 
       // -------------------------------------------------------
       
-      public static final Matrix3f IDENTITY = new Matrix3f(1.0f, 0.0f, 0.0f,
+      public static final Matrix3x3 IDENTITY = new Matrix3x3(1.0f, 0.0f, 0.0f,
                                                            0.0f, 1.0f, 0.0f,
                                                            0.0f, 0.0f, 1.0f);
    }
 
-
-    /*
-   LTrs *LTrsPerspectiveTransform (LTrs *t, double f, double d,
-                                 double xh, double yh)
-    { Mat4Set(&t->trs,f/xh,0,0,0,0,f/yh,0,0,0,0,f/(f-d),1,0,0,-d*f/(f-d),0);
-      Mat4Set(&t->itrs,xh/f,0,0,0,0,yh/f,0,0,0,0,0,-(f-d)/(d*f),0,0,1,1/d);  
-     return t; }
-    */
-
    // -----------------------------------------------------------------------
-   // Vector4f
+   // Vector4
    // -----------------------------------------------------------------------
    
-   public static class Vector4f {
+   public static class Vector4 {
       
       public final float x, y, z, w;
    
-      public Vector4f(float x_, float y_, float z_, float w_) {
+      public Vector4(float x_, float y_, float z_, float w_) {
          x = x_;  y = y_;  z = z_;  w = w_;
       }
       
       public String toString() {
          return String.format("( %10.3f )\n( %10.3f )\n( %10.3f )\n( %10.3f )\n", x,y,z,w);
       }
-      public boolean equals(Vector4f v) {
+      public boolean equals(Vector4 v) {
          return (x == v.x) && (y == v.y) && (z == v.z) && (w == v.w);
       }
        
-      public Vector4f plus(Vector4f v) {
-         return new Vector4f(x + v.x, y + v.y, z + v.z, w + v.w);
+      public Vector4 plus(Vector4 v) {
+         return new Vector4(x + v.x, y + v.y, z + v.z, w + v.w);
       }
-      public Vector4f minus(Vector4f v) {
-         return new Vector4f(x - v.x, y - v.y, z - v.z, w - v.w);
+      public Vector4 minus(Vector4 v) {
+         return new Vector4(x - v.x, y - v.y, z - v.z, w - v.w);
       }
-      public Vector4f times(float s) {   
-         return new Vector4f(x * s, y * s, z * s, w + s);
+      public Vector4 times(float s) {   
+         return new Vector4(x * s, y * s, z * s, w + s);
       }       
        
-      public static float innerProduct(Vector4f a, Vector4f b) {
+      public static float innerProduct(Vector4 a, Vector4 b) {
          return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
       }
-      public static Vector4f termwiseProduct(Vector4f a, Vector4f b) {
-         return new Vector4f(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
+      public static Vector4 termwiseProduct(Vector4 a, Vector4 b) {
+         return new Vector4(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
       }
-      public static Matrix4f outerProduct(Vector4f a, Vector4f b) {
-         return new Matrix4f(
+      public static Matrix4x4 outerProduct(Vector4 a, Vector4 b) {
+         return new Matrix4x4(
             a.x * b.x, a.x * b.y, a.x * b.z, a.x * b.w,
             a.y * b.x, a.y * b.y, a.y * b.z, a.y * b.w,
             a.z * b.x, a.z * b.y, a.z * b.z, a.z * b.w,
             a.w * b.x, a.w * b.y, a.w * b.z, a.w * b.w);
       }
 
-      public float dot(Vector4f v) {
-         return Vector4f.innerProduct(this, v);
+      public float dot(Vector4 v) {
+         return Vector4.innerProduct(this, v);
       }       
       
       public float lengthSq() {
@@ -447,20 +438,20 @@ public class VectorAlgebra {
       public float length() {
          return (float) Math.sqrt(lengthSq());
       }
-      public Vector4f normalized() {
+      public Vector4 normalized() {
          return this.times(1.0f / length());
       }
       
       // -------------------------------------------------------
       
-      public static Vector4f fromVector3f(Vector3f v) {
-         return Vector4f.fromVector3f(v, 1.0f);
+      public static Vector4 fromVector3f(Vector3 v) {
+         return Vector4.fromVector3f(v, 1.0f);
       }
-      public static Vector4f fromVector3f(Vector3f v, float w) {
-         return new Vector4f(v.x * w, v.y * w, v.z * w, w);
+      public static Vector4 fromVector3f(Vector3 v, float w) {
+         return new Vector4(v.x * w, v.y * w, v.z * w, w);
       }
-      public Vector3f toVector3f() {
-         return new Vector3f(x / w, y / w, z / w);
+      public Vector3 toVector3f() {
+         return new Vector3(x / w, y / w, z / w);
       }
 
       // -------------------------------------------------------
@@ -470,25 +461,25 @@ public class VectorAlgebra {
          return offset+4;
       }
 
-      public static final Vector4f ORIGIN = new Vector4f(0.0f, 0.0f, 0.0f, 0.0f);
-      public static final Vector4f X      = new Vector4f(1.0f, 0.0f, 0.0f, 0.0f);
-      public static final Vector4f Y      = new Vector4f(0.0f, 1.0f, 0.0f, 0.0f);
-      public static final Vector4f Z      = new Vector4f(0.0f, 0.0f, 1.0f, 0.0f);
-      public static final Vector4f W      = new Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
+      public static final Vector4 ORIGIN = new Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+      public static final Vector4 X      = new Vector4(1.0f, 0.0f, 0.0f, 0.0f);
+      public static final Vector4 Y      = new Vector4(0.0f, 1.0f, 0.0f, 0.0f);
+      public static final Vector4 Z      = new Vector4(0.0f, 0.0f, 1.0f, 0.0f);
+      public static final Vector4 W      = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
    }
    
    // -----------------------------------------------------------------------
-   // Matrix4f
+   // Matrix4x4
    // -----------------------------------------------------------------------
    
-   public static class Matrix4f {
+   public static class Matrix4x4 {
       
       public final float xx, xy, xz, xw,
                          yx, yy, yz, yw,
                          zx, zy, zz, zw,
                          wx, wy, wz, ww;
   
-      public Matrix4f(float xx_, float xy_, float xz_, float xw_,
+      public Matrix4x4(float xx_, float xy_, float xz_, float xw_,
                       float yx_, float yy_, float yz_, float yw_,
                       float zx_, float zy_, float zz_, float zw_,
                       float wx_, float wy_, float wz_, float ww_) {
@@ -504,57 +495,57 @@ public class VectorAlgebra {
                              +"( %10.3f %10.3f %10.3f %10.3f )\n( %10.3f %10.3f %10.3f %10.3f )\n",
                              xx,xy,xz,xw, yx,yy,yz,yw, zx,zy,zz,zw, wx,wy,wz,ww);
       }
-      public boolean equals(Matrix4f m) {
+      public boolean equals(Matrix4x4 m) {
          return (xx == m.xx) && (xy == m.xy) && (xz == m.xz) && (xw == m.xw)
              && (yx == m.yx) && (yy == m.yy) && (yz == m.yz) && (yw == m.yw)
              && (zx == m.zx) && (zy == m.zy) && (zz == m.zz) && (zw == m.zw)
              && (wx == m.wx) && (wy == m.wy) && (wz == m.wz) && (ww == m.ww);
       }
       
-      public Matrix4f plus(Matrix4f m) {
-         return new Matrix4f(
+      public Matrix4x4 plus(Matrix4x4 m) {
+         return new Matrix4x4(
             xx + m.xx, xy + m.xy, xz + m.xz, xw + m.xw,
             yx + m.yx, yy + m.yy, yz + m.yz, yw + m.yw,
             zx + m.zx, zy + m.zy, zz + m.zz, zw + m.zw,
             wx + m.wx, wy + m.wy, wz + m.wz, ww + m.ww);
       }
-      public Matrix4f minus(Matrix4f m) {
-         return new Matrix4f(
+      public Matrix4x4 minus(Matrix4x4 m) {
+         return new Matrix4x4(
             xx - m.xx, xy - m.xy, xz - m.xz, xw - m.xw,
             yx - m.yx, yy - m.yy, yz - m.yz, yw - m.yw,
             zx - m.zx, zy - m.zy, zz - m.zz, zw - m.zw,
             wx - m.wx, wy - m.wy, wz - m.wz, ww - m.ww);
       }
-      public Matrix4f times(float s) {
-         return new Matrix4f(
+      public Matrix4x4 times(float s) {
+         return new Matrix4x4(
             xx * s, xy * s, xz * s, xw * s,
             yx * s, yy * s, yz * s, yw * s,
             zx * s, zy * s, zz * s, zw * s,
             wx * s, wy * s, wz * s, ww * s);
       }
-      public Matrix4f transposed() {
-         return new Matrix4f(xx, yx, zx, wx,
+      public Matrix4x4 transposed() {
+         return new Matrix4x4(xx, yx, zx, wx,
                              xy, yy, zy, wy,
                              xz, yz, zz, wz,
                              xw, yw, zw, ww);
       }
 
-      public static Vector4f product(Vector4f a, Matrix4f b) {
-         return new Vector4f (
+      public static Vector4 product(Vector4 a, Matrix4x4 b) {
+         return new Vector4 (
             a.x * b.xx + a.y * b.yx + a.z * b.zx + a.w * b.wx,
             a.x * b.xy + a.y * b.yy + a.z * b.zy + a.w * b.wy,
             a.x * b.xz + a.y * b.yz + a.z * b.zz + a.w * b.wz,
             a.x * b.xw + a.y * b.yw + a.z * b.zw + a.w * b.ww);
       }
-      public static Vector4f product(Matrix4f a, Vector4f b) {
-         return new Vector4f (
+      public static Vector4 product(Matrix4x4 a, Vector4 b) {
+         return new Vector4 (
             a.xx * b.x + a.xy * b.y + a.xz * b.z + a.xw * b.w,
             a.yx * b.x + a.yy * b.y + a.yz * b.z + a.yw * b.w,
             a.zx * b.x + a.zy * b.y + a.zz * b.z + a.zw * b.w,
             a.wx * b.x + a.wy * b.y + a.wz * b.z + a.ww * b.w); 
       }
-      public static Matrix4f product(Matrix4f a, Matrix4f b) {
-         return new Matrix4f (
+      public static Matrix4x4 product(Matrix4x4 a, Matrix4x4 b) {
+         return new Matrix4x4 (
             a.xx * b.xx + a.xy * b.yx + a.xz * b.zx + a.xw * b.wx,  
             a.xx * b.xy + a.xy * b.yy + a.xz * b.zy + a.xw * b.wy,
             a.xx * b.xz + a.xy * b.yz + a.xz * b.zz + a.xw * b.wz,
@@ -576,19 +567,41 @@ public class VectorAlgebra {
             a.wx * b.xw + a.wy * b.yw + a.wz * b.zw + a.ww * b.ww);
       }
       
+
+      public float determinate() {
+         return xx * (yy * (zz*ww-wz*zw) - yz * (zy*ww-wy*zw) + yw * (zy*wz-wy*zz))
+              - xy * (yx * (zz*ww-wz*zw) - yz * (zx*ww-wx*zw) + yw * (zx*wz-wx*zz))
+              + xz * (yx * (zy*ww-wy*zw) - yy * (zx*ww-wx*zw) + yw * (zx*wy-wx*zy))
+              - xw * (yx * (zy*wz-wy*zz) - yy * (zx*wz-wx*zz) + yz * (zx*wy-wx*zy));
+      }
+
+      public Matrix4x4 inverse() {
+         final float d = determinate();
+         return null; //new Matrix4f(
+           // https://www.mathsisfun.com/algebra/matrix-inverse-minors-cofactors-adjugate.html
+               
+         // given a 4x4 matrix inverse, i can find the X,Y,Z -> U,V,W transform 
+         //   to translate a given <X,Y,Z> vector into <U,V,W> space.
+         //
+         // (is there any faster way of computing the uv offsets of given xyz offsets?)
+         //    it's a simple question, right?
+         // given dx,dy,dz, and the knowedge that it's in the u,v plane, how much is du,dv?
+      }
+      
+      
       // --------------------
       
-      public static Matrix4f fromComponents(Matrix3f m, Vector3f t, Vector4f w) {
-         return new Matrix4f (m.xx, m.xy, m.xz, t.x,
+      public static Matrix4x4 fromComponents(Matrix3x3 m, Vector3 t, Vector4 w) {
+         return new Matrix4x4 (m.xx, m.xy, m.xz, t.x,
 			                     m.yx, m.yy, m.yz, t.y,
 			                     m.zx, m.zy, m.zz, t.z,
 			                     w.x,  w.y,  w.z,  w.w);
       }
-      public static Matrix4f fromMatrix3f(Matrix3f m) {
-         return Matrix4f.fromComponents(m, Vector3f.ORIGIN, Vector4f.W);
+      public static Matrix4x4 fromMatrix3f(Matrix3x3 m) {
+         return Matrix4x4.fromComponents(m, Vector3.ORIGIN, Vector4.W);
       }
-      public static Matrix4f translation(Vector3f t) {
-         return Matrix4f.fromComponents(Matrix3f.IDENTITY, t, Vector4f.W);
+      public static Matrix4x4 translation(Vector3 t) {
+         return Matrix4x4.fromComponents(Matrix3x3.IDENTITY, t, Vector4.W);
       }
 
       public void copyToFloatArray(float[] a) {
@@ -598,7 +611,7 @@ public class VectorAlgebra {
          a[3]=wx; a[7]=wy; a[11]=wz; a[15]=ww;
       }
       
-      public static final Matrix4f IDENTITY = new Matrix4f(1.0f, 0.0f, 0.0f, 0.0f,
+      public static final Matrix4x4 IDENTITY = new Matrix4x4(1.0f, 0.0f, 0.0f, 0.0f,
                                                            0.0f, 1.0f, 0.0f, 0.0f,
                                                            0.0f, 0.0f, 1.0f, 0.0f,
                                                            0.0f, 0.0f, 0.0f, 1.0f);
@@ -607,42 +620,66 @@ public class VectorAlgebra {
    // -----------------------------------------------------------------------
    // Intersections
    // -----------------------------------------------------------------------
-
-   public static class Segment2d {
-      public final Vector2f p0;
-      public final Vector2f p1;
-      public Segment2d(Vector2f p0, Vector2f p1) {
+   
+   public static class Segment2 {
+      public final Vector2 p0;
+      public final Vector2 p1;
+      public Segment2(Vector2 p0, Vector2 p1) {
          this.p0 = p0;
          this.p1 = p1;
       }
    }
-   
-   //public static float distanceBetween(Segment2d segment, Vector2f point) {
-   //   
-   //}
-   
-   public static class Segment3d {
-      public final Vector3f p0;
-      public final Vector3f p1;
-      public Segment3d(Vector3f p0, Vector3f p1) {
-         this.p0 = p0;
-         this.p1 = p1;
-      }
-   }
-   public static class Triangle {
-      public final Vector3f v0;
-      public final Vector3f v1;
-      public final Vector3f v2;
-      public Triangle(Vector3f v0, Vector3f v1, Vector3f v2) {
+   public static class Triangle2 {
+      public final Vector2 v0;
+      public final Vector2 v1;
+      public final Vector2 v2;
+      public Triangle2(Vector2 v0, Vector2 v1, Vector2 v2) {
          this.v0 = v0;
          this.v1 = v1;
          this.v2 = v2;
       }
    }
-   public static Vector2f intersects(Triangle t, Segment3d s) {
-      Vector3f u = t.v1.minus(t.v0);
-      Vector3f v = t.v2.minus(t.v0);
-      Vector3f n = u.cross(v).normalized();
+   public static class Segment3 {
+      public final Vector3 p0;
+      public final Vector3 p1;
+      public Segment3(Vector3 p0, Vector3 p1) {
+         this.p0 = p0;
+         this.p1 = p1;
+      }
+   }
+   public static class Triangle3 {
+      public final Vector3 v0;
+      public final Vector3 v1;
+      public final Vector3 v2;
+      public Triangle3(Vector3 v0, Vector3 v1, Vector3 v2) {
+         this.v0 = v0;
+         this.v1 = v1;
+         this.v2 = v2;
+      }
+   }
+   
+   
+   // we're going to want several more functions...
+   
+   // 1. in 2d, given 3 (u,v) points, what is the area of the triangle
+   //
+   //  (u1-u0) x (u2-u0) ??
+   
+   //
+   // on the other hand, what if i have 2 3d-points?
+   
+   // public float area() {
+   //    return 0.5f * (v2.minus(v1)).cross(v1.minus(v0)).length();
+   // }
+   
+   //public static float distanceBetween(Segment2d segment, Vector2f point) {
+   //   
+   //}
+   
+   public static Vector2 intersects(Triangle3 t, Segment3 s) {
+      Vector3 u = t.v1.minus(t.v0);
+      Vector3 v = t.v2.minus(t.v0);
+      Vector3 n = u.cross(v).normalized();
 
       // TODO:  is this even right?   i think we might be treating Segment3d
       // as a Ray3d, and returning TRUE even if the intersection occurs out
@@ -657,8 +694,8 @@ public class VectorAlgebra {
       if (den > 0) return null;
 
       float r1 = n.dot(t.v0.minus(s.p0)) / den;
-      Vector3f i = s.p0.plus(s.p1.minus(s.p0).times(r1));
-      Vector3f w = i.minus(t.v0);
+      Vector3 i = s.p0.plus(s.p1.minus(s.p0).times(r1));
+      Vector3 w = i.minus(t.v0);
  
       float den2 = u.dot(v) * u.dot(v)
                  - u.dot(u) * v.dot(v);
@@ -675,7 +712,7 @@ public class VectorAlgebra {
       if (sc<0) return null;
       if (tc<0) return null;
       if (sc+tc>1) return null;
-      return new Vector2f(sc,tc);
+      return new Vector2(sc,tc);
    }
 
    // -----------------------------------------------------------------------
@@ -684,26 +721,26 @@ public class VectorAlgebra {
 
    public static void testRotation() {
       
-      Vector3f v = new Vector3f (randf(),randf(),randf());
-      Vector3f axis = new Vector3f (randf(),randf(),randf()).normalized();
+      Vector3 v = new Vector3 (randf(),randf(),randf());
+      Vector3 axis = new Vector3 (randf(),randf(),randf()).normalized();
       float angle = 10*randf();
       
-      Vector3f v1 = v.rotated(axis, angle);
-      Vector3f v2 = Matrix3f.product(Matrix3f.rotation(axis, angle), v);
+      Vector3 v1 = v.rotated(axis, angle);
+      Vector3 v2 = Matrix3x3.product(Matrix3x3.rotation(axis, angle), v);
       
       boolean ok = cmp(v1.x,v2.x) && cmp(v1.y,v2.y) && cmp(v1.z,v2.z);
       System.out.format("Rotation: %s\n",  ok?"OK":"PROBLEM");
    }   
    public static void testInverse3() {
-      Matrix3f a = new Matrix3f (
+      Matrix3x3 a = new Matrix3x3 (
             randf(), randf(), randf(),
             randf(), randf(), randf(),
             randf(), randf(), randf());
       
-      Matrix3f b = a.inverse();
+      Matrix3x3 b = a.inverse();
       
-      Matrix3f ab = Matrix3f.product(a, b);
-      Matrix3f ba = Matrix3f.product(b, a);
+      Matrix3x3 ab = Matrix3x3.product(a, b);
+      Matrix3x3 ba = Matrix3x3.product(b, a);
       
       // System.out.format("Matrix A:  %s\n", a.toString());
       // System.out.format("Matrix B:  %s\n", b.toString());
@@ -714,14 +751,14 @@ public class VectorAlgebra {
       System.out.format("Inverse3D: %s\n",  ok?"OK":"PROBLEM");
    }
    public static void testInverse2() {
-      Matrix2f a = new Matrix2f (
+      Matrix2x2 a = new Matrix2x2 (
             randf(), randf(),
             randf(), randf());
       
-      Matrix2f b = a.inverse();
+      Matrix2x2 b = a.inverse();
       
-      Matrix2f ab = Matrix2f.product(a, b);
-      Matrix2f ba = Matrix2f.product(b, a);
+      Matrix2x2 ab = Matrix2x2.product(a, b);
+      Matrix2x2 ba = Matrix2x2.product(b, a);
       
       // System.out.format("Matrix A:  %s\n", a.toString());
       // System.out.format("Matrix B:  %s\n", b.toString());
@@ -737,12 +774,12 @@ public class VectorAlgebra {
       float diff = a-b;
       return (diff < eps) && (diff > -eps);
    }   
-   private static boolean isIdentity(Matrix3f m) {
+   private static boolean isIdentity(Matrix3x3 m) {
       return cmp(m.xx, 1.0f) && cmp(m.xy, 0.0f) && cmp(m.xz, 0.0f)
           && cmp(m.yx, 0.0f) && cmp(m.yy, 1.0f) && cmp(m.yz, 0.0f)
           && cmp(m.zx, 0.0f) && cmp(m.zy, 0.0f) && cmp(m.zz, 1.0f);
    }
-   private static boolean isIdentity(Matrix2f m) {
+   private static boolean isIdentity(Matrix2x2 m) {
       return cmp(m.xx, 1.0f) && cmp(m.xy, 0.0f) 
           && cmp(m.yx, 0.0f) && cmp(m.yy, 1.0f);
    }
