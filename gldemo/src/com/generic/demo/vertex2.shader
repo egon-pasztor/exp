@@ -18,9 +18,15 @@ out vec2 V0uv;
 out vec2 V1uv;
 out vec2 V2uv;
 
+in uvec4 triColorInfo;
+
 in vec3 vertexColor;
 in vec3 vertexBaryCoords;
 in vec4 vertexPosition;
+
+flat out float tnz;
+
+flat out uvec4 fragTriColorInfo;
 
 out vec3 fragColor;
 out vec3 fragBaryCoords;
@@ -28,7 +34,6 @@ out vec3 fragBaryCoords;
 out vec3 triangleShape;
 out vec3 direction1;
 out vec3 direction2;
-out mat4 matt4;
  
 void main()
 {
@@ -45,13 +50,10 @@ void main()
     
     gl_Position = projMatrix * viewMatrix * vertexPosition;
     
-    vec4 viewspace_V0pos = vertexV0pos;
-    vec4 viewspace_V1pos = vertexV1pos;
-    vec4 viewspace_V2pos = vertexV2pos;
-    
-    vec3 v0 = vec3(viewspace_V0pos.x, viewspace_V0pos.y, viewspace_V0pos.z);
-    vec3 v1 = vec3(viewspace_V1pos.x, viewspace_V1pos.y, viewspace_V1pos.z);
-    vec3 v2 = vec3(viewspace_V2pos.x, viewspace_V2pos.y, viewspace_V2pos.z);
+
+    vec3 v0 = vec3(vertexV0pos.x, vertexV0pos.y, vertexV0pos.z);
+    vec3 v1 = vec3(vertexV1pos.x, vertexV1pos.y, vertexV1pos.z);
+    vec3 v2 = vec3(vertexV2pos.x, vertexV2pos.y, vertexV2pos.z);
     vec3 e21 = v2 - v1;
     vec3 e10 = v1 - v0;
     vec3 e02 = v0 - v2;
@@ -59,36 +61,10 @@ void main()
     float e10l = length(e10);
     float e21l = length(e21);
     float e02l = length(e02);
-    /*
-    if (e10l > e21l) {
-      vec3 temp = e21;
-      float templ = e21l;
-      e21 = e10;
-      e21l = e10l;
-      e10 = temp;
-      e10l = templ;
-    }
-    if (e02l > e10l) {
-      vec3 temp = e10;
-      float templ = e10l;
-      e10 = e02;
-      e10l = e02l;
-      e02 = temp;
-      e02l = templ;
-    }
-    if (e10l > e21l) {
-      vec3 temp = e21;
-      float templ = e21l;
-      e21 = e10;
-      e21l = e10l;
-      e10 = temp;
-      e10l = templ;
-    }
-    */
     
-    vec3 normal = normalize(cross(e10,e02));
+    vec3 modelSpaceNormal = normalize(cross(e10,e02));
     vec3 newX = e10 / e10l;
-    vec3 newY = cross(newX, normal);
+    vec3 newY = cross(newX, modelSpaceNormal);
     
     triangleShape = vec3(e10l, -dot(e02, newX), dot(e02, newY));
     
@@ -102,12 +78,23 @@ void main()
     direction1 = vec3(d1.x,d1.y,d1.z);
     direction2 = vec3(d2.x,d2.y,d2.z);
     
-    //direction1 = d1_3;
-    //direction2 = d2_3;
-    
-    matt4 = inverse (projMatrix * viewMatrix);
-    
     // ----------------------------
+    
+    vec4 normalH = normalize(viewMatrix * vec4(modelSpaceNormal.x,modelSpaceNormal.y,modelSpaceNormal.z,0));
+        
+    float nv = normalH.z;
+    if (nv<0.0f) nv = -nv;
+    if (nv>1.0f) nv = 1.0f;
+    tnz = nv;
+    
+    fragTriColorInfo = triColorInfo;    
+    /*
+    if ((triColorInfo.x != 0.0) || (triColorInfo.y != 0.0) || (triColorInfo.z != 0.0) || (triColorInfo.w != 0.0)) {
+      fragTriColorInfo = uvec4(2,  (3 << 16)|(3 << 8)|(3),  (1 << 16)|(1 << 8)|(1),  (1 << 16)|(1 << 8)|(1));
+    } else {
+      fragTriColorInfo = uvec4(0,  (3 << 16)|(3 << 8)|(3),  (4 << 16)|(4 << 8)|(4),  (1 << 16)|(1 << 8)|(1));
+    }
+    */
     
 }
 

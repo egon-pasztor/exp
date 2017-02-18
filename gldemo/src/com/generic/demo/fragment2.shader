@@ -4,10 +4,18 @@ uniform int highlight;
 uniform int windowWidth;
 uniform int windowHeight;
 
+// Info about other UV structures like a test-circle drawn on the UV surface,
+// would be communicated through "uniforms" like this one:
 uniform vec2 uvPointer;
+
+
+// Input varying values include:
+
 
 in vec4 gl_FragCoord;
 
+flat in float tnz;
+flat in uvec4 fragTriColorInfo;
 in vec3 fragColor;
 in vec3 fragBaryCoords;
 
@@ -24,7 +32,6 @@ in vec2 V1uv;
 in vec2 V2uv;
 
 out vec4 outColor;
-in mat4 matt4;
 
 // ------------------------
 // Pixel information
@@ -41,10 +48,11 @@ float pixelsPerDV;
 
 float dxdu,dxdv,dydu,dydv;
 
-vec3 edge01;
-vec3 edge02;
-vec3 normal;
-float tnz;
+bool done;
+
+// ------------------------
+// Basic Info code
+// ------------------------
 
 void computeInfo() {
 
@@ -81,15 +89,200 @@ void computeInfo() {
     
     pixelsPerDU = sqrt(dxdu*dxdu + dydu*dydu);
     pixelsPerDV = sqrt(dxdv*dxdv + dydv*dydv);
-    
-    edge01 = vec3(V1pos.x-V0pos.x, V1pos.y-V0pos.y, V1pos.z-V0pos.z);
-    edge02 = vec3(V2pos.x-V0pos.x, V2pos.y-V0pos.y, V2pos.z-V0pos.z);
-    normal = normalize(cross(edge01, edge02));
-    
-    tnz = normal.z;
-    if (tnz<0.0f) tnz = -tnz;
-    if (tnz>1.0f) tnz = 1.0f;
 }
+float geometricDistance(vec2 s, vec2 e) {
+
+   vec2 p = myXYPixel;
+   vec2 d = e-s;
+   float dd = length(d);
+
+   vec2 v = p-s;
+   vec2 n = vec2(-d.y/dd, d.x/dd);
+   float normDistance = abs(dot(n,v));
+   
+   return normDistance;
+}   
+float geometricDistanceFromSegment(vec2 s, vec2 e) {
+
+   vec2 p = myXYPixel;
+   vec2 d = e-s;
+   float dd = length(d);
+
+   vec2 v = p-s;
+   vec2 n = vec2(-d.y/dd, d.x/dd);
+   float normDistance = abs(dot(n,v));
+   
+   vec2 a = vec2(d.x/dd, d.y/dd);
+   float alongDistance = dot(a,v);
+   
+   if (alongDistance < 0) {
+      return length(p-s);
+   }
+   if (alongDistance > dd) {
+      return length(p-e);
+   }
+   return normDistance;
+}
+float geometricDistance(vec2 o) {
+
+   vec2 p = myXYPixel;
+   vec2 d = p-o;
+   return length(d);
+}
+vec2 pixelFromPos(float x, float y, float w) {
+   return vec2(windowWidth  *((x/w) +1.0)/2.0, windowHeight *((y/w) +1.0)/2.0);
+}
+
+// ------------------------
+// EDGE CODES
+// ------------------------
+
+const vec3 COLORS[8] = vec3[8]  ( vec3( 0.0, 0.0, 0.0 ),
+                                  vec3( 0.0, 0.0, 0.0 ),
+                                  vec3( 1.0, 0.5, 0.5 ),
+                                  vec3( 0.5, 1.0, 0.5 ),
+                                  vec3( 0.5, 0.5, 1.0 ),
+                                  vec3( 0.5, 1.0, 1.0 ),
+                                  vec3( 1.0, 0.5, 1.0 ),
+                                  vec3( 1.0, 1.0, 0.5 ) );
+void set(int colorCode) {
+   vec3 rgb = COLORS[colorCode];
+   outColor.r = rgb.x;
+   outColor.g = rgb.y;
+   outColor.b = rgb.z;
+   done = true;  
+}
+
+
+void apply_EdgeAndVertexColors() {
+
+    // get the WINDOW-PIXEL positions of the three vertices
+    vec2 pixel0 = pixelFromPos(V0pos.x, V0pos.y, V0pos.w);
+    vec2 pixel1 = pixelFromPos(V1pos.x, V1pos.y, V1pos.w);
+    vec2 pixel2 = pixelFromPos(V2pos.x, V2pos.y, V2pos.w);
+    
+    vec2 pixel01mid = pixelFromPos((V0pos.x+V1pos.x)/2, (V0pos.y+V1pos.y)/2, (V0pos.w+V1pos.w)/2);
+    vec2 pixel12mid = pixelFromPos((V1pos.x+V2pos.x)/2, (V1pos.y+V2pos.y)/2, (V0pos.w+V1pos.w)/2);
+    vec2 pixel20mid = pixelFromPos((V2pos.x+V0pos.x)/2, (V2pos.y+V0pos.y)/2, (V0pos.w+V1pos.w)/2);
+    
+    vec2 pixelmid = pixelFromPos((V0pos.x+V1pos.x+V2pos.x)/3, (V0pos.y+V1pos.y+V2pos.y)/3, (V0pos.w+V1pos.w+V2pos.w)/3);
+    
+	// we return the minimum pixel distance to any edge..
+    float d01 = geometricDistance(pixel0, pixel1);
+    float d12 = geometricDistance(pixel1, pixel2);
+    float d20 = geometricDistance(pixel2, pixel0);
+    
+    float d0 = geometricDistance(pixel0);
+    float d1 = geometricDistance(pixel1);
+    float d2 = geometricDistance(pixel2);
+
+    int tColorCode  = int(fragTriColorInfo.x) & 0xff;
+    
+    int v0ColorCode = int(fragTriColorInfo.y >> 16) & 0xff;
+    int v1ColorCode = int(fragTriColorInfo.y >>  8) & 0xff;
+    int v2ColorCode = int(fragTriColorInfo.y)       & 0xff;
+    
+    //v0ColorCode = 3;
+    //v1ColorCode = 3;
+    //v2ColorCode = 3;
+    
+    int e0ColorCode = int(fragTriColorInfo.z >> 16) & 0xff;
+    int e1ColorCode = int(fragTriColorInfo.z >>  8) & 0xff;
+    int e2ColorCode = int(fragTriColorInfo.z)       & 0xff;
+
+    //e0ColorCode = 4;
+    //e1ColorCode = 5;
+    //e2ColorCode = 6;
+    
+    int b0ColorCode = int(fragTriColorInfo.w >> 16) & 0xff;
+    int b1ColorCode = int(fragTriColorInfo.w >>  8) & 0xff;
+    int b2ColorCode = int(fragTriColorInfo.w)       & 0xff;
+    
+    int pixelScale = 1;
+    
+    int boundaryScale = 4;
+    int localEdgeScale = 2;
+      
+    if ((d0 < 5*pixelScale) && (v0ColorCode > 0)) {
+       set(v0ColorCode);
+       return;       
+    }
+    if ((d1 < 5*pixelScale) && (v1ColorCode > 0)) {
+       set(v1ColorCode);
+       return;
+    }
+    if ((d2 < 5*pixelScale) && (v2ColorCode > 0)) {
+       set(v2ColorCode);
+       return;       
+    }
+    
+    localEdgeScale = 3;
+    if (e2ColorCode == 1) localEdgeScale = 1;
+    
+    if (b2ColorCode > 0) {
+      if (d01 < boundaryScale*pixelScale) {
+        set(b2ColorCode);
+        return;       
+      }
+      if ((d01 < (boundaryScale+localEdgeScale)*pixelScale) && (e2ColorCode > 0)) {
+        set(e2ColorCode);
+        return;       
+      }
+    } else {
+      if ((d01 < localEdgeScale*pixelScale) && (e2ColorCode > 0)) {
+        set(e2ColorCode);
+        return;       
+      }
+    }
+    
+    localEdgeScale = 3;
+    if (e0ColorCode == 1) localEdgeScale = 1;
+      
+    if (b0ColorCode > 0) {
+      if (d12 < boundaryScale*pixelScale) {
+        set(b0ColorCode);
+        return;       
+      }
+      if ((d12 < (boundaryScale+localEdgeScale)*pixelScale) && (e0ColorCode > 0)) {
+        set(e0ColorCode);
+        return;       
+      }
+    } else {
+      if ((d12 < localEdgeScale*pixelScale) && (e0ColorCode > 0)) {
+        set(e0ColorCode);
+        return;       
+      }
+    }
+
+    localEdgeScale = 3;
+    if (e1ColorCode == 1) localEdgeScale = 1;
+      
+    if (b1ColorCode > 0) {
+      if (d20 < boundaryScale*pixelScale) {
+        set(b1ColorCode);
+        return;       
+      }
+      if ((d20 < (boundaryScale+localEdgeScale)*pixelScale) && (e1ColorCode > 0)) {
+        set(e1ColorCode);
+        return;       
+      }
+    } else {
+      if ((d20 < localEdgeScale*pixelScale) && (e1ColorCode > 0)) {
+        set(e1ColorCode);
+        return;       
+      }
+    }
+       
+    if (tColorCode > 0) {
+       set(tColorCode);
+       return;       
+    }
+}
+   
+
+// ------------------------
+// UV-SELECTED-LINE
+// ------------------------
 
 vec2 pixelAtUV(vec2 uv) {
 
@@ -109,39 +302,46 @@ vec2 pixelAtUV(vec2 uv) {
     
     return vec2(point0X, point0Y);
 }
-float geometricDistance(vec2 s, vec2 e, vec2 p) {
-
-   vec2 d = e-s;
-   float dd = length(d);
-   vec2 n = vec2(-d.y/dd, d.x/dd);
-   vec2 v = p-s;
-   return abs(n.x*v.x+n.y*v.y);
-}
-
 float pixelDistanceToULine(float uCritical) {
     vec2 pixelStart = pixelAtUV(vec2(uCritical, -1.0f));
     vec2 pixelEnd   = pixelAtUV(vec2(uCritical,  1.0f));
-    return geometricDistance(pixelStart, pixelEnd, myXYPixel);
+    return geometricDistance(pixelStart, pixelEnd);
 }
 float pixelDistanceToVLine(float vCritical) {
     vec2 pixelStart = pixelAtUV(vec2(-1.0f, vCritical));
     vec2 pixelEnd   = pixelAtUV(vec2( 1.0f, vCritical));
-    return geometricDistance(pixelStart, pixelEnd, myXYPixel);
-}
-float pixelDistanceToEdge() {
-
-    // get the WINDOW-PIXEL positions of the three vertices
-    vec2 pixel0 = vec2(windowWidth  *((V0pos.x/V0pos.w) +1.0)/2.0, windowHeight *((V0pos.y/V0pos.w) +1.0)/2.0);
-    vec2 pixel1 = vec2(windowWidth  *((V1pos.x/V1pos.w) +1.0)/2.0, windowHeight *((V1pos.y/V1pos.w) +1.0)/2.0);
-    vec2 pixel2 = vec2(windowWidth  *((V2pos.x/V2pos.w) +1.0)/2.0, windowHeight *((V2pos.y/V2pos.w) +1.0)/2.0);
-    
-	// we return the minimum pixel distance to any edge..
-    float d01 = geometricDistance(pixel0, pixel1, myXYPixel);
-    float d12 = geometricDistance(pixel1, pixel2, myXYPixel);
-    float d20 = geometricDistance(pixel2, pixel0, myXYPixel);
-    return min(d01, min(d12, d20));
+    return geometricDistance(pixelStart, pixelEnd);
 }
 
+void apply_SelectedUVLine() {
+   float pixelDistanceToSelectedULine = pixelDistanceToULine(uvPointer.x);
+   float pixelDistanceToSelectedVLine = pixelDistanceToVLine(uvPointer.y);
+   
+   if ((pixelDistanceToSelectedULine < 3.0f) && (pixelDistanceToSelectedVLine < 3.0f)) {
+     outColor.r = 1.0f;
+     outColor.g = 1.0f;
+     outColor.b = 0.0f;
+     done = true;
+     return;
+   } 
+   if (((pixelDistanceToSelectedULine < 4.0f) && ((pixelDistanceToSelectedVLine >= 3.0f) && (pixelDistanceToSelectedVLine < 4.0f))) ||
+      ((pixelDistanceToSelectedVLine < 4.0f) && ((pixelDistanceToSelectedULine >= 3.0f) && (pixelDistanceToSelectedULine < 4.0f)))) {
+      
+     outColor.r = 0.0f;
+     outColor.g = 0.0f;
+     outColor.b = 0.0f;         
+     done = true;
+     return;
+   }
+   if ((pixelDistanceToSelectedULine < 1.0f) || (pixelDistanceToSelectedVLine < 1.0f)) {
+     outColor.r = 1.0f;
+     outColor.g = 0.0f;
+     outColor.b = 0.0f;         
+     done = true;
+     return;
+   } 
+}
+   
 
 // ------------------------
 // GRID-SHADING Logic
@@ -227,6 +427,7 @@ float getGridShadingLevel() {
     return (a > b) ? a : b;
 }
 
+
 // ------------------------
 // Selected Face?
 // ------------------------
@@ -260,96 +461,14 @@ float Value2D( vec2 P )
    return z;
 }
 
-/*
-float Value2D (vec2 st) { 
-    return fract(sin(dot(vec2(int(st.x), int(st.y)),
-                         vec2(12.9898,78.233)))* 
-        43758.5453123);
-}
-*/
-
 float Value3D (vec3 st) { 
     return fract(sin(dot(vec3(int(st.x), int(st.y), int(st.z)),
-                         vec3(12.9898,78.233, 34.342)))* 
-        43758.5453123);
+                         vec3(12.9898,78.233, 34.342)))* 43758.5453123);
 }
 
 
 vec2 directionalShading() {
     int n = 10;  
-/*
-    float x = Xh/W;
-    float y = Yh/W;
-    float z = Zh/W;
-    
-    vec4 ph = vec4(Xh,Yh,Zh,W);
-    vec4 d1h = vec4(direction1.x,direction1.y,direction1.z,0);
-    vec4 d2h = vec4(direction2.x,direction2.y,direction2.z,0);
-    
-    ph = matt4 * ph;
-    //d1h = matt4 * d1h;
-    //d2h = matt4 * d2h;
-    
-    vec3 p = 100 * vec3(ph.x/ph.w, ph.y/ph.w, ph.z/ph.w);
-     
-    vec3 dir1 = normalize(vec3(d1h.x,d1h.y,d1h.z))*0.6;
-    vec3 dir2 = normalize(vec3(d2h.x,d2h.y,d2h.z))*0.6;
-     
-    //vec3 p = 110*vec3(x,y,z);
-     
-   //float dirX1 = (1.0 / W) * direction1.x  - (Xh / (W*W)) * direction1.z;
-   //float dirY1 = (1.0 / W) * direction1.y  - (Yh / (W*W)) * direction1.z;
-   //float dirZ1 = (1.0 / W) * direction1.z  - (Zh / (W*W)) * direction1.z;
-   
-   //float dirX2 = (1.0 / W) * direction2.x  - (Xh / (W*W)) * direction2.z;
-   //float dirY2 = (1.0 / W) * direction2.y  - (Yh / (W*W)) * direction2.z;
-   //float dirZ2 = (1.0 / W) * direction2.z  - (Zh / (W*W)) * direction2.z;
-   
-   //vec3 dir1 = normalize(vec3(windowWidth*dirX1,windowHeight*dirY1,dirZ1))*0.6;
-   //vec3 dir2 = normalize(vec3(windowWidth*dirX2,windowHeight*dirY2,dirZ2))*0.6;
-
-   float f = 0;
-   float fy = 0;
-   int i = 0;
-   
-   //for (int i = 0; i < n; ++i) {
-   //  f += Value3D(p+i*dir1);
-   //  fy += Value3D(p+i*dir2);
-  // }
-        f += Value3D(p+0*dir1);
-        f += Value3D(p+1*dir1);
-        f += Value3D(p+2*dir1);
-        f += Value3D(p+3*dir1);
-        f += Value3D(p+4*dir1);
-        f += Value3D(p+5*dir1);
-        f += Value3D(p+6*dir1);
-        f += Value3D(p+7*dir1);
-        f += Value3D(p+8*dir1);
-        f += Value3D(p+9*dir1);
-        
-     fy += Value3D(p+0*dir2);
-     fy += Value3D(p+1*dir2);
-     fy += Value3D(p+2*dir2);
-     fy += Value3D(p+3*dir2);
-     fy += Value3D(p+4*dir2);
-     fy += Value3D(p+5*dir2);
-     fy += Value3D(p+6*dir2);
-     fy += Value3D(p+7*dir2);
-     fy += Value3D(p+8*dir2);
-     fy += Value3D(p+9*dir2);
-             
-   f = f/n;
-   f = (f-0.5)*sqrt(n)+0.5;
-   if (f < 0) f = 0;
-   if (f > 1) f = 1;
-   
-   fy = fy/n;
-   fy = (fy-0.5)*sqrt(n)+0.5;
-   if (fy < 0) fy = 0;
-   if (fy > 1) fy = 1;
-   
-   return vec2(f,fy);
-*/
 
     int uvScale = 25;
     //float thresh = 100.0f;
@@ -498,51 +617,6 @@ vec2 directionalShading() {
    float fin4y = Value2D(27*r2);
  
  // ------------------------------------
- /*
-   float final1 = 0.0f;
-   float final1y = 0.0f;
-   for (int i = 0; i < n; ++i) {
-      final1 += Value2D(pmyUVVal + fd1*i);
-   }   
-   for (int i = 0; i < n; ++i) {
-      final1y += Value2D(pmyUVVal + fd2*i);
-   }   
-   float fin1 = final1/n;
-   float fin1y = final1y/n;
-   
-   float final2 = 0.0f;
-   float final2y = 0.0f;
-   for (int i = 0; i < n; ++i) {
-      final2 += Value2D(3 * pmyUVVal + fd1*i);
-   }   
-   for (int i = 0; i < n; ++i) {
-      final2y += Value2D(3 * pmyUVVal + fd2*i);
-   }   
-   float fin2 = final2/n;
-   float fin2y = final2y/n;
-   
-   float final3 = 0.0f;
-   float final3y = 0.0f;
-   for (int i = 0; i < n; ++i) {
-      final3 += Value2D(9 * pmyUVVal + fd1*i);
-   }   
-   for (int i = 0; i < n; ++i) {
-      final3y += Value2D(9 * pmyUVVal + fd2*i);
-   }   
-   float fin3 = final3/n;
-   float fin3y = final3y/n;
-
-   float final4 = 0.0f;
-   float final4y = 0.0f;
-   for (int i = 0; i < n; ++i) {
-      final4 += Value2D(27 * pmyUVVal + fd1*i);
-   }   
-   for (int i = 0; i < n; ++i) {
-      final4y += Value2D(27 * pmyUVVal + fd2*i);
-   }   
-   float fin4 = final4/n;
-   float fin4y = final4y/n;
-*/
 
    float fa = (fin1 * (1.0 - blend1)) + fin2 * blend1;
    float fb = (fa   * (1.0 - blend2)) + fin3 * blend2;
@@ -568,47 +642,17 @@ vec2 directionalShading() {
 
 void main()
 {
+   done = false;
    computeInfo();
    
-   float pde = pixelDistanceToEdge();
-   if (pde < 1.0f) {
-     if ((pde < 0.5f) && (highlight != 0)) {
-         outColor.r = 0.2;
-         outColor.g = 0.1;
-         outColor.b = 0.2;
-     } else {
-         outColor.r = 0.1;
-         outColor.g = 0.1;
-         outColor.b = 0.1;
-     }
-     return;
-   } 
+   // 1st:  Edge and Vertex Colors
+   apply_EdgeAndVertexColors();
+   if (done == true) return;
    
-   float pixelDistanceToSelectedULine = pixelDistanceToULine(uvPointer.x);
-   float pixelDistanceToSelectedVLine = pixelDistanceToVLine(uvPointer.y);
+   apply_SelectedUVLine();
+   if (done == true) return;
    
-   if ((pixelDistanceToSelectedULine < 3.0f) && (pixelDistanceToSelectedVLine < 3.0f)) {
-     outColor.r = 1.0f;
-     outColor.g = 1.0f;
-     outColor.b = 0.0f;         
-     return;
-   } 
-   if (((pixelDistanceToSelectedULine < 4.0f) && ((pixelDistanceToSelectedVLine >= 3.0f) && (pixelDistanceToSelectedVLine < 4.0f))) ||
-      ((pixelDistanceToSelectedVLine < 4.0f) && ((pixelDistanceToSelectedULine >= 3.0f) && (pixelDistanceToSelectedULine < 4.0f)))) {
-      
-     outColor.r = 0.0f;
-     outColor.g = 0.0f;
-     outColor.b = 0.0f;         
-     return;
-   }
-   if ((pixelDistanceToSelectedULine < 1.0f) || (pixelDistanceToSelectedVLine < 1.0f)) {
-     outColor.r = 1.0f;
-     outColor.g = 0.0f;
-     outColor.b = 0.0f;         
-     return;
-   } 
-
-
+   
    vec2 dd = directionalShading();
    dd = dd/2;
    
@@ -621,10 +665,13 @@ void main()
    float frac = getGridShadingLevel();
    //float frac = 0;
    frac = 1.0f - ((1.0f - frac) * tnz);
+   
    outColor.r = baseR * (1.0f-frac);
    outColor.g = baseG * (1.0f-frac);
    outColor.b = baseB * (1.0f-frac);
    
+
+
    
 //   if (inSelectedFace()) {
 //      frac = 0.3;

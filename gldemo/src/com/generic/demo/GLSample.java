@@ -31,6 +31,7 @@ import com.generic.base.Camera;
 import com.generic.base.Shader;
 import com.generic.base.Geometry;
 import com.generic.base.Mesh;
+import com.generic.base.QuadCover;
 import com.generic.base.World;
 import com.generic.base.Algebra.*;
 import com.generic.base.Algebra;
@@ -752,7 +753,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          g.setColor(Color.BLACK);
          int col = 0;         
-         for (Geometry.MeshModel meshModel : new Geometry.MeshModel[] { demoWorld.mappingModel1, demoWorld.mappingModel2 }) { 
+         for (Geometry.MeshModel meshModel : new Geometry.MeshModel[] { demoWorld.mappingModel1, demoWorld.mappingModel2, demoWorld.mappingModel3 }) { 
             if (meshModel == null) continue;
             
             for (Mesh.Triangle tc : meshModel.mesh.triangles) {
@@ -859,7 +860,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // ------- loading the bunny
    
    private Mesh loadBunny() {
-      Mesh mesh = Geometry.newQuadCoverMesh();      
+      Mesh mesh = QuadCover.newMesh();      
       mesh.loadFromString(loadStringFileFromCurrentPackage("bunny.obj"));
       
       System.out.format("Loaded bunny %d vertices, %d edges, %d triangles, %d boundary-edges\n",
@@ -1083,6 +1084,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          }
          
          // Tell GL to use the shader program for this instance...
+         // shaderInstance.checkAllVariablesBindingsPresent();
          gl.glUseProgram(shaderInstance.program.getGLProgramID());  
 
          for (Shader.Variable variable : shaderInstance.program.variables) {
@@ -1176,7 +1178,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          if (intersectionA != null) {
             intersectionOccurred = true;
-            if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2)) {
+            if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2) || (geometry == demoWorld.mappingModel3)) {
                Triangle2 texCoords = ((TextureCoordProvider) t).getTextureCoords();
                Vector2 t0 = texCoords.v0;
                Vector2 tu = texCoords.v1.minus(texCoords.v0);
@@ -1186,7 +1188,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          }
       }
       
-      if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2)) {
+      if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2) || (geometry == demoWorld.mappingModel3)) {
          if (intersection != null) {
             updateUVPointer(intersection.x, intersection.y);
             intersectionIn3d = true;
@@ -1347,6 +1349,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private void setupBuffers(GL3 gl) {
       HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
       HashSet<Shader.ManagedBuffer> buffers = World.getAllBuffers(shaderInstances);
+      System.out.format("In setupBuffers...\n");
       for (Shader.ManagedBuffer buffer : buffers) {
          buffer.setup();
          buffer.glBufferID = generateBufferId(gl);
@@ -1354,15 +1357,17 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);
          if (buffer.type.baseIsFloat) {
             Shader.ManagedFloatBuffer managedFloatBuffer = (Shader.ManagedFloatBuffer) buffer;
+            System.out.format(" ... setting up a float buffer of len %d\n", managedFloatBuffer.array.length);
             gl.glBufferData(GL.GL_ARRAY_BUFFER,
-                  managedFloatBuffer.array.length * Float.SIZE / 8,
+                  managedFloatBuffer.array.length * 4,//Float.SIZE / 8,
                   managedFloatBuffer.floatBuffer, GL.GL_STATIC_DRAW);
             
             buffer.glBufferSize = managedFloatBuffer.array.length;
          } else {
             Shader.ManagedIntBuffer managedIntBuffer = (Shader.ManagedIntBuffer) buffer;
+            System.out.format(" ... setting up n INT buffer of len %d\n", managedIntBuffer.array.length);
             gl.glBufferData(GL.GL_ARRAY_BUFFER,
-                  managedIntBuffer.array.length * Integer.SIZE / 8,
+                  managedIntBuffer.array.length * 4,//Integer.SIZE / 8,
                   managedIntBuffer.intBuffer, GL.GL_STATIC_DRAW);
             
             buffer.glBufferSize = managedIntBuffer.array.length;
@@ -1386,9 +1391,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                if (programLocation >= 0) {
                   gl.glBindBuffer(GL.GL_ARRAY_BUFFER, buffer.glBufferID);               
                   gl.glEnableVertexAttribArray(variable.getGLPProgramLocation());
+                  
+                  // TODO:  There is an active mystery : why does passing GL_UNSIGNED_INT for
+                  // base type *fail*, while LYING about the type -- saying it's GL_FLOAT when it's not --
+                  // lets the unsigned-int data through fine?
+                  
                   gl.glVertexAttribPointer(variable.getGLPProgramLocation(), 
                         buffer.type.numElementsPerVertex, 
-                        buffer.type.baseIsFloat ? GL.GL_FLOAT : GL.GL_UNSIGNED_INT,
+                        buffer.type.baseIsFloat ? GL.GL_FLOAT : GL.GL_FLOAT, //GL.GL_UNSIGNED_INT,
                         false, 0, 0);
                }
             }            

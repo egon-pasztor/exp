@@ -191,6 +191,10 @@ public class World {
          for (Shader.Variable variable : shaderInstance.program.variables) {
             if (variable instanceof Shader.Variable.VertexBuffer) {
                Shader.Variable.Binding binding = shaderInstance.boundVariables.get(variable);
+               if (binding == null) {
+                  throw new RuntimeException(String.format("Binding %s not present for program %s", 
+                        variable.name, shaderInstance.program.name));
+               }
                Shader.ManagedBuffer buffer = ((Shader.Variable.VertexBuffer.Binding) binding).buffer;
                buffers.add(buffer);
             }

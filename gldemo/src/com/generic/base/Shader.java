@@ -229,9 +229,22 @@ public class Shader {
          boundVariables = new HashMap<Variable, Variable.Binding>();
       }
       public void bind (String name, Variable.Binding binding) {
-         //System.out.format(" Bound \"%s\" to \"%s\"\n",
-         //      name, binding.toString());
+         Variable variable = program.getVariable(name);
+         
+         // What's wrong with Binding to non-existent names?  We bind "highlight" for every Shader.Instance,
+         // even though some Shader.Programs don't ingest "highlight"..
+         //
+         //if (variable == null) {
+         //   throw new RuntimeException(String.format("Binding %s not applicable for program %s", name, program.name));
+         //}
          boundVariables.put(program.getVariable(name), binding);
+      }
+      public void checkAllVariablesBindingsPresent() {
+         for (Variable v : program.variables) {
+            if (!boundVariables.containsKey(v)) {
+               throw new RuntimeException(String.format("Binding %s not present for program %s", v.name, program.name));
+            }
+         }
       }
 
       // ProgramLocation Int -----------------------
@@ -297,7 +310,7 @@ public class Shader {
             if ((array == null) || (array.length != newNumFloats)) {
                array = new float[newNumFloats];
                
-               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * Float.SIZE);
+               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * 4);
                byteBuffer.order(ByteOrder.nativeOrder());
                floatBuffer = byteBuffer.asFloatBuffer();
             }
@@ -331,7 +344,7 @@ public class Shader {
             if ((array == null) || (array.length != newNumInts)) {
                array = new int[newNumInts];
                
-               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * Integer.SIZE);
+               ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * 4);
                byteBuffer.order(ByteOrder.nativeOrder());
                intBuffer = byteBuffer.asIntBuffer();
             }
@@ -339,6 +352,7 @@ public class Shader {
             intBuffer.position(0);
             intBuffer.put(array);
             intBuffer.position(0);
+            System.out.format("Actually filled int-buffer data with put call...\n");
          }
          setModified(false);
       }
@@ -401,6 +415,7 @@ public class Shader {
       protected void initVariables() {
          variables.add(new Variable.VertexBuffer(Shader.POSITION_ARRAY, Variable.VertexBuffer.Type.VEC4));
          variables.add(new Variable.VertexBuffer(Shader.COLOR_ARRAY,    Variable.VertexBuffer.Type.VEC3));
+         variables.add(new Variable.VertexBuffer(Shader.COLOR_INFO,     Variable.VertexBuffer.Type.UVEC4));
          variables.add(new Variable.VertexBuffer(Shader.BARY_COORDS,    Variable.VertexBuffer.Type.VEC3));         
          
          variables.add(new Variable.VertexBuffer(Shader.V0POS_ARRAY,    Variable.VertexBuffer.Type.VEC4));
@@ -437,6 +452,7 @@ public class Shader {
    
    public static final String POSITION_ARRAY = "vertexPosition";
    public static final String COLOR_ARRAY    = "vertexColor";
+   public static final String COLOR_INFO     = "triColorInfo";
    
    public static final String DIRECTION_SHADING_ARRAY = "directions";
    

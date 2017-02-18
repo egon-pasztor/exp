@@ -4,6 +4,7 @@ import com.generic.base.Geometry;
 import com.generic.base.World;
 import com.generic.base.Geometry.*;
 import com.generic.base.Mesh;
+import com.generic.base.QuadCover;
 import com.generic.base.Algebra.*;
 
 import java.util.ArrayList;
@@ -20,6 +21,8 @@ public class DemoWorld extends World {
    
    public MeshModel mappingModel1;
    public MeshModel mappingModel2;
+   public MeshModel mappingModel3;
+   
    public Vector2 selectedUVPointIfAny;
 
    public DemoWorld(Image leaImage, Image teapotImage, Mesh bunny) {
@@ -58,19 +61,30 @@ public class DemoWorld extends World {
 //      m.translate(Vector3f.Y.times(7.0f));
       
       // ICO
-      MeshModel ico0 = Geometry.createIco(0);
-      ico0.updateMesh(Geometry.newQuadCoverMesh());
-      Geometry.doQuadCover(ico0, 0.0f, 4);
+      MeshModel ico0 = Geometry.createIco(1);
+      ico0.mesh.removeTriangle(ico0.mesh.triangles.get(ico0.mesh.triangles.size()/3));
       mappingModel1 = ico0;
-
-      Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      ico0.updateMesh(QuadCover.newMesh());
+      QuadCover.run(ico0, 0.0f, 4);
+      Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
       m = new ShaderExecutingModel(ico0Instance, ico0);
       root.children.add(m);
       m.translate(Vector3.Y.times(+3.0f));
 
+      MeshModel tor0 = Geometry.createTorus(2.0f, 0.5f, 53, 23);
+      tor0.mesh.removeTriangle(tor0.mesh.triangles.get(tor0.mesh.triangles.size()/4));
+      mappingModel3 = tor0;
+      tor0.updateMesh(QuadCover.newMesh());
+      QuadCover.run(tor0, -70.0f, 60);
+      Shader.Instance tor0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
+      m = new ShaderExecutingModel(tor0Instance, tor0);
+      root.children.add(m);
+      m.rotate(Vector3.X, (float)(Math.PI/2.0));
+      m.translate(Vector3.Y.times(-4.0f));
+      
       MeshModel bunnyModel = new MeshModel(bunny);
       mappingModel2 = bunnyModel;
-      Geometry.doQuadCover(bunnyModel, 8.0f, 80);
+      QuadCover.run(bunnyModel, 8.0f, 80);
       Shader.Instance bunnyInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
       m = new ShaderExecutingModel(bunnyInstance, bunnyModel);
       root.children.add(m);

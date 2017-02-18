@@ -93,7 +93,7 @@ public class Mesh {
 
       // By repeatedly calling "nextAroundStart()" on the outgoing DirectedEdges,
       // we can iterate over all the DirectedEdges pointing outward from this Vertex
-      private Iterable<DirectedEdge> outgoingEdges() {
+      public Iterable<DirectedEdge> outgoingEdges() {
          return new Iterable<DirectedEdge>() {
             @Override
             public Iterator<DirectedEdge> iterator() {
@@ -225,6 +225,9 @@ public class Mesh {
       public void setSecond(DirectedEdge edge) {
          edge.setEdge(this, false);
          second = edge;
+      }
+      public boolean isBoundary() {
+         return (second instanceof Boundary);
       }
       
       // Length
@@ -749,17 +752,25 @@ public class Mesh {
       }
       // Create Edges and link them to the Triangles and Boundaries:
       for (Edge e : m.edges) {
-         Edge edge = factory.newEdge();
+         Edge newEdge = factory.newEdge();
+         edges.add(newEdge);
          
          Triangle.Edge eFirst = e.first;
-         edge.setFirst(triangles.get(eFirst.getTriangle().getIndex()).edges[eFirst.getEdgeIndex()]);
+         newEdge.setFirst(triangles.get(eFirst.getTriangle().getIndex()).edges[eFirst.getEdgeIndex()]);
          
          DirectedEdge eSecond = e.second;         
          if (!eSecond.isBoundary()) {
             Triangle.Edge teSecond = (Triangle.Edge) eSecond;
-            edge.setSecond(triangles.get(teSecond.getTriangle().getIndex()).edges[teSecond.getEdgeIndex()]);
+            newEdge.setSecond(triangles.get(teSecond.getTriangle().getIndex()).edges[teSecond.getEdgeIndex()]);
          } else {
-            edge.setSecond(boundaries.get(((Boundary)eSecond).getIndex()));
+            newEdge.setSecond(boundaries.get(((Boundary)eSecond).getIndex()));
+         }
+      }
+      for (Vertex v : m.vertices) {
+         Vertex vertex = vertices.get(v.getIndex());
+         if (v.oneOutgoingEdge != null) {
+            Triangle triangle = triangles.get(v.oneOutgoingEdge.getTriangle().getIndex());
+            vertex.setOneOutgoingEdge(triangle.edges[v.oneOutgoingEdge.getEdgeIndex()]);
          }
       }
    }
@@ -791,7 +802,7 @@ public class Mesh {
                int v0 = Integer.valueOf(pieces[0])-1;
                int v1 = Integer.valueOf(pieces[1])-1;
                int v2 = Integer.valueOf(pieces[2])-1;
-               System.out.format("Triangle %d,%d,%d\n", v0,v1,v2);
+               //System.out.format("Triangle %d,%d,%d\n", v0,v1,v2);
                addTriangle(vertices.get(v0),vertices.get(v1),vertices.get(v2));
             }
             continue;
@@ -828,25 +839,16 @@ public class Mesh {
    // Validation -- is this mesh actually hooked up right?
    // --------------------------------------------------------
    
-   public static void check(boolean cond, String err) {
+   private static void check(boolean cond, String err) {
       if (!cond) throw new RuntimeException("FAILED: " + err);
    }
-   public void checkIndexable(Indexable.List<? extends Indexable> list, String type) {
-      Integer[] counts = new Integer[list.size()];
+   private void checkIndexable(Indexable.List<? extends Indexable> list, String type) {
       for (int i = 0; i < list.size(); ++i) {
-         counts[i] = i;
-      }
-      for (Indexable item : list) {
-         int index = item.getIndex();
-         check((index >= 0) && (index < list.size()), "Out of range index encountered in " + type);
-         check(counts[index] != null, "Duplicate index encountered in " + type);
-         counts[index] = null;
-      }
-      for (int i = 0; i < list.size(); ++i) {
-         check(counts[i] == null, "Missing index in list discovered in " + type);
+         Indexable item = list.get(i);
+         check(i == item.getIndex(), "Item with wrong index?!");
       }
    }
-   public void checkTriangleEdge(Triangle.Edge te, HashSet<Vertex> verticesReferenced, HashSet<Edge> edgesReferenced) {
+   private void checkTriangleEdge(Triangle.Edge te, HashSet<Vertex> verticesReferenced, HashSet<Edge> edgesReferenced) {
       check(te.getEdge() != null, "Null edge discovered");
       check(te.opposite() != null, "Null opposite discovered");
       
@@ -860,12 +862,12 @@ public class Mesh {
       verticesReferenced.add(start);
       edgesReferenced.add(te.getEdge());
    }
-   public void checkTriangle(Triangle t, HashSet<Vertex> verticesReferenced, HashSet<Edge> edgesReferenced) {
+   private void checkTriangle(Triangle t, HashSet<Vertex> verticesReferenced, HashSet<Edge> edgesReferenced) {
       for (Triangle.Edge edge : t.edges) {
          checkTriangleEdge(edge, verticesReferenced, edgesReferenced);
       }
    }
-   public void checkBoundary(Boundary b, HashSet<Vertex> verticesReferenced, HashSet<Edge> edgesReferenced) {         
+   private void checkBoundary(Boundary b, HashSet<Vertex> verticesReferenced, HashSet<Edge> edgesReferenced) {         
       check(b.getEdge() != null, "Null edge discovered in boundary");
       check(b.opposite() != null, "Null opposite discovered in boundary");
       
@@ -879,14 +881,14 @@ public class Mesh {
          check ((count < 50000), "Boundary overlarge boundary loop");
       }
    }      
-   public void checkEdge(Edge e, HashSet<Edge> edgesReferenced) {
+   private void checkEdge(Edge e, HashSet<Edge> edgesReferenced) {
       check(edgesReferenced.contains(e), "All edges referenced");
       check(e.first != null, "Null first discovered in edge");
       check(e.second != null, "Null second discovered in edge");
       check((e.first.getEdge() == e) && (e.second.getEdge() == e), "DirectedEdges point back to Edges");
       check(e.first.isFirst() && !e.second.isFirst(), "DirectedEdges know their order in the Edges");
    }      
-   public void checkVertex(Vertex v,  HashSet<Vertex> verticesReferenced) {
+   private void checkVertex(Vertex v,  HashSet<Vertex> verticesReferenced) {
       if (verticesReferenced.contains(v)) {
          check (v.oneOutgoingEdge != null, "Referenced vertex has outgoing");
          
@@ -900,11 +902,10 @@ public class Mesh {
          check (v.oneOutgoingEdge == null, "Unreferenced vertex has no outgoing");
       }
    }      
+   
    public void checkMesh() {
-      System.out.format("Mesh checked... %d triangles, %d edges, %d vertices, %d boundaries\n",
+      System.out.format("Checking Mesh: %d triangles, %d edges, %d vertices, %d boundaries\n",
             triangles.size(), edges.size(), vertices.size(), boundaries.size());
-      
-      Integer[] counts = new Integer[triangles.size()];
       
       checkIndexable(triangles, "triangles");
       checkIndexable(edges, "edges");
@@ -913,10 +914,13 @@ public class Mesh {
       
       HashSet<Vertex> verticesReferenced = new HashSet<Vertex>();
       HashSet<Edge> edgesReferenced = new HashSet<Edge>();
+      
       for (Triangle t : triangles) checkTriangle(t, verticesReferenced, edgesReferenced);
       for (Boundary b : boundaries) checkBoundary(b, verticesReferenced, edgesReferenced);
       for (Edge e : edges) checkEdge(e, edgesReferenced);
       for (Vertex v : vertices) checkVertex(v, verticesReferenced);
+      
+      System.out.format("..Checking Done.\n");
    }
 
    public void testAddAndDelete() {

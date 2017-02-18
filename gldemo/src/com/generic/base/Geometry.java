@@ -175,6 +175,7 @@ public class Geometry {
    }
    
    // TOOD:  It sure looks like no-one's using this..
+   
    private static Shader.ManagedBuffer newColorArrayManager(final Mesh mesh) {
       return new Shader.ManagedFloatBuffer(3) {
          @Override public int getNumElements() { return mesh.triangles.size() * 3; }
@@ -204,7 +205,6 @@ public class Geometry {
          }
       };
    }   
-   
    
    // -----------------------------------------------------------------------
    // New-style Cube?
@@ -489,6 +489,66 @@ public class Geometry {
    // Tube
    // -----------------------------------------------------------------------
 
+   private static Mesh.Vertex[] createVertexRing(Mesh m, Vector3 discCenter, Vector3 discX, Vector3 discY, int numDivisions) {
+      Mesh.Vertex[] vertices = new Mesh.Vertex[numDivisions];
+      
+      for (int i = 0; i < numDivisions; ++i) {
+         float minorAangle = (float)(Math.PI * 2 * i / numDivisions);
+         
+         Mesh.Vertex v;
+         v = m.addVertex();
+         v.setPosition(discCenter.plus(discX.times((float) Math.cos(minorAangle)))
+                                 .plus(discY.times((float) Math.sin(minorAangle))));
+         vertices[i] = v;            
+      }
+      return vertices;
+   }
+   
+   public static MeshModel createTorus (float majorRadius, float minorRadius, int majorDivisions, int minorDivisions) {
+      MeshModel m = new MeshModel(new Mesh());
+      
+      
+      // Pointing up is Vector3.Z...
+      // 
+
+      Mesh.Vertex[] startVertices = new Mesh.Vertex[minorDivisions];
+      {
+         Vector3 discCenter = new Vector3(majorRadius, 0, 0);
+         Vector3 discX = Vector3.X.times(minorRadius);
+         Vector3 discY = Vector3.Z.times(minorRadius);
+         startVertices = createVertexRing(m.mesh, discCenter, discX, discY, minorDivisions);
+      }
+      Mesh.Vertex[] lastVertices = startVertices;      
+      for (int i = 1; i <= majorDivisions; ++i) {
+         float majorAngle = (float)(Math.PI * 2 * i / majorDivisions);
+         Mesh.Vertex[] nextVertices;
+         
+         if (i == majorDivisions) {
+            nextVertices = startVertices;
+         } else {
+            Vector3 discCenter = new Vector3(majorRadius * (float)Math.cos(majorAngle), majorRadius * (float)Math.sin(majorAngle), 0);
+            Vector3 discX = new Vector3((float)Math.cos(majorAngle), (float)Math.sin(majorAngle), 0).times(minorRadius);
+            Vector3 discY = Vector3.Z.times(minorRadius);
+            nextVertices = createVertexRing(m.mesh, discCenter, discX, discY, minorDivisions);
+         }
+         for (int j = 0; j < minorDivisions; ++j) {
+            Mesh.Vertex sv1 = lastVertices[j];
+            Mesh.Vertex sv0 = lastVertices[(j + minorDivisions - 1) % minorDivisions];
+            
+            Mesh.Vertex ev1 = nextVertices[j];
+            Mesh.Vertex ev0 = nextVertices[(j + minorDivisions - 1) % minorDivisions];
+            
+            m.mesh.addTriangle(sv1, sv0, ev1);
+            m.mesh.addTriangle(ev1, sv0, ev0);
+         }
+         
+         lastVertices = nextVertices;
+      }
+      return m;
+   }
+   
+   
+   
    public static MeshModel createCylinder (Vector3 start, Vector3 end, float radius1, float radius2, int numDivisions) {
       MeshModel m = new MeshModel(new Mesh());
 
@@ -546,12 +606,7 @@ public class Geometry {
    
    // -----------------------------------------------------------------------
    // LEGACY STUFF 1
-   // ..
-   // from Mesh1.   In Mesh1, Vertex/Triangle objects in the Mesh supported "getData/setData"
-   // allowing arbitrary data to be "hung" off each one,
-   //
-   // For example "createChoppedCube" attached a TetrahedronCount object to each Vertex,
-   // providing info for how the "warp" funcion should move the Vertex.
+   // "chopped cube"
    // -----------------------------------------------------------------------
    /*
 
@@ -690,129 +745,6 @@ public class Geometry {
       };
    }
    */
-   
-   
-   
-   // -----------------------------------------------------------------------
-   // We keep thinking that we might want to attach additional types of data
-   // to each triangle or each vertex .. or each edge.   Each triangle or vertex
-   // has a getData/setData pair, but we could have a HashMap<Triangle,?> or
-   // a HashMap<Vertex,?> instead...
-   // -----------------------------------------------------------------------
-
-   //==================================================
-   
-   
-   public static class QuadCoverVertex extends Mesh.Vertex {
-      // Every vertex has an associated <INT>
-      // If zero no effect, but if 1 or 2 etc, the shader COLORS the VERTEX a specific color..
-   }
-   public static class QuadCoverEdge extends Mesh.Edge {
-      // Every edge has an associated <INT>
-      // If zero no effect, but if 1 or 2 etc, the shader COLORS the EDGE a specific color..
-      
-   }
-   public static class QuadCoverBoundary extends Mesh.Boundary {
-      // Every boundary has an associated <INT>
-      // If zero no effect, but if 1 or 2 etc, the shader COLORS the adjacent-triangle's edge a specific color..
-      
-   }
-   public static class QuadCoverTriangle extends Mesh.Triangle implements TextureCoordProvider {
-      // Every triangle has an associated <INT>
-      // If zero no effect, but if 1 or 2 etc, the shader COLORS the triangle a specific color..
-      
-      public Triangle2 texCoords;
-      public Vector3 direction;
-      
-      public void setTextureCoords(Vector2 t0, Vector2 t1, Vector2 t2) {
-         texCoords = new Triangle2(t0, t1, t2);
-      }
-      @Override
-      public Triangle2 getTextureCoords() {
-         return texCoords;
-      }
-   }
-
-   // how do we do this SHADER?
-   //
-   // we each triangle, we need to emit 3 "VALUES" containing the information
-   // we want to convey about triangle,edge,vertex colors.
-   //
-   // if we support n colors..
-   //
-   // so:
-   //   N triangle-bits    == 1
-   // 3 N vertex bits      == 4
-   // 3 N edge bits        == 7
-   // 3 N adj-boundary     == 10
-   // 3 N dual-edge bits   == 13
-   //
-   // with 4 "uint32" values, we have 128 bits
-   
-   public static Mesh newQuadCoverMesh() {
-      return new Mesh(new Mesh.Factory(){
-         public QuadCoverTriangle newTriangle() { return new QuadCoverTriangle(); }
-         public QuadCoverEdge newEdge()         { return new QuadCoverEdge(); }
-         public QuadCoverVertex newVertex()     { return new QuadCoverVertex(); }
-         public QuadCoverBoundary newBoundary() { return new QuadCoverBoundary(); }
-      });      
-   }   
-
-   private static Shader.ManagedBuffer newDirectionArrayManager(final Mesh mesh) {
-      return new Shader.ManagedFloatBuffer(3) {
-         @Override public int getNumElements() { return mesh.triangles.size() * 3; }
-         @Override public void fillBuffer(float[] array) {
-            int pPos = 0;
-            for (Mesh.Triangle tb : mesh.triangles) {
-               QuadCoverTriangle t = (QuadCoverTriangle) tb;
-               Vector3 v = t.direction;
-               pPos = (v).copyToFloatArray(array, pPos);
-               pPos = (v).copyToFloatArray(array, pPos);
-               pPos = (v).copyToFloatArray(array, pPos);
-            }
-         }
-      };
-   }
-   private static Shader.ManagedBuffer newTriangleColoringInfo(final Mesh mesh) {
-      return new Shader.ManagedIntBuffer(3) {
-         @Override public int getNumElements() { return mesh.triangles.size() * 3; }
-         @Override public void fillBuffer(int[] array) {
-            int pPos = 0;
-            for (Mesh.Triangle tb : mesh.triangles) {
-               QuadCoverTriangle t = (QuadCoverTriangle) tb;
-               // TODO: Set "value" from stuff in "t":
-               int value = 0;
-               
-               for (int i = 0; i < 3; i++) {
-                  array[pPos+0] = value;
-                  array[pPos+1] = value;
-                  array[pPos+2] = value;
-               }
-            }
-         }
-      };
-   }
-   
-   public static void doQuadCover (MeshModel model, float xOffset, int div) {
-      Vector2 p0 = new Vector2(0.0f, 0.0f);
-      Vector2 p1 = new Vector2(1.0f, 0.0f);
-      Vector2 p2 = new Vector2(0.5f, 0.866f);
-      float margin = 0.1f;
-      
-      int tCount = 0;
-      for (Mesh.Triangle tb : model.mesh.triangles) {
-         int yCount = tCount/div;
-         int xCount = tCount - (yCount*div);
-         Vector2 base = new Vector2(xOffset + margin + (1.0f+margin) * xCount, margin + (1.0f+margin) * yCount); 
-               
-         QuadCoverTriangle t = (QuadCoverTriangle) tb;
-         t.setTextureCoords(base.plus(p0), base.plus(p1), base.plus(p2));
-         tCount++;
-      }
-      
-      Organizer.rearrangeTextureCoords(model.mesh);
-      model.setManagedBuffer(Shader.DIRECTION_SHADING_ARRAY, newDirectionArrayManager(model.mesh));
-   }
    
    
    // -----------------------------------------------------------------------
