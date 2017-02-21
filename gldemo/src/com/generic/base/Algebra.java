@@ -1,5 +1,7 @@
 package com.generic.base;
 
+import java.util.ArrayList;
+
 public class Algebra {
 
    // -----------------------------------------------------------------------
@@ -715,6 +717,119 @@ public class Algebra {
       return new Vector2(sc,tc);
    }
 
+   // -----------------------------------------------------------------------
+   // SPARSE MATRIX
+   // -----------------------------------------------------------------------   
+
+   // -----------------------------------------------------------------------   
+   /*
+   
+   i guess it would be nice if...
+      we had a common "Matrix" interface
+   
+   
+   */
+   // -----------------------------------------------------------------------   
+   
+   public static class Vector {
+      double[] values;
+      Vector(int len) {
+         this(new double[len]);
+      }
+      Vector(double[] v) {
+         this.values = v;
+      }
+      static Vector fromArray(double[] v) {
+         return new Vector(v);
+      }
+      double dist(Vector v2) {
+         double sumOfSquares = 0;
+         for (int i=0; i < values.length; ++i) {
+            double diff = values[i] - v2.values[i];
+            sumOfSquares += diff*diff;
+         }
+         return Math.sqrt(sumOfSquares);
+      }
+      int length() {
+         return values.length;
+      }
+   }
+   public static class SparseMatrix {
+      int numRows;
+      int numCols;
+      ArrayList<NonzeroElement> nonzeroElements;
+      
+      public static class NonzeroElement {
+         double value;
+         int row;
+         int col;
+      }
+      
+      SparseMatrix(int numRows, int numCols) {
+         this.numRows = numRows;
+         this.numCols = numCols;
+         nonzeroElements = new ArrayList<NonzeroElement>();
+      }
+      double get(int row, int col) {
+         for (NonzeroElement nonzeroElement : nonzeroElements) {
+            if ((nonzeroElement.row == row) && (nonzeroElement.col == col)) {
+               return nonzeroElement.value;
+            }
+         }
+         return 0.0;
+      }
+      void set(int row, int col, double value) {
+         for (NonzeroElement nonzeroElement : nonzeroElements) {
+            if ((nonzeroElement.row == row) && (nonzeroElement.col == col)) {
+               nonzeroElement.value = value;
+            }
+         }
+         NonzeroElement nnz = new NonzeroElement();
+         nonzeroElements.add(nnz);
+         nnz.value = value;
+         nnz.row = row;
+         nnz.col = col;
+      }
+      Vector multiply(Vector v) {
+         if (v.values.length != numCols) {
+            throw new RuntimeException(String.format("%d x %d sparse matrix multiplying %d vector",
+                  numRows, numCols, v.values.length));
+         }
+         Vector result = new Vector(numRows);
+         for (NonzeroElement nonzeroElement : nonzeroElements) {
+            result.values[nonzeroElement.row] += nonzeroElement.value * v.values[nonzeroElement.col];
+         }
+         return result;
+      }
+      Vector solve(Vector b) {
+         if (numRows != numCols) {
+            throw new RuntimeException(String.format("%d x %d sparse matrix cant solve nonsquare",
+                  numRows, numCols));
+         }
+         if (b.values.length != numCols) {
+            throw new RuntimeException(String.format("%d x %d sparse matrix solve given %d length b-vector",
+                  numRows, numCols, b.values.length));
+         }
+         Vector x = new Vector(numRows);
+         for (int i = 0; i < x.values.length; ++i) {
+            x.values[i] = 0.5f;
+         }
+
+         int iteration = 0;
+         double diff = 1.0;
+         while (diff > 0.000001) {
+           Vector Ax = multiply(x);
+           diff = Ax.dist(b);
+           System.out.format("Iteration %d -- %g error\n", iteration++, diff);
+
+           for (int i = 0; i < x.values.length; ++i) {
+              x.values[i] += 1.0*(b.values[i] - Ax.values[i]);
+           }
+         }
+         return x;
+      }
+   }
+   
    // -----------------------------------------------------------------------
    // TESTING
    // -----------------------------------------------------------------------

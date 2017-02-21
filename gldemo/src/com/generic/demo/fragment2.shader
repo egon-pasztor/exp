@@ -42,13 +42,19 @@ vec2 myXYPixel;
 vec2 myUVVal;
 
 float A,B,C,D,E,F,G,H,I;
-
 float pixelsPerDU;
 float pixelsPerDV;
-
 float dxdu,dxdv,dydu,dydv;
 
 bool done;
+
+/*
+float xU,xV,xC;
+float yU,yV,yC;
+float wU,wV,wC;
+*/
+float minU,maxU;
+float minV,maxV;
 
 // ------------------------
 // Basic Info code
@@ -68,7 +74,7 @@ void computeInfo() {
                    v0 * fragBaryCoords.x + v1 * fragBaryCoords.y + v2 * fragBaryCoords.z);
     
     // we can compute the matrix that produces barycentric coordinates for an arbitrary <u,v> point
-    float den = u0 * (v1-v2) + u1 * (v2-v0) + u2 * (v0-v1);
+    float den = u0*v1 - u0*v2 + u1*v2 - u1*v0 + u2*v0 - u2*v1;
     A = (v1-v2)/den;  B = (u2-u1)/den;  C = (u1*v2-u2*v1)/den;
     D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/den;
     G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/den;
@@ -89,6 +95,40 @@ void computeInfo() {
     
     pixelsPerDU = sqrt(dxdu*dxdu + dydu*dydu);
     pixelsPerDV = sqrt(dxdv*dxdv + dydv*dydv);
+    
+    // ---------------------------------------------------
+    // let's try computing the <u,v> -> pixel values diferently:
+    
+    /*
+    float x0 = V0pos.x;
+    float x1 = V1pos.x;
+    float x2 = V2pos.x;
+    
+    xU = A*x0+D*x1+G*x2;
+    xV = B*x0+E*x1+H*x2;
+    xC = C*x0+F*x1+I*x2;
+    
+    float y0 = V0pos.y;
+    float y1 = V1pos.y;
+    float y2 = V2pos.y;
+    
+    yU = A*y0+D*y1+G*y2;
+    yV = B*y0+E*y1+H*y2;
+    yC = C*y0+F*y1+I*y2;
+    
+    float w0 = V0pos.w;
+    float w1 = V1pos.w;
+    float w2 = V2pos.w;
+    
+    wU = A*w0+D*w1+G*w2;
+    wV = B*w0+E*w1+H*w2;
+    wC = C*w0+F*w1+I*w2;
+    */
+
+    minU = min(min(u0,u1),u2);
+    minV = min(min(v0,v1),v2);
+    maxU = max(max(u0,u1),u2);
+    maxV = max(max(v0,v1),v2);
 }
 float geometricDistance(vec2 s, vec2 e) {
 
@@ -137,16 +177,16 @@ vec2 pixelFromPos(float x, float y, float w) {
 // EDGE CODES
 // ------------------------
 
-const vec3 COLORS[8] = vec3[8]  ( vec3( 0.0, 0.0, 0.0 ),
-                                  vec3( 0.0, 0.0, 0.0 ),
+const vec3 COLORS[8] = vec3[8]  ( vec3( 0.4, 0.5, 0.4 ),
                                   vec3( 1.0, 0.5, 0.5 ),
                                   vec3( 0.5, 1.0, 0.5 ),
                                   vec3( 0.5, 0.5, 1.0 ),
                                   vec3( 0.5, 1.0, 1.0 ),
                                   vec3( 1.0, 0.5, 1.0 ),
-                                  vec3( 1.0, 1.0, 0.5 ) );
+                                  vec3( 1.0, 1.0, 0.5 ),
+                                  vec3( 1.0, 1.0, 1.0 ) );
 void set(int colorCode) {
-   vec3 rgb = COLORS[colorCode];
+   vec3 rgb = COLORS[colorCode-1];
    outColor.r = rgb.x;
    outColor.g = rgb.y;
    outColor.b = rgb.z;
@@ -286,6 +326,7 @@ void apply_EdgeAndVertexColors() {
 
 vec2 pixelAtUV(vec2 uv) {
 
+
     // compute barycentric coords for arbitrary <u,v> point
     float lambda0 = A*uv.x + B*uv.y + C;
     float lambda1 = D*uv.x + E*uv.y + F;
@@ -295,21 +336,28 @@ vec2 pixelAtUV(vec2 uv) {
     float point0Xh = lambda0 * V0pos.x + lambda1 * V1pos.x +  lambda2 * V2pos.x;
     float point0Yh = lambda0 * V0pos.y + lambda1 * V1pos.y +  lambda2 * V2pos.y;
     float point0W  = lambda0 * V0pos.w + lambda1 * V1pos.w +  lambda2 * V2pos.w;
-    
+
+/*
+    float point0Xh = xU * uv.x + xV * uv.y + xC;
+    float point0Yh = yU * uv.x + yV * uv.y + yC;
+    float point0W  = wU * uv.x + wV * uv.y + wC;
+  */
+  /*
     // Divide by W and scale to window-size to get the pixel location of <u,v>
     float point0X  = windowWidth  * ((point0Xh/point0W) +1.0)/2.0;
     float point0Y  = windowHeight * ((point0Yh/point0W) +1.0)/2.0;
+    */
     
-    return vec2(point0X, point0Y);
+    return pixelFromPos(point0Xh, point0Yh, point0W);
 }
 float pixelDistanceToULine(float uCritical) {
-    vec2 pixelStart = pixelAtUV(vec2(uCritical, -1.0f));
-    vec2 pixelEnd   = pixelAtUV(vec2(uCritical,  1.0f));
+    vec2 pixelStart = pixelAtUV(vec2(uCritical, minV));
+    vec2 pixelEnd   = pixelAtUV(vec2(uCritical, maxV));
     return geometricDistance(pixelStart, pixelEnd);
 }
 float pixelDistanceToVLine(float vCritical) {
-    vec2 pixelStart = pixelAtUV(vec2(-1.0f, vCritical));
-    vec2 pixelEnd   = pixelAtUV(vec2( 1.0f, vCritical));
+    vec2 pixelStart = pixelAtUV(vec2(minU, vCritical));
+    vec2 pixelEnd   = pixelAtUV(vec2(maxU, vCritical));
     return geometricDistance(pixelStart, pixelEnd);
 }
 
@@ -334,9 +382,9 @@ void apply_SelectedUVLine() {
      return;
    }
    if ((pixelDistanceToSelectedULine < 1.0f) || (pixelDistanceToSelectedVLine < 1.0f)) {
-     outColor.r = 1.0f;
-     outColor.g = 0.0f;
-     outColor.b = 0.0f;         
+     outColor.r = 0.9f;
+     outColor.g = 0.8f;
+     outColor.b = 0.2f;         
      done = true;
      return;
    } 
@@ -364,18 +412,18 @@ float scaleToShadingLevel(float scale) {
    // scale == "how many times larger than the smallest-line-difference is this line?"
 
    if (scale < 3.0f) {
-      return ((scale - 1.0f) / 2.0f) * 0.2f;
+      return ((scale - 1.0f) / 2.0f) * 0.25f;
    }
    if (scale < 9.0f) {
-      return 0.2f + ((scale - 3.0f) / (9.0f - 3.0f)) * 0.2f;
+      return 0.25f + ((scale - 3.0f) / (9.0f - 3.0f)) * 0.25f;
    }
    if (scale < 27.0f) {
-      return 0.4f + ((scale - 9.0f) / (27.0f - 9.0f)) * 0.2f;
+      return 0.5f + ((scale - 9.0f) / (27.0f - 9.0f)) * 0.25f;
    }
    if (scale < 81.0f) {
-      return 0.6f + ((scale - 27.0f) / (81.0f - 27.0f)) * 0.2f;
+      return 0.75f + ((scale - 27.0f) / (81.0f - 27.0f)) * 0.25f;
    }
-   return 0.8f;
+   return 1.0f;
 }
 
 float makeShadingLevel(bool useU, float amt) {
@@ -418,6 +466,9 @@ float getGridShadingLevel(bool useU) {
     shadingLevel = makeShadingLevel(useU, 0.001f);
     if (shadingLevel >= 0.0) return shadingLevel;
 
+    shadingLevel = makeShadingLevel(useU, 0.0005f);
+    if (shadingLevel >= 0.0) return shadingLevel;
+    
     return 0.0f;
 }
 
@@ -647,37 +698,37 @@ void main()
    
    // 1st:  Edge and Vertex Colors
    apply_EdgeAndVertexColors();
-   if (done == true) return;
-   
    apply_SelectedUVLine();
-   if (done == true) return;
    
-   
-   vec2 dd = directionalShading();
-   dd = dd/2;
-   
-   float avg = (dd.x + dd.y)/2;
-   dd.x=avg; dd.y=avg;
-   float baseR = fragColor.r;
-   float baseG = (fragColor.g * (1.0 - dd.x) + 0.3 * dd.x) * (1.0 - dd.y/2.0);
-   float baseB = (fragColor.b * (1.0 - dd.y) + 0.0 * dd.y) * (1.0 - dd.x/3.0);
-   
+   if (done == false) { 
+	   vec2 dd = directionalShading();
+	   dd = dd/2;
+	   
+	   float avg = (dd.x + dd.y)/2;
+	   dd.x=avg; dd.y=avg;
+	   float baseR = fragColor.r;
+	   float baseG = (fragColor.g * (1.0 - dd.x) + 0.3 * dd.x) * (1.0 - dd.y/2.0);
+	   float baseB = (fragColor.b * (1.0 - dd.y) + 0.0 * dd.y) * (1.0 - dd.x/3.0);
+       outColor.r = baseR;
+       outColor.g = baseG;
+       outColor.b = baseB;
+   }
+    
    float frac = getGridShadingLevel();
+   frac = 1.0f - (1.0f-frac)*(1.0f-frac);
    //float frac = 0;
-   frac = 1.0f - ((1.0f - frac) * tnz);
+   //frac = 1.0f - ((1.0f - frac) * tnz);
    
-   outColor.r = baseR * (1.0f-frac);
-   outColor.g = baseG * (1.0f-frac);
-   outColor.b = baseB * (1.0f-frac);
+   outColor.r = (outColor.r * (1.0f-frac) + 1.0 * frac) * tnz;
+   outColor.g = (outColor.g * (1.0f-frac) + 0.0 * frac) * tnz;
+   outColor.b = (outColor.b * (1.0f-frac) + 0.1 * frac) * tnz;
    
 
-
-   
-//   if (inSelectedFace()) {
-//      frac = 0.3;
-//      outColor.r = outColor.r * (1.0f-frac) + 1.0f * frac;
-//      outColor.g = outColor.g * (1.0f-frac) + 0.0f * frac;
-//      outColor.b = outColor.b * (1.0f-frac) + 0.0f * frac;
-//   }
+   if (inSelectedFace()) {
+      frac = 0.3;
+      outColor.r = outColor.r * (1.0f-frac) + 0.0f * frac;
+      outColor.g = outColor.g * (1.0f-frac) + 0.0f * frac;
+      outColor.b = outColor.b * (1.0f-frac) + 1.0f * frac;
+   }
 }
 

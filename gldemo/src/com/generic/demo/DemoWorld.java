@@ -61,11 +61,10 @@ public class DemoWorld extends World {
 //      m.translate(Vector3f.Y.times(7.0f));
       
       // ICO
-      MeshModel ico0 = Geometry.createIco(1);
+      MeshModel ico0 = Geometry.createIco(3);
       ico0.mesh.removeTriangle(ico0.mesh.triangles.get(ico0.mesh.triangles.size()/3));
       mappingModel1 = ico0;
-      ico0.updateMesh(QuadCover.newMesh());
-      QuadCover.run(ico0, 0.0f, 4);
+      QuadCover.run("ICO1 WITH ONE MISSING TRIANGLE", ico0, 0.0f, 4);
       Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
       m = new ShaderExecutingModel(ico0Instance, ico0);
       root.children.add(m);
@@ -74,8 +73,7 @@ public class DemoWorld extends World {
       MeshModel tor0 = Geometry.createTorus(2.0f, 0.5f, 53, 23);
       tor0.mesh.removeTriangle(tor0.mesh.triangles.get(tor0.mesh.triangles.size()/4));
       mappingModel3 = tor0;
-      tor0.updateMesh(QuadCover.newMesh());
-      QuadCover.run(tor0, -70.0f, 60);
+      QuadCover.run("DONUT WITH ONE MISSING TRIANGLE", tor0, -2.2f, 60);
       Shader.Instance tor0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
       m = new ShaderExecutingModel(tor0Instance, tor0);
       root.children.add(m);
@@ -84,7 +82,7 @@ public class DemoWorld extends World {
       
       MeshModel bunnyModel = new MeshModel(bunny);
       mappingModel2 = bunnyModel;
-      QuadCover.run(bunnyModel, 8.0f, 80);
+      QuadCover.run("BUNNY", bunnyModel, 2.2f, 80);
       Shader.Instance bunnyInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
       m = new ShaderExecutingModel(bunnyInstance, bunnyModel);
       root.children.add(m);

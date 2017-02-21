@@ -41,6 +41,9 @@ public class Mesh {
          public INDEXABLE get (int index) {
             return items.get(index);
          }
+         public void set (int index, INDEXABLE item) {
+            items.set(index, item);
+         }
          public void clear() {
             items.clear();
          }
@@ -121,11 +124,18 @@ public class Mesh {
       public void setPosition(Vector3 position) { this.position = position; }
       private Vector3 position;
 
+      
+      // TODO: no-one cares about "valence", it shouldn't be in the
+      // "main" Mesh class.  But if some code did want to calculate a value
+      // for each Vertex and cache it with the Vertex, what would be the
+      // right way to do that?
+      
+      
       // Valence
       public int getValence() {
          return valence;
       }
-      private void update() {
+      public void computeValence() {
          valence = 0;            
          DirectedEdge outgoingEdge = oneOutgoingEdge;
          do {
@@ -184,7 +194,7 @@ public class Mesh {
       public float getArea() {
          return area;
       }
-      private void update() {
+      private void computeNormalAndArea() {
          Vector3 cross = edges[0].getVector().cross(edges[1].getVector());
          float crossLength = cross.length();
          area = 0.5f * crossLength;
@@ -234,7 +244,7 @@ public class Mesh {
       public float getLength() {
          return length;
       }
-      private void update() {
+      public void computeLength() {
          length = first.getVector().length();
       }
       float length;

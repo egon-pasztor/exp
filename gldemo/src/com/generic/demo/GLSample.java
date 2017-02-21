@@ -23,7 +23,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 
@@ -31,7 +30,6 @@ import com.generic.base.Camera;
 import com.generic.base.Shader;
 import com.generic.base.Geometry;
 import com.generic.base.Mesh;
-import com.generic.base.QuadCover;
 import com.generic.base.World;
 import com.generic.base.Algebra.*;
 import com.generic.base.Algebra;
@@ -860,7 +858,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // ------- loading the bunny
    
    private Mesh loadBunny() {
-      Mesh mesh = QuadCover.newMesh();      
+      Mesh mesh = new Mesh();
       mesh.loadFromString(loadStringFileFromCurrentPackage("bunny.obj"));
       
       System.out.format("Loaded bunny %d vertices, %d edges, %d triangles, %d boundary-edges\n",
