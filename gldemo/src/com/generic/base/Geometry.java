@@ -49,6 +49,8 @@ public class Geometry {
          
          setManagedBuffer(Shader.BARY_COORDS,    newBaryCoordsArrayManager(mesh));
          setManagedBuffer(Shader.COLOR_ARRAY,    newColorArrayManager(mesh));
+         
+         setManagedBuffer(Shader.TRIANGLE_INDEX,    newTriangleIndexArrayManager(mesh));         
       }
 
       public Mesh.Vertex getOrAddVertex(Vector3 position) {         
@@ -145,6 +147,21 @@ public class Geometry {
       };
    }
 
+   private static Shader.ManagedBuffer newTriangleIndexArrayManager(final Mesh mesh) {
+      return new Shader.ManagedFloatBuffer(1) {
+         @Override public int getNumElements() { return mesh.triangles.size() * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            int numTriangles = mesh.triangles.size();
+            for (Mesh.Triangle t : mesh.triangles) {
+               int index = t.getIndex();
+               array[pPos++] = (((float)index)+0.5f)/numTriangles;
+               array[pPos++] = (((float)index)+0.5f)/numTriangles;
+               array[pPos++] = (((float)index)+0.5f)/numTriangles;
+            }
+         }
+      };
+   }
    private static Shader.ManagedBuffer newVertexPositionArrayManager(final Mesh mesh, final int index) {
       return new Shader.ManagedFloatBuffer(4) {
          @Override public int getNumElements() { return mesh.triangles.size() * 3; }
@@ -745,7 +762,61 @@ public class Geometry {
       };
    }
    */
-   
+   public static FloatImage createMeshInfoImage(MeshModel model) {
+      FloatImage result = new FloatImage("meshInfo", 9, model.mesh.triangles.size());
+      
+      int row = 0;
+      for (Mesh.Triangle tb : model.mesh.triangles) {
+         Triangle2 texCoords = ((TextureCoordProvider) tb).getTextureCoords();
+         {
+            Vector2 p0 = texCoords.v0;
+            Vector2 p1 = texCoords.v1;
+            Vector2 p2 = texCoords.v2;
+            
+            double A,B,C,D,E,F,G,H,I;
+
+            double u0 = p0.x, v0 = p0.y;
+            double u1 = p1.x, v1 = p1.y;
+            double u2 = p2.x, v2 = p2.y;
+            
+            double den = u0*v1 - u0*v2 + u1*v2 - u1*v0 + u2*v0 - u2*v1;
+            A = (v1-v2)/den;  B = (u2-u1)/den;  C = (u1*v2-u2*v1)/(den);
+            D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/(den);
+            G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/(den);
+
+//            result.set((row%2==0)?0:1, row, -1.0f);
+//            result.set((row%2==0)?1:0, row, 0);
+            
+//            result.set(0, row, Float.floatToIntBits((float)A));
+//            result.set(1, row, Float.floatToIntBits((float)B));
+            //result.set(0, row, (float)A);
+/*
+             result.set(0, row, (row%2==0) ? 2.0f : 0.0f);
+ 
+            result.set(1, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(2, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(3, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(4, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(5, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(6, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(7, row, (row%2==0) ? 2.0f : 0.0f);
+            result.set(8, row, (row%2==0) ? 2.0f : 0.0f);
+ */
+            result.set(0, row, (float)A);
+            result.set(1, row, (float)B);
+            result.set(2, row, (float)C);
+            result.set(3, row, (float)D);
+            result.set(4, row, (float)E);
+            result.set(5, row, (float)F);
+            result.set(6, row, (float)G);
+            result.set(7, row, (float)H);
+            result.set(8, row, (float)I);
+         }
+         
+         row++;
+      }
+      return result;
+   }
    
    // -----------------------------------------------------------------------
    // Apply modifications..

@@ -215,6 +215,18 @@ public class World {
       }
       return textures;
    }
+   public static HashSet<Shader.ManagedFloatTexture> getAllFloatTextures(Collection<Shader.Instance> shaderInstances) {
+      HashSet<Shader.ManagedFloatTexture> textures = new HashSet<Shader.ManagedFloatTexture>();
+      for (Shader.Instance shaderInstance : shaderInstances) {
+         for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
+            Shader.Variable.Binding binding = entry.getValue();
+            if (binding instanceof Shader.Variable.Sampler.Binding2) {
+               textures.add(((Shader.Variable.Sampler.Binding2) binding).texture);
+            }
+         }
+      }
+      return textures;
+   }
    
    
    // ---------------------------------------------

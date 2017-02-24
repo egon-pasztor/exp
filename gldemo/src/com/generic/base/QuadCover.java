@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
+import java.util.TreeSet;
 
 public class QuadCover {
 
@@ -52,6 +53,8 @@ public class QuadCover {
          Vertex v2 = (Vertex) getFirst().end();            
          return ((v1.cutGraphValence == 1) || (v2.cutGraphValence == 1));
       }
+      
+      public int cutPathIndex;
    }
    public static class Boundary extends Mesh.Boundary {
       // Every boundary has an associated <INT>
@@ -165,17 +168,18 @@ public class QuadCover {
       };
    }
    
-   public static void run(String name, MeshModel model, float xOffset, int div) {
+   public static void run(String name, MeshModel model, float xOffset) {
       model.updateMesh(newMesh());
       model.setManagedBuffer(Shader.DIRECTION_SHADING_ARRAY, newDirectionArrayManager(model.mesh));
       model.setManagedBuffer(Shader.COLOR_INFO, newTriangleColoringInfo(model.mesh));
       
       System.out.format("\nQUAD-COVER on \"%s\"\n",  name);
-      setTextureCoords(model.mesh, xOffset);
+      
+      boolean useQuadCoverCoords = true;
+      setTextureCoords(model.mesh, xOffset, useQuadCoverCoords);
       
       // Organizer.setTextureCoords doesn't actually set anything yet,
       // so here's some "default" texture setting code:
-      boolean useQuadCoverCoords = true;
       if (useQuadCoverCoords) {
          Vector2 offset = new Vector2(xOffset,0.0f);
          for (Mesh.Triangle tb : model.mesh.triangles) {
@@ -193,10 +197,12 @@ public class QuadCover {
          float margin = 0.1f;
          
          int tCount = 0;
+         int div = (int) Math.sqrt(model.mesh.triangles.size());
+         
          for (Mesh.Triangle tb : model.mesh.triangles) {
             int yCount = tCount/div;
             int xCount = tCount - (yCount*div);
-            Vector2 base = new Vector2(xOffset + margin + (1.0f+margin) * xCount, margin + (1.0f+margin) * yCount); 
+            Vector2 base = new Vector2(xOffset * 50 + margin + (1.0f+margin) * xCount, margin + (1.0f+margin) * yCount); 
                   
             Triangle t = (Triangle) tb;
             t.setTextureCoords(base.plus(p0), base.plus(p1), base.plus(p2));
@@ -461,8 +467,7 @@ public class QuadCover {
    */
    
    
-   
-   public static void setTextureCoords(Mesh mesh, float texXOffset) {
+   public static void setTextureCoords(Mesh mesh, float texXOffset, boolean doFloaterCoords) {
       System.out.format("Starting with a MESH with %d triangles, %d vertices, %d edges, %d boundaries\n", 
             mesh.triangles.size(), mesh.vertices.size(), mesh.edges.size(), mesh.boundaries.size());
       
@@ -472,16 +477,18 @@ public class QuadCover {
       // CUT-GRAPH
       // ####################################################################
       
-      // STEP 1:  compute "dualLen" for each non-boundary edge.
+      // STEP 1:  compute the length of every edge and the "dualLen"
+      //          for every non-boundary edge.
       
       for (Mesh.Triangle tb : mesh.triangles) {
          Triangle t = (Triangle) tb;
          t.center = (t.vertices[0].getPosition()
-               .plus(t.vertices[0].getPosition())
-               .plus(t.vertices[0].getPosition())).times(1.0f/3.0f);
+               .plus(t.vertices[1].getPosition())
+               .plus(t.vertices[2].getPosition())).times(1.0f/3.0f);
       }
       for (Mesh.Edge eb : mesh.edges) {
          Edge e = (Edge) eb;
+         e.computeLength();
          if (!e.isBoundary()) {
             Triangle t1 = (Triangle) e.getFirst().getTriangle();
             Triangle t2 = (Triangle) ((Mesh.Triangle.Edge) e.getSecond()).getTriangle();
@@ -616,121 +623,399 @@ public class QuadCover {
       // but perhaps not a good one.   We'd like to improve it...
       // --------------------------------------------------------------
       
+      ArrayList<Mesh.Triangle.Edge> boundaryLoop = new ArrayList<Mesh.Triangle.Edge>();
+      boolean furtherOptimizationPossible = true;
+      boolean cuttingNeeded = false;
+      
+      // We/re going to iteratively improve the longest path in the cut graph,
+      // so we need to divide the cut-graph into paths....
+      
+      do {
+         furtherOptimizationPossible = false;
+               
+         // Find a cut-graph edge to start with:
+         Mesh.Triangle.Edge startingEdge = null;
+         for (Mesh.Edge eb : mesh.edges) {
+            Edge e = (Edge) eb;
+            if (e.inCutGraph) {
+               startingEdge = e.getFirst();
+               break;
+            }
+         }
+         if (startingEdge == null) {
+            throw new RuntimeException("hmm, no cut graph edges at all?");
+         }
+
+         // Assemble "boundaryLoop", a list of triangle edges in sequence around 
+         // the common boundary that we'll get after the cut
+         
+         boundaryLoop.clear();
+         Mesh.Triangle.Edge currentEdge = startingEdge;
+         do {
+            boundaryLoop.add(currentEdge);
+            
+            Mesh.DirectedEdge nextEdge = currentEdge.prevAroundEnd();
+            while (!((Edge)nextEdge.getEdge()).inCutGraph) {
+               nextEdge = nextEdge.prevAroundEnd();
+            }
+            nextEdge = nextEdge.opposite();
+            
+            currentEdge = (Mesh.Triangle.Edge) nextEdge;
+         } while (currentEdge != startingEdge);
+
+         
+         // We know all the vertices connected to the cut graph have valence of 2 or greater,
+         // since we removed all the edges that connected to a valence 1 vertex.
+         //
+         //  
+         
+         
+         // Do any of the vertices in the cut-graph have valance > 2?  Find one.
+         boolean hasCriticalPoints = false;
+         int criticalPointIndex = 0;
+         int numCriticalPoints = 0;
+         int numBoundaryEdges = 0;
+         for (int i = 0; i < boundaryLoop.size(); ++i) {
+            if (((Vertex)boundaryLoop.get(i).start()).cutGraphValence > 2) {
+               if (!hasCriticalPoints) {
+                  criticalPointIndex = i;
+                  hasCriticalPoints = true;
+               }               
+               ((Vertex)boundaryLoop.get(i).start()).colorCode = 1;
+               numCriticalPoints++;
+            }
+            if (boundaryLoop.get(i).getEdge().isBoundary()) {
+               numBoundaryEdges++;
+            }
+         }
+         
+         System.out.format("So... we have %d directedEdges in boundaryLoop -- with %d critical points, %d boundaryEdges\n", 
+               boundaryLoop.size(), numCriticalPoints, numBoundaryEdges);
+
+         
+         if (hasCriticalPoints) {
+            cuttingNeeded = true;
+            
+            // Make a list of the individual cut paths within the cut graph
+            // by starting from the (valence>2) point at "criticalPointIndex"
+            // and following the boundaryLoop until the next (valence>2) point..
+            
+            for (int i = 0; i < boundaryLoop.size(); ++i) {
+               ((Edge)(boundaryLoop.get(i).getEdge())).cutPathIndex = -1;
+            }
+            
+            class CutPath {
+               public CutPath(int index, boolean isBoundary) {
+                  this.index = index;
+                  this.isBoundary = isBoundary;
+                  edges = new ArrayList<Edge>();
+               }
+               
+               public final int index;
+               public final boolean isBoundary;
+               public ArrayList<Edge> edges = new ArrayList<Edge>();
+               public float length;
+            }
+            
+            TreeSet<CutPath> cutPaths = new TreeSet<CutPath>(new Comparator<CutPath>(){
+               @Override
+               public int compare(CutPath o1, CutPath o2) {
+                  return Float.compare(o2.length, o1.length);
+               }
+            });
+            
+            int cutPathIndex = 0;
+            CutPath currentCutPath = null;
+            for (int i = 0; i < boundaryLoop.size(); ++i) {
+               int index = (criticalPointIndex + i) % boundaryLoop.size();
+               
+               Edge ithEdge = ((Edge)(boundaryLoop.get(index).getEdge()));
+//               System.out.format("In edge %d we are %s -- curPathIndex = %d\n",
+//                     ithEdge.getIndex(), ithEdge.isBoundary() ? "boundary":"interior",
+//                           ithEdge.cutPathIndex);
+               
+               if (ithEdge.cutPathIndex == -1) {
+                  
+                  if (currentCutPath == null) {
+                     currentCutPath = new CutPath(cutPathIndex++, ithEdge.isBoundary());
+                  }
+                  ithEdge.cutPathIndex = currentCutPath.index;
+                  ithEdge.colorCode = currentCutPath.index+1;
+                  currentCutPath.edges.add(ithEdge);
+                  currentCutPath.length += ithEdge.length;
+               }
+               if (((Vertex)boundaryLoop.get(index).end()).cutGraphValence > 2) {
+                  if (currentCutPath != null) {
+                     cutPaths.add(currentCutPath);
+                     currentCutPath = null;
+                  }
+               }
+            }
+            
+            System.out.format("FOUND %d cut-paths\n",cutPaths.size());
+            for (CutPath path : cutPaths) {
+               System.out.format("Path of length %g, %s\n",
+                     path.length, path.isBoundary ? "boundary" : "interior");
+            }
+            System.out.format("End of cut-path list\n");
+            
+            // -------------------------------------------------------------------
+            // Now, then, for each cutPath, try to optimize it.
+            // If we can find a shorter way to connect the two ends of this cutPath,
+            //    we shrink the cutPath and drop back to the start,
+            //    (furtherOptimizationPossible=true).
+            // We don't exit until we've tried to optimize each cut path in order
+            // of length and there's been no change to any path.
+            // -------------------------------------------------------------------
+            
+            boolean pathWasShrunk = false;
+            for (CutPath path : cutPaths) {
+               if (path.isBoundary) continue;
+               
+               Mesh.Triangle.Edge firstEdge;
+               Mesh.Triangle.Edge lastEdge;
+               
+               if (path.edges.size() == 1) {
+                  firstEdge = path.edges.get(0).getFirst();
+                  lastEdge  = (Mesh.Triangle.Edge)firstEdge.opposite();
+               } else {
+                  Edge e0  = path.edges.get(0);
+                  Edge e1  = path.edges.get(1);
+                  firstEdge = ((e0.getFirst().end() == e1.getFirst().start()) ||
+                               (e0.getFirst().end() == e1.getFirst().end())) 
+                             ? e0.getFirst() : (Mesh.Triangle.Edge)e0.getSecond();
+                             
+                  Edge eN_1  = path.edges.get(path.edges.size()-1);
+                  Edge eN_2  = path.edges.get(path.edges.size()-2);
+                  lastEdge = ((eN_1.getFirst().start() == eN_2.getFirst().start()) ||
+                              (eN_1.getFirst().start() == eN_2.getFirst().end()))
+                             ? eN_1.getFirst() : (Mesh.Triangle.Edge)eN_1.getSecond();
+               }
+               
+               // ------------------------------------------------------
+               // OPTIMIZE a single INTERIOR cut PATH
+               // ------------------------------------------------------
+               //
+               // so, we expand two FRONTIERS from either SIDE of the cut-path
+               // into the available space...
+               //
+               // the cut graph is identified by edges whose "cutPathIndex" is "path.index"
+               // a better (shorter) cut graph may NOT touch any vertices indicent to 
+               // edges from OTHER cut graph paths...
+               // ... except at the start and the end.
+               //
+               // the first step is to collect the possible "start" and "end" points
+               // for this path.   we imagine SLIDING the path start along the
+               // other cut-graph path it's connected to...
+               //
+               
+               // ------------------------------------------------------
+               // COLLECT all the possible path "start" edges...
+               // ------------------------------------------------------
+               ArrayList<Mesh.Triangle.Edge> possibleStartEdges = new ArrayList<Mesh.Triangle.Edge>();
+               
+               // Obviously "firstEdge" is a possible start edge...
+               // But also are all other non-cut-path edges
+               //    starting at the same start-vertex as "firstEdge",
+               //    between other cut-graph-edges...
+               
+               Mesh.DirectedEdge nextCutGraphEdgeAroundStart = firstEdge.nextAroundStart();
+               while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
+                  nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
+               }
+               Mesh.DirectedEdge prevCutGraphEdgeAroundStart = firstEdge.prevAroundStart();
+               while (!((Edge)prevCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
+                  prevCutGraphEdgeAroundStart = prevCutGraphEdgeAroundStart.prevAroundStart();
+               }
+               
+               // We want to TRAVERSE a LOOP, going along the "prevCutGraphEdgeAroundStart"
+               // ....
+
+               // Gather Inward Pointing Edges along either side:
+               
+               ArrayList<Mesh.Triangle.Edge> possibleFirstEdges = new ArrayList<Mesh.Triangle.Edge>();
+               ArrayList<Mesh.Triangle.Edge> possibleLastEdges = new ArrayList<Mesh.Triangle.Edge>();
+               /*
+               for (int i = 0; i < 2; i++) {
+                  Mesh.DirectedEdge firstEdgeInLoop = nextCutGraphEdgeAroundStart.opposite();
+
+                  // we are walking around a loop,
+                  //    one edge of which is "nextCutGraphEdgeAroundStart.opposite()"
+                  //    the next edge is "prevCutGraphEdgeAroundStart"
+                  //
+                  // (note the odd naming... the edges are called "next" and "prev"
+                  // because they are the next and previous cut-graph-edges 
+                  // encountered when rotating CounterCloseWise around the vertex)
+                  //
+                  Mesh.DirectedEdge nCutGraphEdge = nextCutGraphEdgeAroundStart;
+                  Mesh.DirectedEdge pCutGraphEdge = prevCutGraphEdgeAroundStart;
+
+                  do {
+                     // we label as a "possibleStartEdge" all outgoing edges around "pCutGraphEdge.start()"
+                     // starting from pCutGraphEdge (but not including it),
+                     // and ending at nCutGraphEdge (but not including it),
+                     //
+                     Mesh.DirectedEdge e = pCutGraphEdge.nextAroundStart();
+                     while (e != nCutGraphEdge) {
+                        // we believe that we will never encounter a boundary edge because of where the cut graph edges are...
+                        possibleFirstEdges.add((Mesh.Triangle.Edge)e);
+                        e = e.nextAroundStart();
+                     }
+                     
+                     // Now, if "pCutGraphEdge" is "firstEdgeInLoop", then we've 
+                  
+                  
+                  
+                  
+               }
+               */
+               
+               
+            }
+
+            if (pathWasShrunk) {
+               furtherOptimizationPossible = true;
+               System.out.format("REPEATING -----\n");
+            } else {
+               System.out.format("EXITING-OPTIMIZATION ----- (no changes after looking at each edge)\n");
+            }
+         } else {
+            System.out.format("SKIPPING-OPTIMIZATION ----- (no points above 2)\n");
+         }
+      } while(furtherOptimizationPossible);
+      
+      
       
       // --------------------------------------------------------------
       // Let's assume we've done all we can to improve the cut graph..
       // --------------------------------------------------------------
 
-      
-      // STEP 6:  Actually CUT the mesh on the edges that remain
-      
-      // Step 6a:  Find a cut-graph edge to start with:
-      Mesh.Triangle.Edge startingEdge = null;
-      for (Mesh.Edge eb : mesh.edges) {
-         Edge e = (Edge) eb;
-         if (e.inCutGraph) {
-            startingEdge = e.getFirst();
-            break;
-         }
-      }
-      if (startingEdge == null) {
-         throw new RuntimeException("hmm, no edge remaining in cut graph?");
-      }
-      
-      // Step 6b:  WALK around the cut graph edges
-      ArrayList<Mesh.Triangle.Edge> boundaryLoop = new ArrayList<Mesh.Triangle.Edge>();
-      
-      Mesh.Triangle.Edge currentEdge = startingEdge;
-      do {
-         boundaryLoop.add(currentEdge);
+      if (cuttingNeeded) {
+
+         // Do we need to recompute boundaryLoop?
+         // It's possible we already HAVE "boundaryLoop" filled in correctly?..
          
-         Mesh.DirectedEdge nextEdge = currentEdge.prevAroundEnd();
-         while (!((Edge)nextEdge.getEdge()).inCutGraph) {
-            nextEdge = nextEdge.prevAroundEnd();
-         }
-         nextEdge = nextEdge.opposite();
-         
-         currentEdge = (Mesh.Triangle.Edge) nextEdge;
-      } while (currentEdge != startingEdge);
-
-      
-      // Step 6c:  Split each vertex on the cut graph.
-
-      HashSet<Vertex> verticesInCutGraph = new HashSet<Vertex>();
-      int extraVertices = 0;
-      HashMap<Mesh.Triangle.Edge, Vertex> splitVerticesAlongCutGraph = new HashMap<Mesh.Triangle.Edge, Vertex>();
-      for (Mesh.Triangle.Edge e : boundaryLoop) {
-         Vertex v = (Vertex) e.start();
-         if (!verticesInCutGraph.contains(v)) {
-            verticesInCutGraph.add(v);
-            splitVerticesAlongCutGraph.put(e, v);
-         } else {
-            Vertex splitV = (Vertex) mesh.addVertex();
-            extraVertices++;
-            splitV.setPosition(v.getPosition());
-            splitVerticesAlongCutGraph.put(e, splitV);
-         }
-      }
-      System.out.format("We went ALL THE WAY AROUND in %d directedEdges, creating %d extra Vertices\n", 
-            boundaryLoop.size(), extraVertices);
-      
-
-      // Step 6d:  Make a list of the triangles we will DELETE
-      
-      HashSet<Mesh.Triangle> trianglesBorderingCutGraph = new HashSet<Mesh.Triangle>();
-      for (Mesh.Vertex v : verticesInCutGraph) {
-         for (Mesh.DirectedEdge e : v.outgoingEdges()) {
-            if (!e.isBoundary()) {
-               trianglesBorderingCutGraph.add(((Mesh.Triangle.Edge)e).getTriangle());
+         // Step 6a:  Find a cut-graph edge to start with:
+         Mesh.Triangle.Edge startingEdge = null;
+         for (Mesh.Edge eb : mesh.edges) {
+            Edge e = (Edge) eb;
+            if (e.inCutGraph) {
+               startingEdge = e.getFirst();
+               break;
             }
          }
-      }
-      
-      // Step 6e:  For each triangle we will delete, identify the triangle that will replace it
-      
-      class VertexTriple {
-         public VertexTriple() {
-            vertices = new Vertex[3];
+         if (startingEdge == null) {
+            throw new RuntimeException("hmm, no edge remaining in cut graph?");
          }
-         Vertex[] vertices;
-      }
-      ArrayList<VertexTriple> replacementTrianglesVertices = new ArrayList<VertexTriple>();
-      for (Mesh.Triangle t : trianglesBorderingCutGraph) {
-         VertexTriple replacementTriangleVertices = new VertexTriple();
-         for (int i = 0; i < 3; i++) {
-            Vertex v = (Vertex) t.vertices[i];
-            Vertex splitV = v;
+         
+         // Step 6b:  WALK around the cut graph edges
+
+         boundaryLoop.clear();
+         Mesh.Triangle.Edge currentEdge = startingEdge;
+         do {
+            boundaryLoop.add(currentEdge);
             
-            if (verticesInCutGraph.contains(v)) {
-               //
-               Mesh.Triangle.Edge outgoingFromVInT = t.edges[i].prev();
-               Mesh.Triangle.Edge outgoingFromV = outgoingFromVInT;
-               while (!((Edge)outgoingFromV.getEdge()).inCutGraph) {
-                  Mesh.DirectedEdge next = outgoingFromV.prevAroundStart();
-                  
-                  if (next.isBoundary()) {
-                     throw new RuntimeException("We hit a boundary on a vertex in the cut-graph without finding the cut graph");
-                  }
-                  if (next == outgoingFromVInT) {
-                     throw new RuntimeException("We went all the way around a vertex in the cut-graph without finding the cut graph");
-                  }
-                  outgoingFromV = (Mesh.Triangle.Edge)next;
-               }
-               splitV = splitVerticesAlongCutGraph.get(outgoingFromV);
+            Mesh.DirectedEdge nextEdge = currentEdge.prevAroundEnd();
+            while (!((Edge)nextEdge.getEdge()).inCutGraph) {
+               nextEdge = nextEdge.prevAroundEnd();
             }
-            replacementTriangleVertices.vertices[i] = splitV;
+            nextEdge = nextEdge.opposite();
+            
+            currentEdge = (Mesh.Triangle.Edge) nextEdge;
+         } while (currentEdge != startingEdge);
+       
+         
+         // -------------------------------------------
+         // "cutting" the mesh
+         // -------------------------------------------
+         
+         // SPLIT each vertex on the cut graph.
+
+         int extraVertices = 0;
+         HashSet<Vertex> verticesInCutGraph = new HashSet<Vertex>();
+         HashMap<Mesh.Triangle.Edge, Vertex> splitVerticesAlongCutGraph = new HashMap<Mesh.Triangle.Edge, Vertex>();
+         
+         for (Mesh.Triangle.Edge e : boundaryLoop) {
+            Vertex v = (Vertex) e.start();
+            if (!verticesInCutGraph.contains(v)) {
+               verticesInCutGraph.add(v);
+               splitVerticesAlongCutGraph.put(e, v);
+            } else {
+               Vertex splitV = (Vertex) mesh.addVertex();
+               splitV.colorCode = v.colorCode;
+               extraVertices++;
+               splitV.setPosition(v.getPosition());
+               splitVerticesAlongCutGraph.put(e, splitV);
+            }
          }
-         replacementTrianglesVertices.add(replacementTriangleVertices);
-      }
-      
-      // Step 6f:  Finally do the triangle deletions and additions
-      
-      for (Mesh.Triangle t : trianglesBorderingCutGraph) {
-         mesh.removeTriangle(t);
-      }
-      for (VertexTriple t : replacementTrianglesVertices) {
-         Triangle tr = (Triangle) mesh.addTriangle(t.vertices[0],t.vertices[1],t.vertices[2]);
-         //tr.colorCode = 3;
+         System.out.format("We went ALL THE WAY AROUND in %d directedEdges, creating %d extra Vertices\n", 
+               boundaryLoop.size(), extraVertices);
+         
+
+         // Make a list of the triangles we will DELETE
+         
+         HashSet<Mesh.Triangle> trianglesBorderingCutGraph = new HashSet<Mesh.Triangle>();
+         for (Mesh.Vertex v : verticesInCutGraph) {
+            for (Mesh.DirectedEdge e : v.outgoingEdges()) {
+               if (!e.isBoundary()) {
+                  trianglesBorderingCutGraph.add(((Mesh.Triangle.Edge)e).getTriangle());
+               }
+            }
+         }
+         
+         // Step 6e:  For each triangle we will delete, identify the triangle that will replace it
+         
+         class VertexTriple {
+            public VertexTriple() {
+               vertices = new Vertex[3];
+               edgeColorCodes = new int[3];
+            }
+            Vertex[] vertices;
+            int[] edgeColorCodes;
+         }
+         ArrayList<VertexTriple> replacementTrianglesVertices = new ArrayList<VertexTriple>();
+         for (Mesh.Triangle t : trianglesBorderingCutGraph) {
+            VertexTriple replacementTriangleVertices = new VertexTriple();
+            
+            for (int i = 0; i < 3; i++) {
+               replacementTriangleVertices.edgeColorCodes[i] = ((Edge) t.edges[i].getEdge()).colorCode;
+               
+               Vertex v = (Vertex) t.vertices[i];
+               Vertex splitV = v;
+               
+               if (verticesInCutGraph.contains(v)) {
+                  //
+                  Mesh.Triangle.Edge outgoingFromVInT = t.edges[i].prev();
+                  Mesh.Triangle.Edge outgoingFromV = outgoingFromVInT;
+                  while (!((Edge)outgoingFromV.getEdge()).inCutGraph) {
+                     Mesh.DirectedEdge next = outgoingFromV.prevAroundStart();
+                     
+                     if (next.isBoundary()) {
+                        throw new RuntimeException("We hit a boundary on a vertex in the cut-graph without finding the cut graph");
+                     }
+                     if (next == outgoingFromVInT) {
+                        throw new RuntimeException("We went all the way around a vertex in the cut-graph without finding the cut graph");
+                     }
+                     outgoingFromV = (Mesh.Triangle.Edge)next;
+                  }
+                  splitV = splitVerticesAlongCutGraph.get(outgoingFromV);
+               }
+               replacementTriangleVertices.vertices[i] = splitV;
+            }
+            replacementTrianglesVertices.add(replacementTriangleVertices);
+         }
+         
+         // Step 6f:  Finally do the triangle deletions and additions
+         
+         for (Mesh.Triangle t : trianglesBorderingCutGraph) {
+            mesh.removeTriangle(t);
+         }
+         for (VertexTriple t : replacementTrianglesVertices) {
+            Triangle tr = (Triangle) mesh.addTriangle(t.vertices[0],t.vertices[1],t.vertices[2]);
+            for (int i = 0; i < 3; i++) {
+               ((Edge) tr.edges[i].getEdge()).colorCode = t.edgeColorCodes[i];
+            }
+         }
       }
       
       
@@ -787,7 +1072,9 @@ public class QuadCover {
       // -----------------------------------------------------------
 
       for (Mesh.Edge eb : mesh.edges) {
-         ((Edge) eb).colorCode = 1;
+         if (((Edge) eb).colorCode == 0) {
+            ((Edge) eb).colorCode = 1;
+         }
       }
       for (Mesh.Boundary eb : mesh.boundaries) {
          ((Boundary) eb).colorCode = 2;
@@ -815,298 +1102,250 @@ public class QuadCover {
       // FLOATER COORDS
       // ####################################################################
 
-      
-      // -----------------------------------------------------------
-      // Locate internal and boundary vertices
-      // -----------------------------------------------------------
-      
-      ArrayList<Vertex> internalVertices = new ArrayList<Vertex>();
-      ArrayList<Vertex> boundaryVertices = new ArrayList<Vertex>();
-      
-      for (Mesh.Vertex vb : mesh.vertices) {
-         Vertex v = (Vertex) vb;
-         
-         v.onBoundary = false;
-         if (v.oneOutgoingEdge() == null) {
-            throw new RuntimeException("Mesh error, vertex with no outgoing edges");
-         }
-         for (Mesh.DirectedEdge outgoingEdge : v.outgoingEdges()) {
-            if (outgoingEdge.isBoundary()) {
-               v.onBoundary = true;
-            }
-         }
-         if (!v.onBoundary) {
-            internalVertices.add(v);
-         }
-      }
-      
-      // -----------------------------------------------------------
-      // Confirm the boundary is now a single loop..
-      // -----------------------------------------------------------
-      
-      int numBoundaries = mesh.boundaries.size();
-      if (numBoundaries == 0) {
-         throw new RuntimeException("Mesh error, no boundaries after cut-graph cutting");
-      }
-      Mesh.Boundary eStart = mesh.boundaries.get(0);
-      int boundariesPassed = 0;
-      Mesh.Boundary e = eStart;
-      do {
-         boundariesPassed++;
-         e = e.next();
-         
-         boundaryVertices.add((Vertex)e.start()); 
-         
-      } while (e != eStart);
-      if (numBoundaries != boundariesPassed) {
-         throw new RuntimeException(String.format("Mesh error, boundariePassed = %d but numBoundaries = %d",
-               boundariesPassed, numBoundaries));
-      }
-            
-      System.out.format("Okay, our new SINGLE-LOOP mesh has %d triangles, %d edges, %d vertices, %d boundary edges -- %d vertices on the boundary, %d vertices internal\n",
-            mesh.triangles.size(), mesh.edges.size(), mesh.vertices.size(), mesh.boundaries.size(),
-            boundaryVertices.size(),
-            internalVertices.size());
-      
-      // -----------------------------------------------------------
-      // Renumber the vertices -- now the FIRST "internalVertices.size()" vertices are the internal ones...
-      // followed by "boundaryVertices.size()" boundary ones.
-      // -----------------------------------------------------------
-      
-      int newIndex = 0;
-      for (Vertex v : internalVertices) {
-         v.setIndex(newIndex);
-         mesh.vertices.set(newIndex, v);
-         newIndex++;
-      }
-      for (Vertex v : boundaryVertices) {
-         v.setIndex(newIndex);
-         mesh.vertices.set(newIndex, v);
-         newIndex++;
-      }
-      for (Mesh.Vertex vb : mesh.vertices) {
-         vb.computeValence();
-      }
-      for (Mesh.Edge eb : mesh.edges) {
-         eb.computeLength();
-      }
-      
-      // Compute face ANGLES
-      
-      for (Mesh.Triangle tb : mesh.triangles) {
-         Triangle t = (Triangle) tb;
-         t.angles = new float[3];
-
-//         System.out.format("TRIANGLE %d lengths (%g,%g,%g)\n", t.getIndex(),
-//               t.edges[0].getEdge().getLength(),
-//               t.edges[1].getEdge().getLength(),
-//               t.edges[2].getEdge().getLength());
-               
-
-         for (int i = 0; i < 2; ++i) {
-            Vertex v = (Vertex) t.vertices[i];
-            Mesh.Triangle.Edge eAdjacentR = t.edges[i].next();
-            Mesh.Triangle.Edge eAdjacentL = t.edges[i].prev();
-            Mesh.Triangle.Edge eOpposite  = t.edges[i];
-            
-            float a = eAdjacentR.getEdge().length;
-            float b = eAdjacentL.getEdge().length;
-            float c = eOpposite.getEdge().length;
-            float angle = (float) Math.acos((a*a + b*b - c*c) / (2*a*b));
-            
-            t.angles[i] = angle;
-            
-//            System.out.format("Vertex %d has adj lengthd %g,%g, opp len %g, angle = Math.PI * %g\n",
-//                  i, a,b,c, angle/Math.PI);
-
-         }
-         t.angles[2] = (float) Math.PI - t.angles[0] - t.angles[1];
-         
-//         System.out.format("Vertex 2 set to Math.PI * %g\n",
-//               t.angles[2]/Math.PI);
-         
-         for (int i = 0; i < 3; ++i) {
-            if ((t.angles[i] <= 0.0) || (t.angles[i] >= Math.PI)) {
-               throw new RuntimeException("Angle out of bounds!\n");
-            }
-         }
-      }
-      
-      // create a very large sparse matrix
-      
-      int numInternalVertices = internalVertices.size();
-      int numBoundaryVertices = boundaryVertices.size();
-      
-      /*
-      SparseMatrix m = SparseMatrix.identity(numInternalVertices);
-
-      SparseMatrix mb = SparseMatrix.zero(numInternalVertices,
-            numBoundaryVertices);
-      */
-
-      SparseMatrix m = new SparseMatrix(numInternalVertices,numInternalVertices);
-      SparseMatrix mb = new SparseMatrix(numInternalVertices,numBoundaryVertices);
-      
-      int ind = 0;
-      for (Vertex v : boundaryVertices) {
-         float angle = (float)((2 * Math.PI * ind) / numBoundaryVertices);
-         v.texCoords = new Vector2((float)Math.cos(angle),(float)Math.sin(angle));
-         ind++;
-      }
-      
-      // now compute for every INTERNAL vertex a vector of LAMBDAs
-      // describing it as an affine combination of its neighbors.
-      
-      for (Vertex v : internalVertices) {
-         Vertex[] neighbors = new Vertex[v.getValence()];
-         float[] lambda = new float[neighbors.length];
-
-         int i = 0;
-         for (Mesh.DirectedEdge teb : v.outgoingEdges()) {
-            Mesh.Triangle.Edge te = (Mesh.Triangle.Edge)teb;
-            Mesh.Triangle.Edge teo = (Mesh.Triangle.Edge)te.opposite();
-            
-            neighbors[i] = (Vertex) te.end();
-            
-            // angle to the left
-            float angleToTheLeft  = ((Triangle)te.getTriangle()).angles[ te.next().getEdgeIndex() ];
-            float angleToTheRight = ((Triangle)teo.getTriangle()).angles[ teo.prev().getEdgeIndex() ];
-            float edgeLength = te.getEdge().getLength();
-            
-            lambda[i] = (float) (Math.tan(angleToTheLeft/2.0) + Math.tan(angleToTheRight/2.0)) / edgeLength;
-            i++;
-         }
-         float lambdaSum = 0.0f;
-         for (i=0; i < lambda.length; ++i) {
-            lambdaSum += lambda[i];
-         }
-         for (i=0; i < lambda.length; ++i) {
-            lambda[i] /= lambdaSum;
-         }
-         String a = "{ ";
-         for (i=0; i < lambda.length; ++i) {
-            a = a + String.format("%g%s", lambda[i], (i == lambda.length-1)?" }":", ");
-         }
-         //System.out.format("INTERNAL vertex %d has %d lambdas %s\n", v.getIndex(), lambda.length, a);
-         
-         
-         // The values computed in lambda must now be PLACED
-         // into the sparse matrices ma and mb,
-         // This internal vertex i is setting the nonzero elements of the i'th row of ma and mb:
-         
-         int vIndex = v.getIndex();
-         m.set(vIndex, vIndex, 1.0);
-         
-         for (i=0; i < lambda.length; ++i) {
-            int neighborIndex = neighbors[i].getIndex();
-            
-            if (neighborIndex < numInternalVertices) {
-               m.set(vIndex, neighborIndex, -lambda[i]);
-            } else {
-               mb.set(vIndex, neighborIndex-numInternalVertices, lambda[i]);
-            }
-         }
-      }
-      
-      // --------------------------------------
-      // Is this matrix symmetric?
-      // It's not symmetric is it?
-      // --------------------------------------
-      
-      System.out.format("SET -- we're ready for the solving to start??\n");
-      /*
-      double maxdiff = 0;
-      for (int i = 0; i < numInternalVertices; ++i) {
-         for (int j = i+1; j < numInternalVertices; ++j) {
-            double m_ij = m.get(i, j);
-            double m_ji = m.get(j, i);
-            double diff = Math.abs(m_ij-m_ji);
-            if (diff > maxdiff) {
-               maxdiff = diff;
-            }
-         }
-      }
-      System.out.format("The maximum diff out of curiosity is %g\n", maxdiff);
-      */
-
-      double[] bbase = new double[numBoundaryVertices];
-      ind = 0;
-      for (Vertex v : boundaryVertices) {
-         bbase[ind++] = v.texCoords.x;
-      }      
-      Vector b_x = mb.multiply(Vector.fromArray(bbase));
-      
-      ind = 0;
-      for (Vertex v : boundaryVertices) {
-         bbase[ind++] = v.texCoords.y;
-      }      
-      Vector b_y = mb.multiply(Vector.fromArray(bbase));
-      
-      // ----------------------------------------
-      // We expect b is of length "internalVertices"
-      
-      if (b_x.length() != numInternalVertices) {
-         throw new RuntimeException(String.format("With %d internalVertices and %d boundaryVertices, b ended up %d",
-               numInternalVertices, numBoundaryVertices, b_x.length()));
-      }
-      
-      System.out.format("CALLING withSolver on the %d x %d matrix\n", numInternalVertices, numInternalVertices);
-      long startTime = System.currentTimeMillis();
-      //LinearSystemSolver solver = m.withSolver(LinearAlgebra.FORWARD_BACK_SUBSTITUTION);
-      
-      System.out.format("Now calling solve...\n");
-      long midTime = System.currentTimeMillis();
-      Vector result_x = m.solve(b_x);  //solver.solve(b_x);
-      Vector result_y = m.solve(b_y);
-      long finalTime = System.currentTimeMillis();
-      
-      System.out.format("Done -- in %d ms for the first part, %d ms for the second!\n",
-            (midTime-startTime), (finalTime-midTime));
-
-      for (int i = 0; i < numInternalVertices; ++i) {
-         internalVertices.get(i).texCoords = new Vector2((float) result_x.values[i], (float) result_y.values[i]);
-      }
-      
-      /*
-      double[] bbase = new double[numBoundaryVertices];
-      ind = 0;
-      for (Vertex v : boundaryVertices) {
-         bbase[ind++] = v.texCoords.x;
-      }      
-      Vector b_x = mb.multiply(Vector.fromArray(bbase));
-      
-      ind = 0;
-      for (Vertex v : boundaryVertices) {
-         bbase[ind++] = v.texCoords.y;
-      }      
-      Vector b_y = mb.multiply(Vector.fromArray(bbase));
-      
-      // ----------------------------------------
-      // We expect b is of length "internalVertices"
-      
-      if (b_x.length() != numInternalVertices) {
-         throw new RuntimeException(String.format("With %d internalVertices and %d boundaryVertices, b ended up %d",
-               numInternalVertices, numBoundaryVertices, b_x.length()));
-      }
-      
-      System.out.format("CALLING withSolver on the %d x %d matrix\n", numInternalVertices, numInternalVertices);
-      long startTime = System.currentTimeMillis();
-      LinearSystemSolver solver = m.withSolver(LinearAlgebra.FORWARD_BACK_SUBSTITUTION);
-      
-      System.out.format("Now calling solve...\n");
-      long midTime = System.currentTimeMillis();
-      Vector result_x = solver.solve(b_x);
-      System.out.format("Back!  that was x, here's y..\n");
-      Vector result_y = solver.solve(b_y);
-      long finalTime = System.currentTimeMillis();
-      
-      System.out.format("Done -- in %d ms for the first part, %d ms for the second!\n",
-            (midTime-startTime), (finalTime-midTime));
-
-      for (int i = 0; i < numInternalVertices; ++i) {
-         internalVertices.get(i).texCoords = new Vector2((float) result_x.get(i), (float) result_y.get(i));
-      }
-      */
+      if (doFloaterCoords) {
    
+         // STEP 1:  compute the length of every edge and the angles in every face
+         
+         for (Mesh.Vertex eb : mesh.vertices) {
+            eb.computeValence();  // needed for calculating the per-vertex lambdas
+         }
+         for (Mesh.Edge eb : mesh.edges) {
+            eb.computeLength();  // needed in the angle-computation below
+         }
+         for (Mesh.Triangle tb : mesh.triangles) {
+            Triangle t = (Triangle) tb;
+            t.angles = new float[3];
+   
+   //         System.out.format("TRIANGLE %d lengths (%g,%g,%g)\n", t.getIndex(),
+   //               t.edges[0].getEdge().getLength(),
+   //               t.edges[1].getEdge().getLength(),
+   //               t.edges[2].getEdge().getLength());
+                  
+   
+            for (int i = 0; i < 2; ++i) {
+               Vertex v = (Vertex) t.vertices[i];
+               Mesh.Triangle.Edge eAdjacentR = t.edges[i].next();
+               Mesh.Triangle.Edge eAdjacentL = t.edges[i].prev();
+               Mesh.Triangle.Edge eOpposite  = t.edges[i];
+               
+               float a = eAdjacentR.getEdge().length;
+               float b = eAdjacentL.getEdge().length;
+               float c = eOpposite.getEdge().length;
+               float angle = (float) Math.acos((a*a + b*b - c*c) / (2*a*b));
+   
+               // angles needed for calculating the per-vertex lambdas
+               t.angles[i] = angle;
+               
+   //            System.out.format("Vertex %d has adj lengthd %g,%g, opp len %g, angle = Math.PI * %g\n",
+   //                  i, a,b,c, angle/Math.PI);
+   
+            }
+            t.angles[2] = (float) Math.PI - t.angles[0] - t.angles[1];
+            
+   //         System.out.format("Vertex 2 set to Math.PI * %g\n",
+   //               t.angles[2]/Math.PI);
+            
+            for (int i = 0; i < 3; ++i) {
+               if ((t.angles[i] <= 0.0) || (t.angles[i] >= Math.PI)) {
+                  throw new RuntimeException("Angle out of bounds!\n");
+               }
+            }
+         }
+   
+         
+         // -----------------------------------------------------------
+         // SEPARATE internal and boundary vertices
+         // -----------------------------------------------------------
+         
+         ArrayList<Vertex> internalVertices = new ArrayList<Vertex>();
+         ArrayList<Vertex> boundaryVertices = new ArrayList<Vertex>();
+         
+         // this loop sets "internalVertices".  
+         // (we'll fill "boundaryVertices" in the next section)
+         for (Mesh.Vertex vb : mesh.vertices) {
+            Vertex v = (Vertex) vb;
+            
+            v.onBoundary = false;
+            if (v.oneOutgoingEdge() == null) {
+               throw new RuntimeException("Mesh error, vertex with no outgoing edges");
+            }
+            for (Mesh.DirectedEdge outgoingEdge : v.outgoingEdges()) {
+               if (outgoingEdge.isBoundary()) {
+                  v.onBoundary = true;
+               }
+            }
+            if (!v.onBoundary) {
+               internalVertices.add(v);
+            }
+         }
+         
+         // this loop sets "boundaryVertices".        
+         int numBoundaries = mesh.boundaries.size();
+         if (numBoundaries == 0) {
+            throw new RuntimeException("Mesh error, no boundaries after cut-graph cutting");
+         }
+         Mesh.Boundary eStart = mesh.boundaries.get(0);
+         int boundariesPassed = 0;
+         Mesh.Boundary e = eStart;
+         do {
+            boundariesPassed++;
+            e = e.next();         
+            boundaryVertices.add((Vertex)e.start()); 
+   
+         } while (e != eStart);
+         if (numBoundaries != boundariesPassed) {
+            throw new RuntimeException(String.format("Mesh error, boundariePassed = %d but numBoundaries = %d",
+                  boundariesPassed, numBoundaries));
+         }
+               
+         System.out.format("Okay, our new SINGLE-LOOP mesh has %d triangles, %d edges, %d vertices, %d boundary edges -- %d vertices on the boundary, %d vertices internal\n",
+               mesh.triangles.size(), mesh.edges.size(), mesh.vertices.size(), mesh.boundaries.size(),
+               boundaryVertices.size(),
+               internalVertices.size());
+         
+         // Now RENUMBER the vertices, so the interior ones are first
+         // followed by the boundary ones
+         
+         int newIndex = 0;
+         for (Vertex v : internalVertices) {
+            v.setIndex(newIndex);
+            mesh.vertices.set(newIndex, v);
+            newIndex++;
+         }
+         for (Vertex v : boundaryVertices) {
+            v.setIndex(newIndex);
+            mesh.vertices.set(newIndex, v);
+            newIndex++;
+         }
+   
+         // -----------------------------------------------------------
+         // ASSEMBLE a sparse linear-system (Ax=b) to solve:
+         // -----------------------------------------------------------
+         
+         int numInternalVertices = internalVertices.size();
+         int numBoundaryVertices = boundaryVertices.size();
+         
+         // First SET the position of every BOUNDARY vertex to points on a circle...
+         int ind = 0;
+         for (Vertex v : boundaryVertices) {
+            float angle = (float)((2 * Math.PI * ind) / numBoundaryVertices);
+            v.texCoords = new Vector2((float)Math.cos(angle),(float)Math.sin(angle));
+            ind++;
+         }
+         
+         // create two large sparse matrices
+         SparseMatrix m = new SparseMatrix(numInternalVertices,numInternalVertices);
+         SparseMatrix mb = new SparseMatrix(numInternalVertices,numBoundaryVertices);
+         
+         // now compute for every INTERNAL vertex a vector of LAMBDAs
+         // describing it as an affine combination of its neighbors.
+         // store these lambda values into m and mb:
+         //
+         for (Vertex v : internalVertices) {
+            Vertex[] neighbors = new Vertex[v.getValence()];
+            float[] lambda = new float[neighbors.length];
+   
+            int i = 0;
+            for (Mesh.DirectedEdge teb : v.outgoingEdges()) {
+               Mesh.Triangle.Edge te = (Mesh.Triangle.Edge)teb;
+               Mesh.Triangle.Edge teo = (Mesh.Triangle.Edge)te.opposite();
+               
+               neighbors[i] = (Vertex) te.end();
+               
+               // angle to the left
+               float angleToTheLeft  = ((Triangle)te.getTriangle()).angles[ te.next().getEdgeIndex() ];
+               float angleToTheRight = ((Triangle)teo.getTriangle()).angles[ teo.prev().getEdgeIndex() ];
+               float edgeLength = te.getEdge().getLength();
+               
+               lambda[i] = (float) (Math.tan(angleToTheLeft/2.0) + Math.tan(angleToTheRight/2.0)) / edgeLength;
+               i++;
+            }
+            float lambdaSum = 0.0f;
+            for (i=0; i < lambda.length; ++i) {
+               lambdaSum += lambda[i];
+            }
+            for (i=0; i < lambda.length; ++i) {
+               lambda[i] /= lambdaSum;
+            }
+            String a = "{ ";
+            for (i=0; i < lambda.length; ++i) {
+               a = a + String.format("%g%s", lambda[i], (i == lambda.length-1)?" }":", ");
+            }
+            //System.out.format("INTERNAL vertex %d has %d lambdas %s\n", v.getIndex(), lambda.length, a);
+            // The values computed in lambda must now be PLACED
+            // into the sparse matrices ma and mb,
+            // This internal vertex i is setting the nonzero elements of the i'th row of ma and mb:
+            
+            int vIndex = v.getIndex();
+            m.set(vIndex, vIndex, 1.0);
+            
+            for (i=0; i < lambda.length; ++i) {
+               int neighborIndex = neighbors[i].getIndex();
+               
+               if (neighborIndex < numInternalVertices) {
+                  m.set(vIndex, neighborIndex, -lambda[i]);
+               } else {
+                  mb.set(vIndex, neighborIndex-numInternalVertices, lambda[i]);
+               }
+            }
+         }
+         
+         // --------------------------------------
+         // Is this matrix symmetric?
+         // It's not symmetric is it?
+         // --------------------------------------
+         
+         System.out.format("SET -- we're ready for the solving to start??\n");
+   
+         double[] bbase = new double[numBoundaryVertices];
+         ind = 0;
+         for (Vertex v : boundaryVertices) {
+            bbase[ind++] = v.texCoords.x;
+         }      
+         Vector b_x = mb.multiply(Vector.fromArray(bbase));
+         
+         ind = 0;
+         for (Vertex v : boundaryVertices) {
+            bbase[ind++] = v.texCoords.y;
+         }      
+         Vector b_y = mb.multiply(Vector.fromArray(bbase));
+         
+         // ----------------------------------------
+         // We expect b is of length "internalVertices"
+         
+         if (b_x.length() != numInternalVertices) {
+            throw new RuntimeException(String.format("With %d internalVertices and %d boundaryVertices, b ended up %d",
+                  numInternalVertices, numBoundaryVertices, b_x.length()));
+         }
+         
+         System.out.format("CALLING withSolver on the %d x %d matrix\n", numInternalVertices, numInternalVertices);
+         System.out.format("Now calling solve...\n");
+         long midTime = System.currentTimeMillis();
+         Vector result_x = m.solve(b_x);  //solver.solve(b_x);
+         Vector result_y = m.solve(b_y);
+         long finalTime = System.currentTimeMillis();
+         System.out.format("Done -- in %d ms!\n", (finalTime-midTime));
+   
+         for (int i = 0; i < numInternalVertices; ++i) {
+            internalVertices.get(i).texCoords = new Vector2((float) result_x.values[i], (float) result_y.values[i]);
+         }
+         
+         // DONE!   We've set the Vector2 uv coordinates of each internal vertex.  Congrats!
+         // Let's copy them onto each triangle:
+         
+         Vector2 offset = new Vector2(texXOffset,0.0f);
+         for (Mesh.Triangle tb : mesh.triangles) {
+            Triangle t = (Triangle) tb;
+            
+            Vertex v0 = (Vertex)t.vertices[0];
+            Vertex v1 = (Vertex)t.vertices[1];
+            Vertex v2 = (Vertex)t.vertices[2];         
+            t.setTextureCoords(v0.texCoords.plus(offset),v1.texCoords.plus(offset),v2.texCoords.plus(offset));
+         }
+      } else {
+         
+         
+         
+      }
    }
 }

@@ -3,6 +3,7 @@ package com.generic.base;
 import com.generic.base.Algebra.Matrix4x4;
 import com.generic.base.Algebra.Vector2;
 import com.generic.base.Algebra.Vector3;
+import com.generic.base.Raster.FloatImage;
 import com.generic.base.Raster.Image;
 
 import java.nio.ByteBuffer;
@@ -155,14 +156,24 @@ public class Shader {
          }
          
          public enum Type {
+            TEXTURE_FLOAT,
             TEXTURE_32BIT,
             TEXTURE_8BIT
          }
          
          public static class Binding implements Variable.Binding {
             public final ManagedTexture texture;
-            public Binding(ManagedTexture texture) {
-               this.texture = texture;
+            public Binding(ManagedTexture ico0_mesh_info) {
+               this.texture = ico0_mesh_info;
+            }
+            public String toString() {
+               return String.format("binding to ([%s])", (texture==null)?"null":texture.toString());
+            }
+         }
+         public static class Binding2 implements Variable.Binding {
+            public final ManagedFloatTexture texture;
+            public Binding2(ManagedFloatTexture ico0_mesh_info) {
+               this.texture = ico0_mesh_info;
             }
             public String toString() {
                return String.format("binding to ([%s])", (texture==null)?"null":texture.toString());
@@ -366,7 +377,8 @@ public class Shader {
    // -----------------------------
    
    public static class ManagedTexture {
-      public ManagedTexture(Image image) {
+      public ManagedTexture(Variable.Sampler.Type type, Image image) {
+         this.type = type;
          this.image = image;
       }
 
@@ -380,9 +392,36 @@ public class Shader {
          intBuffer.position(0);
       }
       
+      public Variable.Sampler.Type type;
       public Image image;
       public ByteBuffer byteBuffer;
       public IntBuffer intBuffer;
+      
+      // GL Buffer Id ----------------------
+
+      public Integer glTextureID;
+   }
+
+   public static class ManagedFloatTexture {
+      public ManagedFloatTexture(Variable.Sampler.Type type, FloatImage image) {
+         this.type = type;
+         this.image = image;
+      }
+
+      // Buffer Updates-----------------------
+      
+      public void setup() {
+         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(image.pixels.length * 4);
+         byteBuffer.order(ByteOrder.nativeOrder());
+         floatBuffer = byteBuffer.asFloatBuffer();
+         floatBuffer.put(image.pixels);
+         floatBuffer.position(0);
+      }
+      
+      public Variable.Sampler.Type type;
+      public FloatImage image;
+      public ByteBuffer byteBuffer;
+      public FloatBuffer floatBuffer;
       
       // GL Buffer Id ----------------------
 
@@ -426,6 +465,9 @@ public class Shader {
          variables.add(new Variable.VertexBuffer(Shader.V1UV_ARRAY,     Variable.VertexBuffer.Type.VEC2));
          variables.add(new Variable.VertexBuffer(Shader.V2UV_ARRAY,     Variable.VertexBuffer.Type.VEC2));
          
+         variables.add(new Variable.Sampler(Shader.MESH_INFO, Variable.Sampler.Type.TEXTURE_FLOAT));
+         variables.add(new Variable.VertexBuffer(Shader.TRIANGLE_INDEX,    Variable.VertexBuffer.Type.FLOAT));         
+
          variables.add(new Variable.VertexBuffer(Shader.DIRECTION_SHADING_ARRAY,  Variable.VertexBuffer.Type.VEC3));
          
          variables.add(new Variable.Uniform(Shader.HIGHLIGHT_BOOL,        Variable.Uniform.Type.UINT));
@@ -467,6 +509,8 @@ public class Shader {
    public static final String BARY_COORDS    = "vertexBaryCoords";
    
    public static final String MAIN_TEXTURE = "mainTexture";
+   public static final String MESH_INFO = "meshInfo";
+   public static final String TRIANGLE_INDEX = "vertexTriangleIndex";
    
    public static final String WORLD_TO_CLIP_MATRIX = "projMatrix";
    public static final String MODEL_TO_WORLD_MATRIX = "viewMatrix";

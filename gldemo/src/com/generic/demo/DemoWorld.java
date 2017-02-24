@@ -24,6 +24,7 @@ public class DemoWorld extends World {
    public MeshModel mappingModel3;
    
    public Vector2 selectedUVPointIfAny;
+   public Mesh.Triangle selectedTriangleIfAny;
 
    public DemoWorld(Image leaImage, Image teapotImage, Mesh bunny) {
       System.out.format("Starting InitDemoWorld\n");
@@ -32,8 +33,8 @@ public class DemoWorld extends World {
       // consider a version where... the renderable model nodes ARE Shader.Instance
       // ----------------------------------------------------------------------------------
       
-      Shader.ManagedTexture leaImageT = new Shader.ManagedTexture(leaImage);
-      Shader.ManagedTexture teapotImageT = new Shader.ManagedTexture(teapotImage);
+      Shader.ManagedTexture leaImageT = new Shader.ManagedTexture(Shader.Variable.Sampler.Type.TEXTURE_32BIT, leaImage);
+      Shader.ManagedTexture teapotImageT = new Shader.ManagedTexture(Shader.Variable.Sampler.Type.TEXTURE_32BIT, teapotImage);
       
       CompoundModel root = new CompoundModel();
       ShaderExecutingModel m;
@@ -60,30 +61,53 @@ public class DemoWorld extends World {
 //      root.children.add(m);
 //      m.translate(Vector3f.Y.times(7.0f));
       
+      // --------------------------
       // ICO
+      // --------------------------
+      
       MeshModel ico0 = Geometry.createIco(3);
       ico0.mesh.removeTriangle(ico0.mesh.triangles.get(ico0.mesh.triangles.size()/3));
       mappingModel1 = ico0;
-      QuadCover.run("ICO1 WITH ONE MISSING TRIANGLE", ico0, 0.0f, 4);
+      QuadCover.run("ICO1 WITH ONE MISSING TRIANGLE", ico0, 0.0f);
+      
       Shader.Instance ico0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
+      Shader.ManagedFloatTexture ico0_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(ico0));      
+      ico0Instance.bind(Shader.MESH_INFO, new Shader.Variable.Sampler.Binding2(ico0_mesh_info));
+      
       m = new ShaderExecutingModel(ico0Instance, ico0);
       root.children.add(m);
       m.translate(Vector3.Y.times(+3.0f));
+      
+      // --------------------------
+      // TORUS
+      // --------------------------
 
       MeshModel tor0 = Geometry.createTorus(2.0f, 0.5f, 53, 23);
       tor0.mesh.removeTriangle(tor0.mesh.triangles.get(tor0.mesh.triangles.size()/4));
       mappingModel3 = tor0;
-      QuadCover.run("DONUT WITH ONE MISSING TRIANGLE", tor0, -2.2f, 60);
+      QuadCover.run("DONUT WITH ONE MISSING TRIANGLE", tor0, -2.2f);
+      
       Shader.Instance tor0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
+      Shader.ManagedFloatTexture tor0_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(tor0));      
+      tor0Instance.bind(Shader.MESH_INFO, new Shader.Variable.Sampler.Binding2(tor0_mesh_info));
+      
       m = new ShaderExecutingModel(tor0Instance, tor0);
       root.children.add(m);
       m.rotate(Vector3.X, (float)(Math.PI/2.0));
       m.translate(Vector3.Y.times(-4.0f));
+
+      // --------------------------
+      // BUNNY
+      // --------------------------
       
       MeshModel bunnyModel = new MeshModel(bunny);
       mappingModel2 = bunnyModel;
-      QuadCover.run("BUNNY", bunnyModel, 2.2f, 80);
+      QuadCover.run("BUNNY", bunnyModel, 2.2f);
+      
       Shader.Instance bunnyInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      Shader.ManagedFloatTexture bunny_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(bunnyModel));      
+      bunnyInstance.bind(Shader.MESH_INFO, new Shader.Variable.Sampler.Binding2(bunny_mesh_info));
+      
       m = new ShaderExecutingModel(bunnyInstance, bunnyModel);
       root.children.add(m);
       m.translate(Vector3.Y.times(+5.0f));

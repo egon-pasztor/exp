@@ -17,7 +17,7 @@ public class Algebra {
       }
       
       public String toString() {
-         return String.format("( %10.3f )\n( %10.3f )\n", x,y);
+         return String.format("( %10.9f )\n( %10.9f )\n", x,y);
       }
       public boolean equals(Vector3 v) {
          return (x == v.x) && (y == v.y);
@@ -173,7 +173,7 @@ public class Algebra {
       }
       
       public String toString() {
-         return String.format("( %10.5f )\n( %10.5f )\n( %10.5f )\n", x,y,z);
+         return String.format("( %10.9f )\n( %10.9f )\n( %10.9f )\n", x,y,z);
       }
       public boolean equals(Vector3 v) {
          return (x == v.x) && (y == v.y) && (z == v.z);
@@ -641,14 +641,22 @@ public class Algebra {
          this.v2 = v2;
       }
    }
+   
    public static class Segment3 {
-      public final Vector3 p0;
-      public final Vector3 p1;
-      public Segment3(Vector3 p0, Vector3 p1) {
-         this.p0 = p0;
-         this.p1 = p1;
+      public final Vector3 start;
+      public final Vector3 end;
+      public Segment3(Vector3 start, Vector3 end) {
+         this.start = start;
+         this.end = end;
+      }
+      public Vector3 interpolate(float fraction) {
+         return start.times(1.0f-fraction).plus(end.times(fraction));
+      }
+      public Vector3 getVector() {
+         return end.minus(start);
       }
    }
+   
    public static class Triangle3 {
       public final Vector3 v0;
       public final Vector3 v1;
@@ -659,64 +667,81 @@ public class Algebra {
          this.v2 = v2;
       }
    }
-   
-   
-   // we're going to want several more functions...
-   
-   // 1. in 2d, given 3 (u,v) points, what is the area of the triangle
-   //
-   //  (u1-u0) x (u2-u0) ??
-   
-   //
-   // on the other hand, what if i have 2 3d-points?
-   
-   // public float area() {
-   //    return 0.5f * (v2.minus(v1)).cross(v1.minus(v0)).length();
-   // }
-   
-   //public static float distanceBetween(Segment2d segment, Vector2f point) {
-   //   
-   //}
-   
-   public static Vector2 intersects(Triangle3 t, Segment3 s) {
+      
+   public static Vector4 intersects(Triangle3 t, Segment3 s, boolean intersectionMustBeOnSegment) {
       Vector3 u = t.v1.minus(t.v0);
       Vector3 v = t.v2.minus(t.v0);
       Vector3 n = u.cross(v).normalized();
-
-      // TODO:  is this even right?   i think we might be treating Segment3d
-      // as a Ray3d, and returning TRUE even if the intersection occurs out
-      // of bounds along the segment line...
       
-      // http://geomalgorithms.com/a06-_intersect-2.html
-
-      float den = n.dot(s.p1.minus(s.p0));
+      // Difference in Height above the plane of the triangle, between "s.start" and "s.end"
+      float den = n.dot(s.end.minus(s.start));
       if (den == 0) return null;
-      
-      // This rejects intersections with back-facing triangles...
       if (den > 0) return null;
+      
+      // Height above the plane of the triangle, of point "s.start" 
+      float d = n.dot(s.start.minus(t.v0));
+      
+      // The segment-parameter of the intersection point
+      float frac = - d/den;
+      if (intersectionMustBeOnSegment && ((frac < 0.0f) || (frac > 1.0f))) return null;
+      
+      // The intersection point located
+      Vector3 intersectionPoint = s.start.plus(s.end.minus(s.start).times(frac));
+      /*
+      System.out.format("IntersectionPOINT at %g,%g,%g with frac %g\n", 
+            intersectionPoint.x,
+            intersectionPoint.y,
+            intersectionPoint.z,
+            frac);
+      */
+      // w points to the intersection point from v0,
+      Vector3 w = intersectionPoint.minus(t.v0);
+      
+      // Compute parametric coordinates in triangle
+      float dot00 = u.dot(u);
+      float dot01 = u.dot(v);
+      float dot02 = u.dot(w);
+      float dot11 = v.dot(v);
+      float dot12 = v.dot(w);
 
-      float r1 = n.dot(t.v0.minus(s.p0)) / den;
-      Vector3 i = s.p0.plus(s.p1.minus(s.p0).times(r1));
-      Vector3 w = i.minus(t.v0);
- 
-      float den2 = u.dot(v) * u.dot(v)
-                 - u.dot(u) * v.dot(v);
-      if (den2 == 0) return null;
-
-      float snum = u.dot(v) * w.dot(v)
-                 - v.dot(v) * w.dot(u);
-
-      float tnum = u.dot(v) * w.dot(u)
-                 - u.dot(u) * w.dot(v);
-
-      float sc = snum/den2;
-      float tc = tnum/den2;
-      if (sc<0) return null;
-      if (tc<0) return null;
-      if (sc+tc>1) return null;
-      return new Vector2(sc,tc);
+      float scale = 1.0f / (dot00 * dot11 - dot01 * dot01);
+      float l1 = (dot11 * dot02 - dot01 * dot12) * scale;
+      float l2 = (dot00 * dot12 - dot01 * dot02) * scale;
+      float l0 = 1.0f - l1 - l2;
+      //System.out.format("Intersection at %g,%g,%g\n",l0,l1,l2);
+      
+      // Now <l1,l2,l3> are the parametric coordinates of the intersection point in the triangle
+      if ((l0 < 0.0f) || (l1 < 0.0f) || (l2 < 0.0f)) return null;      
+      
+      // Return the Barycentric Coordinates of the intersection
+      return new Vector4(l0,l1,l2, frac);
    }
 
+   public static Vector3 contains(Triangle2 t, Vector2 p) {
+      Vector2 u = t.v1.minus(t.v0);
+      Vector2 v = t.v2.minus(t.v0);
+      Vector2 w =    p.minus(t.v0);
+
+      // Compute parametric coordinates in triangle
+      float dot00 = u.dot(u);
+      float dot01 = u.dot(v);
+      float dot02 = u.dot(w);
+      float dot11 = v.dot(v);
+      float dot12 = v.dot(w);
+
+      float scale = 1.0f / (dot00 * dot11 - dot01 * dot01);
+      float l1 = (dot11 * dot02 - dot01 * dot12) * scale;
+      float l2 = (dot00 * dot12 - dot01 * dot02) * scale;
+      float l0 = 1.0f - l1 - l2;
+      
+      // Now <l1,l2,l3> are the parametric coordinates of the intersection point in the triangle
+      if ((l0 < 0.0f) || (l1 < 0.0f) || (l2 < 0.0f)) return null;      
+      
+      // Return the Barycentric Coordinates of the intersection
+      return new Vector3(l0,l1,l2);
+   }
+   
+   
    // -----------------------------------------------------------------------
    // SPARSE MATRIX
    // -----------------------------------------------------------------------   
@@ -817,7 +842,7 @@ public class Algebra {
 
          int iteration = 0;
          double diff = 1.0;
-         while (diff > 0.000001) {
+         while (diff > 0.0000003) {
            Vector Ax = multiply(x);
            diff = Ax.dist(b);
            System.out.format("Iteration %d -- %g error\n", iteration++, diff);

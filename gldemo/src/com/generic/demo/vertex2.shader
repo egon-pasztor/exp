@@ -8,15 +8,17 @@ in vec4 vertexV2pos;
 in vec2 vertexV0uv;
 in vec2 vertexV1uv;
 in vec2 vertexV2uv;
+in float vertexTriangleIndex;
 
 in vec3 directions;
 
-out vec4 V0pos;
-out vec4 V1pos;
-out vec4 V2pos;
-out vec2 V0uv;
-out vec2 V1uv;
-out vec2 V2uv;
+flat out vec4 V0pos;
+flat out vec4 V1pos;
+flat out vec4 V2pos;
+flat out vec2 V0uv;
+flat out vec2 V1uv;
+flat out vec2 V2uv;
+flat out float triangleIndex;
 
 in uvec4 triColorInfo;
 
@@ -25,15 +27,14 @@ in vec3 vertexBaryCoords;
 in vec4 vertexPosition;
 
 flat out float tnz;
-
 flat out uvec4 fragTriColorInfo;
 
 out vec3 fragColor;
 out vec3 fragBaryCoords;
 
-out vec3 triangleShape;
-out vec3 direction1;
-out vec3 direction2;
+flat out vec3 triangleShape;
+flat out vec3 direction1;
+flat out vec3 direction2;
  
 void main()
 {
@@ -47,6 +48,8 @@ void main()
     V0uv = vertexV0uv;
     V1uv = vertexV1uv;
     V2uv = vertexV2uv;
+    
+    triangleIndex = vertexTriangleIndex;
     
     gl_Position = projMatrix * viewMatrix * vertexPosition;
     

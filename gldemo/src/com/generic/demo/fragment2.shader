@@ -7,29 +7,36 @@ uniform int windowHeight;
 // Info about other UV structures like a test-circle drawn on the UV surface,
 // would be communicated through "uniforms" like this one:
 uniform vec2 uvPointer;
-
+vec2 uvPointer2;
 
 // Input varying values include:
 
+uniform sampler2D meshInfo;  // okay.. this texture has rows x cols .. nRows == numTriangles, nCols == .. well, 9.  
+                             // each ROW should hold the A,B,C,D,E,F,G,H,I values for that triangle...
 
 in vec4 gl_FragCoord;
 
 flat in float tnz;
-flat in uvec4 fragTriColorInfo;
 in vec3 fragColor;
 in vec3 fragBaryCoords;
 
-in vec3 triangleShape;
-in vec3 direction1;
-in vec3 direction2;
+flat in vec3 triangleShape;
+flat in vec3 direction1;
+flat in vec3 direction2;
 
-in vec4 V0pos;
-in vec4 V1pos;
-in vec4 V2pos;
+flat in vec4 V0pos;
+flat in vec4 V1pos;
+flat in vec4 V2pos;
 
-in vec2 V0uv;
-in vec2 V1uv;
-in vec2 V2uv;
+flat in uvec4 fragTriColorInfo;
+flat in float triangleIndex;
+flat in vec2 V0uv;
+flat in vec2 V1uv;
+flat in vec2 V2uv;
+vec2 V0uv_;
+vec2 V1uv_;
+vec2 V2uv_;
+
 
 out vec4 outColor;
 
@@ -48,13 +55,14 @@ float dxdu,dxdv,dydu,dydv;
 
 bool done;
 
-/*
-float xU,xV,xC;
-float yU,yV,yC;
-float wU,wV,wC;
-*/
+float A2,B2,C2,D2,E2,F2,G2,H2,I2;
+
 float minU,maxU;
 float minV,maxV;
+
+int altTColor;
+
+
 
 // ------------------------
 // Basic Info code
@@ -65,19 +73,70 @@ void computeInfo() {
     // this is our location in actual window pixel coordinates
     myXYPixel = vec2(gl_FragCoord.x, gl_FragCoord.y);
     
-    float u0 = V0uv.x, v0 = V0uv.y;
-    float u1 = V1uv.x, v1 = V1uv.y;
-    float u2 = V2uv.x, v2 = V2uv.y;
+    float u0 = V0uv_.x, v0 = V0uv_.y;
+    float u1 = V1uv_.x, v1 = V1uv_.y;
+    float u2 = V2uv_.x, v2 = V2uv_.y;
+    
+    // we can compute the matrix that produces barycentric coordinates for an arbitrary <u,v> point
+    float den = u0*v1 - u0*v2 + u1*v2 - u1*v0 + u2*v0 - u2*v1;
+    A = (v1-v2)/den;  B = (u2-u1)/den;  C = (u1*v2-u2*v1)/(den);
+    D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/(den);
+    G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/(den);
+    
+    /*
+    if (abs(den) > 0.000001f) {
+       altTColor=7;
+    } else {
+       altTColor=3;
+    }
+    */
+    
+/*    //altTColor = triangleIndex - 8 * int(triangleIndex / 8);
+    float r = texture(meshInfo, vec2(0,triangleIndex)).r;
+    if (r > 0) {
+       if (r > 1) {
+          altTColor=4;
+       } else {
+          altTColor=5;
+       }
+    } else if (r < 0) {
+       altTColor=3;
+    } else if (r == 0) {
+       altTColor=1;
+    } else {
+       altTColor=2;
+    }
+*/
+
+    A = texture(meshInfo, vec2(0.5f/9.0f,triangleIndex)).r;
+    B = texture(meshInfo, vec2(1.5f/9.0f,triangleIndex)).r;
+    C = texture(meshInfo, vec2(2.5f/9.0f,triangleIndex)).r;
+    D = texture(meshInfo, vec2(3.5f/9.0f,triangleIndex)).r;
+    E = texture(meshInfo, vec2(4.5f/9.0f,triangleIndex)).r;
+    F = texture(meshInfo, vec2(5.5f/9.0f,triangleIndex)).r;
+    G = texture(meshInfo, vec2(6.5f/9.0f,triangleIndex)).r;
+    H = texture(meshInfo, vec2(7.5f/9.0f,triangleIndex)).r;
+    I = texture(meshInfo, vec2(8.5f/9.0f,triangleIndex)).r;
+
+/*    
+    A = length(texture(meshInfo, vec2(0,triangleIndex)));
+    B = length(texture(meshInfo, vec2(1,triangleIndex)));
+    C = length(texture(meshInfo, vec2(2,triangleIndex)));
+    D = length(texture(meshInfo, vec2(3,triangleIndex)));
+    E = length(texture(meshInfo, vec2(4,triangleIndex)));
+    F = length(texture(meshInfo, vec2(5,triangleIndex)));
+    G = length(texture(meshInfo, vec2(6,triangleIndex)));
+    H = length(texture(meshInfo, vec2(7,triangleIndex)));
+    I = length(texture(meshInfo, vec2(8,triangleIndex)));
+*/ 
+    
+    // note that if u0/u2 are merely "offsets", the resulting
+    // matrix A..I will still work, right?
     
     // we can compute our <u,v> position using fragBaryCoords
     myUVVal = vec2(u0 * fragBaryCoords.x + u1 * fragBaryCoords.y + u2 * fragBaryCoords.z, 
                    v0 * fragBaryCoords.x + v1 * fragBaryCoords.y + v2 * fragBaryCoords.z);
     
-    // we can compute the matrix that produces barycentric coordinates for an arbitrary <u,v> point
-    float den = u0*v1 - u0*v2 + u1*v2 - u1*v0 + u2*v0 - u2*v1;
-    A = (v1-v2)/den;  B = (u2-u1)/den;  C = (u1*v2-u2*v1)/den;
-    D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/den;
-    G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/den;
     
     // Compute the homogenous coords of this pixel.  (we almost have that information in "myXYPixel",
     // (the fraction (Xh/W) will equal myXPixel and (Yh/W) will equal myYPixel), this gives us
@@ -217,6 +276,7 @@ void apply_EdgeAndVertexColors() {
     float d2 = geometricDistance(pixel2);
 
     int tColorCode  = int(fragTriColorInfo.x) & 0xff;
+    //tColorCode = altTColor;
     
     int v0ColorCode = int(fragTriColorInfo.y >> 16) & 0xff;
     int v1ColorCode = int(fragTriColorInfo.y >>  8) & 0xff;
@@ -324,9 +384,7 @@ void apply_EdgeAndVertexColors() {
 // UV-SELECTED-LINE
 // ------------------------
 
-vec2 pixelAtUV(vec2 uv) {
-
-
+vec2 pixelAtUV(vec2 uv) {;
     // compute barycentric coords for arbitrary <u,v> point
     float lambda0 = A*uv.x + B*uv.y + C;
     float lambda1 = D*uv.x + E*uv.y + F;
@@ -337,17 +395,6 @@ vec2 pixelAtUV(vec2 uv) {
     float point0Yh = lambda0 * V0pos.y + lambda1 * V1pos.y +  lambda2 * V2pos.y;
     float point0W  = lambda0 * V0pos.w + lambda1 * V1pos.w +  lambda2 * V2pos.w;
 
-/*
-    float point0Xh = xU * uv.x + xV * uv.y + xC;
-    float point0Yh = yU * uv.x + yV * uv.y + yC;
-    float point0W  = wU * uv.x + wV * uv.y + wC;
-  */
-  /*
-    // Divide by W and scale to window-size to get the pixel location of <u,v>
-    float point0X  = windowWidth  * ((point0Xh/point0W) +1.0)/2.0;
-    float point0Y  = windowHeight * ((point0Yh/point0W) +1.0)/2.0;
-    */
-    
     return pixelFromPos(point0Xh, point0Yh, point0W);
 }
 float pixelDistanceToULine(float uCritical) {
@@ -469,6 +516,21 @@ float getGridShadingLevel(bool useU) {
     shadingLevel = makeShadingLevel(useU, 0.0005f);
     if (shadingLevel >= 0.0) return shadingLevel;
     
+    shadingLevel = makeShadingLevel(useU, 0.0001f);
+    if (shadingLevel >= 0.0) return shadingLevel;
+    
+    shadingLevel = makeShadingLevel(useU, 0.00005f);
+    if (shadingLevel >= 0.0) return shadingLevel;
+    
+    shadingLevel = makeShadingLevel(useU, 0.00001f);
+    if (shadingLevel >= 0.0) return shadingLevel;
+
+    shadingLevel = makeShadingLevel(useU, 0.000005f);
+    if (shadingLevel >= 0.0) return shadingLevel;
+    
+    shadingLevel = makeShadingLevel(useU, 0.000001f);
+    if (shadingLevel >= 0.0) return shadingLevel;
+    
     return 0.0f;
 }
 
@@ -488,6 +550,14 @@ bool inSelectedFace() {
     float lambda0 = A*uvPointer.x + B*uvPointer.y + C;
     float lambda1 = D*uvPointer.x + E*uvPointer.y + F;
     float lambda2 = G*uvPointer.x + H*uvPointer.y + I;
+    return (lambda0 >= 0) && (lambda1 >= 0) && (lambda2 >= 0);
+}
+
+bool inSelectedFace2() {
+    // compute barycentric coords for arbitrary <u,v> point
+    float lambda0 = A*uvPointer2.x + B*uvPointer2.y + C;
+    float lambda1 = D*uvPointer2.x + E*uvPointer2.y + F;
+    float lambda2 = G*uvPointer2.x + H*uvPointer2.y + I;
     return (lambda0 >= 0) && (lambda1 >= 0) && (lambda2 >= 0);
 }
 
@@ -694,8 +764,27 @@ vec2 directionalShading() {
 void main()
 {
    done = false;
+   
+   V0uv_ = V0uv;
+   V1uv_ = V1uv;
+   V2uv_ = V2uv;
+   
    computeInfo();
    
+   // hmm.. the triangle containing this point should be:
+   //
+   /*
+   uvPointer2 = vec2(2.051818132, 0.264054537);
+   bool debugFace = inSelectedFace2();
+   
+   if (debugFace) {
+     V0uv_ = vec2(2.052253723,0.263893485);
+     V1uv_ = vec2(2.052134752,0.263703674);
+     V2uv_ = vec2(2.050756216,0.264802217);
+     computeInfo();
+   }
+   */
+      
    // 1st:  Edge and Vertex Colors
    apply_EdgeAndVertexColors();
    apply_SelectedUVLine();
@@ -723,12 +812,21 @@ void main()
    outColor.g = (outColor.g * (1.0f-frac) + 0.0 * frac) * tnz;
    outColor.b = (outColor.b * (1.0f-frac) + 0.1 * frac) * tnz;
    
-
    if (inSelectedFace()) {
       frac = 0.3;
       outColor.r = outColor.r * (1.0f-frac) + 0.0f * frac;
       outColor.g = outColor.g * (1.0f-frac) + 0.0f * frac;
       outColor.b = outColor.b * (1.0f-frac) + 1.0f * frac;
    }
+
+   /*
+   
+   if (debugFace) {
+      frac = 0.6;
+      outColor.r = outColor.r * (1.0f-frac) + 1.0f * frac;
+      outColor.g = outColor.g * (1.0f-frac) + 0.5f * frac;
+      outColor.b = outColor.b * (1.0f-frac) + 0.5f * frac;
+   }
+   */
 }
 

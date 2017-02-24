@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 
@@ -40,6 +41,7 @@ import com.generic.base.Raster.Image;
 import com.generic.base.World.*;
 
 import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2ES2;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
@@ -422,6 +424,99 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             g.drawImage(image, 0, 0, null); 
             
             if (demoWorld.selectedUVPointIfAny != null) {
+               Graphics2D g2 = (Graphics2D) g;
+               
+               // highlight selected triangle if any ..
+               for (Geometry.MeshModel meshModel : new Geometry.MeshModel[] { demoWorld.mappingModel1, demoWorld.mappingModel2, demoWorld.mappingModel3 }) { 
+                  if (meshModel == null) continue;
+                  
+                  for (Mesh.Triangle tc : meshModel.mesh.triangles) {
+                     TextureCoordProvider t = (TextureCoordProvider) tc;
+                     Triangle2 texCoords = t.getTextureCoords();
+                     
+                     Vector3 val = Algebra.contains(texCoords, demoWorld.selectedUVPointIfAny);
+                     if (val != null) {
+                        Composite c0 = g2.getComposite();
+                        Composite c1 = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, .6f);
+                        g2.setComposite(c1);
+                        
+                        Vector2 p0 = texCoords.v0;
+                        int p0x = view.xToHPixel(p0.x);
+                        int p0y = view.yToVPixel(p0.y);
+                        
+                        Vector2 p1 = texCoords.v1;
+                        int p1x = view.xToHPixel(p1.x);
+                        int p1y = view.yToVPixel(p1.y);
+                        
+                        Vector2 p2 = texCoords.v2;
+                        int p2x = view.xToHPixel(p2.x);
+                        int p2y = view.yToVPixel(p2.y);
+                        
+                        g.setColor(Color.GREEN);
+                        g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
+                        
+                        /*
+                        System.out.format("Intersecting triangle %d at point\n%s==\n%s---\n%s---\n%s---\nBarycentrics are (%g,%g,%g)\n",
+                              tc.getIndex(), demoWorld.selectedUVPointIfAny, p0.toString(), p1.toString(), p2.toString(), 
+                              val.x, val.y, val.z);
+                        */
+                        // -------------------------------------------
+                        // okay, we're going to "dup" the fragment shader work here...
+                        // -------------------------------------------
+                        {
+                           float A,B,C,D,E,F,G,H,I;
+   
+                           float u0 = p0.x, v0 = p0.y;
+                           float u1 = p1.x, v1 = p1.y;
+                           float u2 = p2.x, v2 = p2.y;
+                           
+                           float den = u0*v1 - u0*v2 + u1*v2 - u1*v0 + u2*v0 - u2*v1;
+                           A = (v1-v2)/den;  B = (u2-u1)/den;  C = (u1*v2-u2*v1)/(den);
+                           D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/(den);
+                           G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/(den);
+                           
+                           Vector2 uvPointer = demoWorld.selectedUVPointIfAny;
+                           float lambda0 = A*uvPointer.x + B*uvPointer.y + C;
+                           float lambda1 = D*uvPointer.x + E*uvPointer.y + F;
+                           float lambda2 = G*uvPointer.x + H*uvPointer.y + I;
+                           
+                           /*
+                           System.out.format("Intersecting triangle %d at point\n%s==\n%s---\n%s---\n%s---\nBarycentrics are (%g,%g,%g)\nBarycentriXX are (%g,%g,%g)\n",
+                                 tc.getIndex(), demoWorld.selectedUVPointIfAny, p0.toString(), p1.toString(), p2.toString(), 
+                                 val.x, val.y, val.z,
+                                 lambda0, lambda1, lambda2);
+                                 *?
+                        }
+                        {
+                           double A,B,C,D,E,F,G,H,I;
+   
+                           double u0 = p0.x, v0 = p0.y;
+                           double u1 = p1.x, v1 = p1.y;
+                           double u2 = p2.x, v2 = p2.y;
+                           
+                           double den = u0*v1 - u0*v2 + u1*v2 - u1*v0 + u2*v0 - u2*v1;
+                           A = (v1-v2)/den;  B = (u2-u1)/den;  C = (u1*v2-u2*v1)/(den);
+                           D = (v2-v0)/den;  E = (u0-u2)/den;  F = (u2*v0-u0*v2)/(den);
+                           G = (v0-v1)/den;  H = (u1-u0)/den;  I = (u0*v1-u1*v0)/(den);
+                           
+                           Vector2 uvPointer = demoWorld.selectedUVPointIfAny;
+                           double lambda0 = A*uvPointer.x + B*uvPointer.y + C;
+                           double lambda1 = D*uvPointer.x + E*uvPointer.y + F;
+                           double lambda2 = G*uvPointer.x + H*uvPointer.y + I;
+                           
+                           /*
+                           System.out.format("BarycentriDD are (%g,%g,%g)\n",
+                                 lambda0, lambda1, lambda2);
+                                 */
+                        }
+                        
+                        
+                        
+                     }
+                  }
+               }
+               
+               
                int px = view.xToHPixel(demoWorld.selectedUVPointIfAny.x);
                int py = view.yToVPixel(demoWorld.selectedUVPointIfAny.y);
                
@@ -434,11 +529,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                g.setColor(Color.BLACK);
                g.fillRect(px-3, py-3,  7, 7);
                
-               
                g.setColor(Color.YELLOW);
                g.fillRect(px-2, py-2,  5, 5);
-               
-               
             }
             
             statusLabel.setText(
@@ -1109,6 +1201,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                Shader.ManagedTexture texture = ((Shader.Variable.Sampler.Binding) binding).texture;
                gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID); 
             }
+            if (binding instanceof Shader.Variable.Sampler.Binding2) {
+               Shader.ManagedFloatTexture texture = ((Shader.Variable.Sampler.Binding2) binding).texture;
+               gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID); 
+            }
          }
          
          // Binding the "vertex array object" ID takes care of all the per-vertex buffer bindings
@@ -1160,31 +1256,51 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
   
       Vector2 intersection = null;
       boolean intersectionOccurred = false;
-      for (Mesh.Triangle t : geometry.mesh.triangles) {
-         Vector3 v0Pos = t.vertices[0].getPosition();
-         Vector3 v1Pos = t.vertices[1].getPosition();
-         Vector3 v2Pos = t.vertices[2].getPosition();
-
-         Vector3 camV0 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v0Pos)).toVector3f();
-         Vector3 camV1 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v1Pos)).toVector3f();
-         Vector3 camV2 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v2Pos)).toVector3f();
-
-         //System.out.format("Triangle is\n%s---\n%s---\n%s---\n", camV0.toString(), camV1.toString(), camV2.toString());
-
-         Triangle3 t2 = new Triangle3(camV0, camV1, camV2);
-         Vector2 intersectionA = Algebra.intersects(t2,s);
-         
-         if (intersectionA != null) {
-            intersectionOccurred = true;
-            if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2) || (geometry == demoWorld.mappingModel3)) {
-               Triangle2 texCoords = ((TextureCoordProvider) t).getTextureCoords();
-               Vector2 t0 = texCoords.v0;
-               Vector2 tu = texCoords.v1.minus(texCoords.v0);
-               Vector2 tv = texCoords.v2.minus(texCoords.v0);
-               intersection = t0.plus(tu.times(intersectionA.x)).plus(tv.times(intersectionA.y));               
+      float sParam = 0;
+      
+         //System.out.format("Intersection test begin:\n");
+      
+         for (Mesh.Triangle t : geometry.mesh.triangles) {
+            Vector3 v0Pos = t.vertices[0].getPosition();
+            Vector3 v1Pos = t.vertices[1].getPosition();
+            Vector3 v2Pos = t.vertices[2].getPosition();
+   
+            Vector3 camV0 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v0Pos)).toVector3f();
+            Vector3 camV1 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v1Pos)).toVector3f();
+            Vector3 camV2 = Matrix4x4.product(modelToCamera, Vector4.fromVector3f(v2Pos)).toVector3f();
+   
+            //System.out.format("Triangle is\n%s---\n%s---\n%s---\n", camV0.toString(), camV1.toString(), camV2.toString());
+   
+            Triangle3 t2 = new Triangle3(camV0, camV1, camV2);
+            Vector4 intersectionLambdas = Algebra.intersects(t2,s, false);
+            
+            if (intersectionLambdas != null) {
+               intersectionOccurred = true;
+               if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2) || (geometry == demoWorld.mappingModel3)) {
+                  if (geometry == demoWorld.mappingModel1) {
+                     /*
+                     System.out.format("Intersected triangle %d at -- (%g,%g,%g,%g)\n",
+                           t.getIndex(), 
+                           intersectionLambdas.x,
+                           intersectionLambdas.y,
+                           intersectionLambdas.z,
+                           intersectionLambdas.w);
+                     */
+                  }
+   
+                  
+                  if ((intersection == null) || (intersectionLambdas.w < sParam)) {
+                     Triangle2 texCoords = ((TextureCoordProvider) t).getTextureCoords();
+                     intersection = texCoords.v0.times(intersectionLambdas.x).plus(
+                                    texCoords.v1.times(intersectionLambdas.y).plus(
+                                    texCoords.v2.times(intersectionLambdas.z)));
+                     sParam = intersectionLambdas.w;
+                  }
+               }
             }
          }
-      }
+         
+         //System.out.format("Intersection test DONE:\n");
       
       if ((geometry == demoWorld.mappingModel1) || (geometry == demoWorld.mappingModel2) || (geometry == demoWorld.mappingModel3)) {
          if (intersection != null) {
@@ -1314,18 +1430,44 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       gl.glActiveTexture(GL.GL_TEXTURE0);
       
       HashSet<Shader.Instance> shaderInstances = demoWorld.getShaderInstances();
-      HashSet<Shader.ManagedTexture> textures = World.getAllTextures(shaderInstances);
-      for (Shader.ManagedTexture texture : textures) {
-         texture.setup();
-         texture.glTextureID = this.generateTextureId(gl);
-         
-         gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID);         
-         gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
-         gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);
-         
-         gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
-               texture.image.width, texture.image.height, 0, GL.GL_BGRA,
-               GL.GL_UNSIGNED_BYTE, texture.intBuffer);
+      {
+         HashSet<Shader.ManagedTexture> textures = World.getAllTextures(shaderInstances);
+         for (Shader.ManagedTexture texture : textures) {
+            texture.setup();
+            texture.glTextureID = this.generateTextureId(gl);
+            
+            gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID);         
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);
+            
+            if (texture.type == Shader.Variable.Sampler.Type.TEXTURE_32BIT) {
+               gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
+                     texture.image.width, texture.image.height, 0, GL.GL_BGRA,
+                     GL.GL_UNSIGNED_BYTE, texture.intBuffer);
+            }
+            if (texture.type == Shader.Variable.Sampler.Type.TEXTURE_8BIT) {
+               gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_R8,
+                     texture.image.width, texture.image.height, 0, GL2ES2.GL_RED,
+                     GL.GL_UNSIGNED_BYTE, texture.intBuffer);
+            }
+         }
+      }
+      {
+         HashSet<Shader.ManagedFloatTexture> textures = World.getAllFloatTextures(shaderInstances);
+         for (Shader.ManagedFloatTexture texture : textures) {
+            texture.setup();
+            texture.glTextureID = this.generateTextureId(gl);
+            
+            gl.glBindTexture(GL.GL_TEXTURE_2D, texture.glTextureID);         
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_NEAREST);
+            gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_NEAREST);
+            
+            if (texture.type == Shader.Variable.Sampler.Type.TEXTURE_FLOAT) {
+               gl.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_R32F,
+                     texture.image.width, texture.image.height, 0, GL2ES2.GL_RED,
+                     GL.GL_FLOAT, texture.floatBuffer);
+            }
+         }
       }
    }
    

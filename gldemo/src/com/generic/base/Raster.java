@@ -43,6 +43,40 @@ public class Raster {
       public final int height;
    }
 
+   public static class FloatImage {
+      public FloatImage (String name, int width, int height) {
+         this.name = name;
+         this.width = width;
+         this.height = height;
+         pixels = new float[width*height];
+      }
+      
+      public void clear() {
+         int n=width*height;
+         for (int i=0; i < n; ++i) {
+            pixels[i] = 0;
+         }
+      }
+      public void set(int x, int y, float color) {
+         pixels[x+y*width] = color;
+      }
+      public void fillRect(int startX, int startY, int w, int h, float color) {
+         for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+               set(startX+x, startY+y, color);
+            }
+         }
+      }
+      
+      public String getName() {
+         return name;
+      }
+
+      public String name;       
+      public final float[] pixels;
+      public final int width;
+      public final int height;
+   }
    // -------------------------------------------------------------------
    // Color
    // -------------------------------------------------------------------
