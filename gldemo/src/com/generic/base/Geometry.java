@@ -5,7 +5,6 @@ import com.generic.base.Algebra.*;
 import com.generic.base.Shader;
 import com.generic.base.Raster.*;
 import com.generic.base.Shader.Variable;
-import com.sun.prism.GraphicsPipeline.ShaderModel;
 
 import java.util.ArrayList;
 import java.util.Arrays;

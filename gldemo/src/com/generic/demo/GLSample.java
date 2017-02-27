@@ -119,12 +119,12 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             }
          }
       });
-      
-      animationThread.start();
-      
-      
+            
       // Create GUI and frame window
       gui = new GUI();
+      
+      // Start animating (*after* creating the GUI)
+      animationThread.start();
       
       final Frame frame = new Frame() {
          private static final long serialVersionUID = 1L;

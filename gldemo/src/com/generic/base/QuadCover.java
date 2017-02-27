@@ -813,7 +813,30 @@ public class QuadCover {
                // COLLECT all the possible path "start" edges...
                // ------------------------------------------------------
                ArrayList<Mesh.Triangle.Edge> possibleStartEdges = new ArrayList<Mesh.Triangle.Edge>();
+               ArrayList<Mesh.Triangle.Edge> possibleEndEdges = new ArrayList<Mesh.Triangle.Edge>();
                
+               for (int step = 0; step < 2; step++) {
+                  // Step 0 is to gather all possibleStartEdges by visiting alternate START points
+                  // Step 1 is to gather all possibleEndEdges by visiting alternate END points
+                  
+                  // In both cases, we're WALKING counterclockwise around a LOOP of possible
+                  // start or end vertices of this one cut PATH in the cut graph
+                  Mesh.DirectedEdge firstForwardAroundLoop;
+                  if (step == 0) {
+                     Mesh.DirectedEdge nextCutGraphEdgeAroundStart = firstEdge.nextAroundStart();
+                     while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
+                        nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
+                     }
+                     firstForwardAroundLoop = nextCutGraphEdgeAroundStart.opposite();
+                  } else {
+                     Mesh.DirectedEdge nextCutGraphEdgeAroundEnd = lastEdge.nextAroundEnd();
+                     while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
+                        nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
+                     }
+                     firstForwardAroundLoop = nextCutGraphEdgeAroundEnd;                     
+                  }
+                  
+               }
                // Obviously "firstEdge" is a possible start edge...
                // But also are all other non-cut-path edges
                //    starting at the same start-vertex as "firstEdge",
@@ -823,6 +846,37 @@ public class QuadCover {
                while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
                   nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
                }
+               
+               // Now then, we're WALKING counterclockwise around the loop
+               // of "possible start vertices of this cut-graph
+               
+               Mesh.DirectedEdge firstForwardAroundLoop = nextCutGraphEdgeAroundStart.opposite();
+               Mesh.DirectedEdge forwardAroundLoop = firstForwardAroundLoop;
+               
+               // We believe strongly that "forwardAroundLoop" WULL return to firstForwardAroundLoop
+               // and not get stuck in an infinite loop around other edges.
+               // But we could add a check here to detect infinite loops, just for safety
+               while (forwardAroundLoop != firstForwardAroundLoop) {
+                  Mesh.DirectedEdge possibleStartingEdge = forwardAroundLoop.prevAroundEnd();
+                  
+                  // We believe strongly that an Edge that's "inCutGraph" with a "cutPathIndex"
+                  // difderent from path.index WILL be encountered in a loop around this vertex..
+                  // But we could add a check here to detect infinite loops, just for safety
+                  
+                  while (!((Edge)(possibleStartingEdge.getEdge())).inCutGraph || 
+                        (((Edge)(possibleStartingEdge.getEdge())).cutPathIndex == path.index)) {
+                      possibleStartEdges.add((Mesh.Triangle.Edge)possibleStartingEdge);
+                      possibleStartingEdge = possibleStartingEdge.prevAroundEnd();
+                  }
+                  
+                  // At the end of this, possibleStartingEdge is the *new* forwardAroundLoop..
+                  forwardAroundLoop = possibleStartingEdge;
+               }
+               
+              
+            
+            
+               
                Mesh.DirectedEdge prevCutGraphEdgeAroundStart = firstEdge.prevAroundStart();
                while (!((Edge)prevCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
                   prevCutGraphEdgeAroundStart = prevCutGraphEdgeAroundStart.prevAroundStart();
