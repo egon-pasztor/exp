@@ -25,6 +25,34 @@ public class QuadCover {
       
       public int cutGraphValence;
       
+      // cut-path-optimization...
+      public boolean optimizationBoundary;
+      
+      public boolean pathToStartFixed;
+      public float distanceToStart;
+      public Mesh.Triangle.Edge outgoingEdgeTowardStart;
+      
+      public boolean pathToEndFixed;
+      public float distanceToEnd;
+      public Mesh.Triangle.Edge outgoingEdgeTowardEnd;
+      
+      public static class FixStep {
+         public FixStep(Vertex v, boolean fixStart) {
+            this.fixStart = fixStart;
+            this.v = v;
+         }
+         public float getDistance() {
+            return fixStart ? v.distanceToStart : v.distanceToEnd;
+         }
+         public final boolean fixStart;
+         public final Vertex v;         
+      }
+      public final FixStep fixStart, fixEnd;
+      public Vertex() {
+         fixStart = new FixStep(this,true);
+         fixEnd = new FixStep(this,false);
+      }
+      
       // --------------------------------
       // Floater-coords
       // --------------------------------
@@ -531,8 +559,8 @@ public class QuadCover {
                   if ((otherTriangle.spanningTreeIndexTowardsRoot != null) && 
                       (otherTriangle.distanceToRoot > proposedDistanceToRootForOtherTriangle)) {
                   
-                     otherTriangle.spanningTreeIndexTowardsRoot = null;
                      queue.remove(otherTriangle);
+                     otherTriangle.spanningTreeIndexTowardsRoot = null;
                   }
                   if (otherTriangle.spanningTreeIndexTowardsRoot == null) {
                      otherTriangle.spanningTreeIndexTowardsRoot = etOpposite.getEdgeIndex();
@@ -630,10 +658,19 @@ public class QuadCover {
       // We/re going to iteratively improve the longest path in the cut graph,
       // so we need to divide the cut-graph into paths....
       
+      int globalOptimizationStep = 0;
       do {
          furtherOptimizationPossible = false;
                
+         // clear out edge data, only "inCutGraph" is valid:
+         for (Mesh.Edge eb : mesh.edges) {
+            Edge e = (Edge) eb;
+            e.cutPathIndex = -1;
+            e.colorCode = 0;
+         }
+
          // Find a cut-graph edge to start with:
+         
          Mesh.Triangle.Edge startingEdge = null;
          for (Mesh.Edge eb : mesh.edges) {
             Edge e = (Edge) eb;
@@ -641,7 +678,7 @@ public class QuadCover {
                startingEdge = e.getFirst();
                break;
             }
-         }
+         }         
          if (startingEdge == null) {
             throw new RuntimeException("hmm, no cut graph edges at all?");
          }
@@ -665,12 +702,16 @@ public class QuadCover {
 
          
          // We know all the vertices connected to the cut graph have valence of 2 or greater,
-         // since we removed all the edges that connected to a valence 1 vertex.
+         // (since we removed all the edges that connected to a valence 1 vertex.)
+         // But do any of the vertices in the cut-graph have valance > 2?
          //
-         //  
+         // (If all the vertices have valence == 2, then the cut-graph is just a single boundary loop.
+         // We're pretty sure the only way this could happen, topologically, is if the mesh started
+         // out with a single boundary loop, in other words, it's a TOPOLOGICAL DISC already.
+         // In this case there's no cutting to do, as there's no need for a cut-graph.
+         //
+         // But if there ARE valance > 2 points, find one:
          
-         
-         // Do any of the vertices in the cut-graph have valance > 2?  Find one.
          boolean hasCriticalPoints = false;
          int criticalPointIndex = 0;
          int numCriticalPoints = 0;
@@ -680,8 +721,10 @@ public class QuadCover {
                if (!hasCriticalPoints) {
                   criticalPointIndex = i;
                   hasCriticalPoints = true;
-               }               
-               ((Vertex)boundaryLoop.get(i).start()).colorCode = 1;
+               }
+               if (globalOptimizationStep == 1) {
+                  ((Vertex)boundaryLoop.get(i).start()).colorCode = 1;
+               }
                numCriticalPoints++;
             }
             if (boundaryLoop.get(i).getEdge().isBoundary()) {
@@ -692,17 +735,12 @@ public class QuadCover {
          System.out.format("So... we have %d directedEdges in boundaryLoop -- with %d critical points, %d boundaryEdges\n", 
                boundaryLoop.size(), numCriticalPoints, numBoundaryEdges);
 
-         
          if (hasCriticalPoints) {
             cuttingNeeded = true;
             
             // Make a list of the individual cut paths within the cut graph
             // by starting from the (valence>2) point at "criticalPointIndex"
             // and following the boundaryLoop until the next (valence>2) point..
-            
-            for (int i = 0; i < boundaryLoop.size(); ++i) {
-               ((Edge)(boundaryLoop.get(i).getEdge())).cutPathIndex = -1;
-            }
             
             class CutPath {
                public CutPath(int index, boolean isBoundary) {
@@ -740,7 +778,8 @@ public class QuadCover {
                      currentCutPath = new CutPath(cutPathIndex++, ithEdge.isBoundary());
                   }
                   ithEdge.cutPathIndex = currentCutPath.index;
-                  ithEdge.colorCode = currentCutPath.index+1;
+                  
+                  ithEdge.colorCode = 3;
                   currentCutPath.edges.add(ithEdge);
                   currentCutPath.length += ithEdge.length;
                }
@@ -754,8 +793,8 @@ public class QuadCover {
             
             System.out.format("FOUND %d cut-paths\n",cutPaths.size());
             for (CutPath path : cutPaths) {
-               System.out.format("Path of length %g, %s\n",
-                     path.length, path.isBoundary ? "boundary" : "interior");
+               System.out.format("   %s Cut-Path of length %g, with %d total steps\n",
+                     path.isBoundary ? "boundary" : "interior", path.length, path.edges.size());
             }
             System.out.format("End of cut-path list\n");
             
@@ -772,163 +811,360 @@ public class QuadCover {
             for (CutPath path : cutPaths) {
                if (path.isBoundary) continue;
                
-               Mesh.Triangle.Edge firstEdge;
-               Mesh.Triangle.Edge lastEdge;
+               if (globalOptimizationStep == -1) {
+                  for (Edge e : path.edges) {
+                     e.colorCode=4;
+                  }
+               }
+               
+               Mesh.Triangle.Edge edgeFromPathStart;
+               Mesh.Triangle.Edge edgeFromPathEnd;
                
                if (path.edges.size() == 1) {
-                  firstEdge = path.edges.get(0).getFirst();
-                  lastEdge  = (Mesh.Triangle.Edge)firstEdge.opposite();
+                  edgeFromPathStart = path.edges.get(0).getFirst();
+                  edgeFromPathEnd  = (Mesh.Triangle.Edge)edgeFromPathStart.opposite();
                } else {
                   Edge e0  = path.edges.get(0);
                   Edge e1  = path.edges.get(1);
-                  firstEdge = ((e0.getFirst().end() == e1.getFirst().start()) ||
-                               (e0.getFirst().end() == e1.getFirst().end())) 
-                             ? e0.getFirst() : (Mesh.Triangle.Edge)e0.getSecond();
-                             
+                  edgeFromPathStart = ((e0.getFirst().end() == e1.getFirst().start()) ||
+                                       (e0.getFirst().end() == e1.getFirst().end())) 
+                                      ? e0.getFirst() : (Mesh.Triangle.Edge)e0.getSecond();
+                              
                   Edge eN_1  = path.edges.get(path.edges.size()-1);
                   Edge eN_2  = path.edges.get(path.edges.size()-2);
-                  lastEdge = ((eN_1.getFirst().start() == eN_2.getFirst().start()) ||
-                              (eN_1.getFirst().start() == eN_2.getFirst().end()))
-                             ? eN_1.getFirst() : (Mesh.Triangle.Edge)eN_1.getSecond();
+                  edgeFromPathEnd = ((eN_1.getFirst().end() == eN_2.getFirst().start()) ||
+                                     (eN_1.getFirst().end() == eN_2.getFirst().end()))
+                                    ? eN_1.getFirst() : (Mesh.Triangle.Edge)eN_1.getSecond();
                }
                
                // ------------------------------------------------------
                // OPTIMIZE a single INTERIOR cut PATH
                // ------------------------------------------------------
-               //
-               // so, we expand two FRONTIERS from either SIDE of the cut-path
-               // into the available space...
+               // so, we're going to expand two FRONTIERS from either SIDE of
+               // the cut-path into the available space...
                //
                // the cut graph is identified by edges whose "cutPathIndex" is "path.index"
                // a better (shorter) cut graph may NOT touch any vertices indicent to 
                // edges from OTHER cut graph paths...
                // ... except at the start and the end.
                //
-               // the first step is to collect the possible "start" and "end" points
+               // the first step is to collect the possible "start" and "end" edges
                // for this path.   we imagine SLIDING the path start along the
                // other cut-graph path it's connected to...
-               //
+               
+               // first, clear out vertex data..
+               for (Mesh.Vertex vb : mesh.vertices) {
+                  Vertex v = (Vertex) vb;
+                  v.pathToEndFixed = v.pathToStartFixed = false;
+                  v.distanceToStart = v.distanceToEnd = 0.0f;
+                  v.outgoingEdgeTowardStart = v.outgoingEdgeTowardEnd = null;
+                  v.optimizationBoundary = false;
+               }
+               // mark vertices as an "optimizationBoundary" if it's part of a cut-graph
+               // path other than the one we're working on:
+               for (Mesh.Triangle.Edge boundaryEdge : boundaryLoop) {
+                  Edge edge = (Edge) boundaryEdge.getEdge();
+                  if (edge.inCutGraph && edge.cutPathIndex != path.index) {
+                     ((Vertex)boundaryEdge.start()).optimizationBoundary = true;
+                     ((Vertex)boundaryEdge.end()).optimizationBoundary = true;
+                     
+                     ((Vertex)boundaryEdge.start()).colorCode = 1;
+                     ((Vertex)boundaryEdge.end()).colorCode = 1;
+                  }
+               }
                
                // ------------------------------------------------------
                // COLLECT all the possible path "start" edges...
                // ------------------------------------------------------
-               ArrayList<Mesh.Triangle.Edge> possibleStartEdges = new ArrayList<Mesh.Triangle.Edge>();
-               ArrayList<Mesh.Triangle.Edge> possibleEndEdges = new ArrayList<Mesh.Triangle.Edge>();
+               HashSet<Mesh.Triangle.Edge> possibleStartEdges = new HashSet<Mesh.Triangle.Edge>();
+               HashSet<Mesh.Triangle.Edge> possibleEndEdges = new HashSet<Mesh.Triangle.Edge>();
                
                for (int step = 0; step < 2; step++) {
                   // Step 0 is to gather all possibleStartEdges by visiting alternate START points
                   // Step 1 is to gather all possibleEndEdges by visiting alternate END points
                   
+                  Mesh.Triangle.Edge edgeOnPath                    = (step==0) ? edgeFromPathStart  : edgeFromPathEnd;
+                  HashSet<Mesh.Triangle.Edge> otherPossibleEdges = (step==0) ? possibleStartEdges : possibleEndEdges;
+                  
                   // In both cases, we're WALKING counterclockwise around a LOOP of possible
                   // start or end vertices of this one cut PATH in the cut graph
-                  Mesh.DirectedEdge firstForwardAroundLoop;
-                  if (step == 0) {
-                     Mesh.DirectedEdge nextCutGraphEdgeAroundStart = firstEdge.nextAroundStart();
-                     while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
-                        nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
-                     }
-                     firstForwardAroundLoop = nextCutGraphEdgeAroundStart.opposite();
-                  } else {
-                     Mesh.DirectedEdge nextCutGraphEdgeAroundEnd = lastEdge.nextAroundEnd();
-                     while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
-                        nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
-                     }
-                     firstForwardAroundLoop = nextCutGraphEdgeAroundEnd;                     
+                  Mesh.DirectedEdge firstForwardAroundLoop = edgeOnPath.nextAroundStart();
+                  while (!((Edge)firstForwardAroundLoop.getEdge()).inCutGraph) {
+                     firstForwardAroundLoop = firstForwardAroundLoop.nextAroundStart();
                   }
+                  firstForwardAroundLoop = firstForwardAroundLoop.opposite();
                   
-               }
-               // Obviously "firstEdge" is a possible start edge...
-               // But also are all other non-cut-path edges
-               //    starting at the same start-vertex as "firstEdge",
-               //    between other cut-graph-edges...
-               
-               Mesh.DirectedEdge nextCutGraphEdgeAroundStart = firstEdge.nextAroundStart();
-               while (!((Edge)nextCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
-                  nextCutGraphEdgeAroundStart = nextCutGraphEdgeAroundStart.prevAroundStart();
-               }
-               
-               // Now then, we're WALKING counterclockwise around the loop
-               // of "possible start vertices of this cut-graph
-               
-               Mesh.DirectedEdge firstForwardAroundLoop = nextCutGraphEdgeAroundStart.opposite();
-               Mesh.DirectedEdge forwardAroundLoop = firstForwardAroundLoop;
-               
-               // We believe strongly that "forwardAroundLoop" WULL return to firstForwardAroundLoop
-               // and not get stuck in an infinite loop around other edges.
-               // But we could add a check here to detect infinite loops, just for safety
-               while (forwardAroundLoop != firstForwardAroundLoop) {
-                  Mesh.DirectedEdge possibleStartingEdge = forwardAroundLoop.prevAroundEnd();
-                  
-                  // We believe strongly that an Edge that's "inCutGraph" with a "cutPathIndex"
-                  // difderent from path.index WILL be encountered in a loop around this vertex..
-                  // But we could add a check here to detect infinite loops, just for safety
-                  
-                  while (!((Edge)(possibleStartingEdge.getEdge())).inCutGraph || 
-                        (((Edge)(possibleStartingEdge.getEdge())).cutPathIndex == path.index)) {
-                      possibleStartEdges.add((Mesh.Triangle.Edge)possibleStartingEdge);
-                      possibleStartingEdge = possibleStartingEdge.prevAroundEnd();
-                  }
-                  
-                  // At the end of this, possibleStartingEdge is the *new* forwardAroundLoop..
-                  forwardAroundLoop = possibleStartingEdge;
-               }
-               
-              
-            
-            
-               
-               Mesh.DirectedEdge prevCutGraphEdgeAroundStart = firstEdge.prevAroundStart();
-               while (!((Edge)prevCutGraphEdgeAroundStart.getEdge()).inCutGraph) {
-                  prevCutGraphEdgeAroundStart = prevCutGraphEdgeAroundStart.prevAroundStart();
-               }
-               
-               // We want to TRAVERSE a LOOP, going along the "prevCutGraphEdgeAroundStart"
-               // ....
-
-               // Gather Inward Pointing Edges along either side:
-               
-               ArrayList<Mesh.Triangle.Edge> possibleFirstEdges = new ArrayList<Mesh.Triangle.Edge>();
-               ArrayList<Mesh.Triangle.Edge> possibleLastEdges = new ArrayList<Mesh.Triangle.Edge>();
-               /*
-               for (int i = 0; i < 2; i++) {
-                  Mesh.DirectedEdge firstEdgeInLoop = nextCutGraphEdgeAroundStart.opposite();
-
-                  // we are walking around a loop,
-                  //    one edge of which is "nextCutGraphEdgeAroundStart.opposite()"
-                  //    the next edge is "prevCutGraphEdgeAroundStart"
-                  //
-                  // (note the odd naming... the edges are called "next" and "prev"
-                  // because they are the next and previous cut-graph-edges 
-                  // encountered when rotating CounterCloseWise around the vertex)
-                  //
-                  Mesh.DirectedEdge nCutGraphEdge = nextCutGraphEdgeAroundStart;
-                  Mesh.DirectedEdge pCutGraphEdge = prevCutGraphEdgeAroundStart;
-
+                  Mesh.DirectedEdge forwardAroundLoop = firstForwardAroundLoop;
                   do {
-                     // we label as a "possibleStartEdge" all outgoing edges around "pCutGraphEdge.start()"
-                     // starting from pCutGraphEdge (but not including it),
-                     // and ending at nCutGraphEdge (but not including it),
-                     //
-                     Mesh.DirectedEdge e = pCutGraphEdge.nextAroundStart();
-                     while (e != nCutGraphEdge) {
-                        // we believe that we will never encounter a boundary edge because of where the cut graph edges are...
-                        possibleFirstEdges.add((Mesh.Triangle.Edge)e);
-                        e = e.nextAroundStart();
+                     // So "forwardAroundLoop" points at a Vertex P.  We reverse the edge (so now we're
+                     // pointing away from P), and proceed to rotate counterclockwise around P,
+                     // until we reach an edge from a DIFFERENT cut-graph-path that's not "path".
+                     Mesh.DirectedEdge possibleEdge = forwardAroundLoop.opposite().prevAroundStart();
+                     
+                     // We believe that an Edge with "inCutGraph", and a "cutPathIndex" different
+                     // from "path.index", MUST be encountered in a loop around this vertex.
+                     // But we could add a check here to detect infinite loops, just for safety                     
+                     while (!((Edge)(possibleEdge.getEdge())).inCutGraph || 
+                           (((Edge)(possibleEdge.getEdge())).cutPathIndex == path.index)) {
+                        
+                        // We believe that all the edges encountered in this fashion will
+                        // be Mesh.Triangle.Edge and not Boundary, since we know that "path"
+                        // itself contains no boundary edges.
+                        otherPossibleEdges.add((Mesh.Triangle.Edge)possibleEdge);
+                        possibleEdge = possibleEdge.prevAroundStart();
                      }
                      
-                     // Now, if "pCutGraphEdge" is "firstEdgeInLoop", then we've 
-                  
-                  
-                  
-                  
+                     // At the end of this, possibleEdge is the *new* forwardAroundLoop..
+                     forwardAroundLoop = possibleEdge;
+                     
+                     // SO: We believe that "forwardAroundLoop" MUST return to firstForwardAroundLoop
+                     // eventually and will not get stuck in an infinite loop around other edges.
+                     // But we could add a check here to detect infinite loops, just for safety:
+                  } while(forwardAroundLoop != firstForwardAroundLoop);
                }
-               */
+               System.out.format("   Cut Path %d with LENGTH = %g --- start has %d possible edges, end has %d possible edges\n", 
+                     path.index, path.length, possibleStartEdges.size(), possibleEndEdges.size());
+                                 
+               // ------------------------------------------------------
+               // Dual shortest-path sweeps
+               // ------------------------------------------------------
                
+               // now then, we're going to do a two-frontier shortest-path sweep
+               // we need a priority-queue of instructions, each of which fixes the 'start' or 'end'
+               // side of a vertex.   the first time a vertex has both sides fixed, we've found the shortest path!
+               PriorityQueue<Vertex.FixStep> vqueue = new PriorityQueue<Vertex.FixStep>(new Comparator<Vertex.FixStep>() {
+                  @Override
+                  public int compare(Vertex.FixStep o1, Vertex.FixStep o2) {
+                     return Float.compare(o1.getDistance(), o2.getDistance());
+                  }});
                
+               // the "start" vertices of the edges in possibleStartEdges are the possible
+               // start vertices...  we FIX each of those "start" vertices (now),  and
+               // we add instructions to the priority queue to FIX the "end" vertices
+               
+               int i=0;
+               for (Mesh.Triangle.Edge edgeFromStart : possibleStartEdges) {
+                  Vertex possibleStartVertex = (Vertex) edgeFromStart.start();
+                  //System.out.format("       possible start %d == vertex %d\n", i++,possibleStartVertex.getIndex());
+
+                  possibleStartVertex.pathToStartFixed = true;
+                  
+                  Vertex v = (Vertex) edgeFromStart.end();
+                  if (!v.optimizationBoundary || possibleEndEdges.contains(edgeFromStart.opposite())) {
+                     //((Edge)edgeFromStart.getEdge()).colorCode = 5;
+                     
+                     float proposedDistanceToStart = ((Edge) edgeFromStart.getEdge()).length;
+                     if ((v.outgoingEdgeTowardStart != null) &&
+                         (v.distanceToStart > proposedDistanceToStart)) {
+                        
+                        vqueue.remove(v.fixStart);
+                        v.outgoingEdgeTowardStart = null;
+                     }
+                     if (v.outgoingEdgeTowardStart == null) {
+                        v.outgoingEdgeTowardStart = (Mesh.Triangle.Edge) edgeFromStart.opposite();
+                        v.distanceToStart = proposedDistanceToStart;
+                        vqueue.add(v.fixStart);
+                     }
+                  }
+               }
+               i=0;
+               // repeat for the edges in "possibleEndEdges".
+               for (Mesh.Triangle.Edge edgeFromEnd : possibleEndEdges) {
+                  Vertex possibleEndVertex = (Vertex) edgeFromEnd.start();
+                  //System.out.format("       possible end vertex %d\n", i++,possibleEndVertex);
+
+                  possibleEndVertex.pathToEndFixed = true;
+                  
+                  Vertex v = (Vertex) edgeFromEnd.end();
+                  if (!v.optimizationBoundary || possibleStartEdges.contains(edgeFromEnd.opposite())) {
+                     //((Edge)edgeFromEnd.getEdge()).colorCode = 7;
+                     
+                     float proposedDistanceToEnd = ((Edge) edgeFromEnd.getEdge()).length;
+                     if ((v.outgoingEdgeTowardEnd != null) &&
+                         (v.distanceToEnd > proposedDistanceToEnd)) {
+                        
+                        vqueue.remove(v.fixEnd);
+                        v.outgoingEdgeTowardEnd = null;
+                     }
+                     if (v.outgoingEdgeTowardEnd == null) {
+                        v.outgoingEdgeTowardEnd = (Mesh.Triangle.Edge) edgeFromEnd.opposite();
+                        v.distanceToEnd = proposedDistanceToEnd;
+                        vqueue.add(v.fixEnd);
+                     }
+                  }
+               }
+               
+               // Now the priority queue contains instructions to expand the frontier
+               // around both start and end vertices, intermingled, with the smallest first.
+               // Now process each vertex until we encounter a fix-start instruction on a vertex
+               // whose end is already fixed, or else a fix-end instruction on a vertex
+               // whose start is already fixed.
+               Vertex shortestPathRoot = null;
+
+               if (true) {
+                  while (!vqueue.isEmpty()) {
+                     Vertex.FixStep fs = vqueue.remove();
+                     //System.out.format("FStep->   Vertex %d fix %s to distance %g\n", fs.v.getIndex(), fs.fixStart?"start":"end", fs.getDistance());
+                     
+                     if (fs.fixStart) {
+                        // We're fixing some vertex's path to start...
+                        fs.v.pathToStartFixed = true;
+                        
+                        if (fs.v.pathToEndFixed) {
+                           System.out.format("  wow, vertex %d's pathToEnd is fixed!\n", fs.v.getIndex());
+                           fs.v.colorCode = 8;
+                           // if this vertex's path to end is already fixed, we're DONE!
+                           shortestPathRoot = fs.v;
+                           break;
+                        }
+                        
+                        // otherwise let's consider all neighboring vertices that aren't on the boundary:
+                        for (Mesh.DirectedEdge outgoingEdge : fs.v.outgoingEdges()) {
+                           Vertex v = (Vertex) outgoingEdge.end();
+                           if (v.optimizationBoundary || v.pathToStartFixed) continue;
+                           
+                           // If this vertex does not have start fixed, we might have a better path...
+                           float proposedDistanceToStart = ((Edge) outgoingEdge.getEdge()).length + fs.v.distanceToStart;
+                           if ((v.outgoingEdgeTowardStart != null) &&
+                               (v.distanceToStart > proposedDistanceToStart)) {
+                              
+                              vqueue.remove(v.fixStart);
+                              v.outgoingEdgeTowardStart = null;
+                           }
+                           if (v.outgoingEdgeTowardStart == null) {
+                              v.outgoingEdgeTowardStart = (Mesh.Triangle.Edge) outgoingEdge.opposite();
+                              v.distanceToStart = proposedDistanceToStart;
+                              vqueue.add(v.fixStart);
+                           }
+                        }
+                     } else {
+                        // We're fixing some vertex's path to end...
+                        fs.v.pathToEndFixed = true;
+                        
+                        if (fs.v.pathToStartFixed) {
+                          // if this vertex's path to start is already fixed, we're DONE!
+                          shortestPathRoot = fs.v;
+                          break;
+                        }
+                        
+                        // otherwise let's consider all neighboring vertices that aren't on the boundary:
+                        for (Mesh.DirectedEdge outgoingEdge : fs.v.outgoingEdges()) {
+                           Vertex v = (Vertex) outgoingEdge.end();
+                           if (v.optimizationBoundary || v.pathToEndFixed) continue;
+                           
+                           // If this vertex does not have end fixed, we might have a better path...
+                           float proposedDistanceToEnd = ((Edge) outgoingEdge.getEdge()).length + fs.v.distanceToEnd;
+                           if ((v.outgoingEdgeTowardEnd != null) &&
+                               (v.distanceToEnd > proposedDistanceToEnd)) {
+                                
+                              vqueue.remove(v.fixEnd);
+                              v.outgoingEdgeTowardEnd = null;
+                           }
+                           if (v.outgoingEdgeTowardEnd == null) {
+                              v.outgoingEdgeTowardEnd = (Mesh.Triangle.Edge) outgoingEdge.opposite();
+                              v.distanceToEnd = proposedDistanceToEnd;
+                              vqueue.add(v.fixEnd);
+                           }
+                        }
+                     }
+                  }
+                  if (shortestPathRoot == null) {
+                     throw new RuntimeException("We expected to find a shortest-path but found...NOTHING??");
+                  }
+                  System.out.format("     Found improved path with LENGTH = %g ...\n",
+                        shortestPathRoot.distanceToEnd + shortestPathRoot.distanceToStart);
+                  
+
+                  ArrayList<Edge> newEdges = new ArrayList<Edge>();
+                  
+                  Mesh.Triangle.Edge walkToStart = shortestPathRoot.outgoingEdgeTowardStart;
+                  int stepsToStart = 0;
+                  while (walkToStart != null) {
+                     System.out.format(" --> Towards START Vertex %d to Vertex %d -- length %g\n", 
+                           walkToStart.start().getIndex(),
+                           walkToStart.end().getIndex(),
+                           walkToStart.getEdge().length);
+                     
+                     Edge newEdge = (Edge)walkToStart.getEdge();
+                     newEdge.colorCode = 2;
+                     newEdges.add(newEdge);
+                     
+                     walkToStart = ((Vertex)walkToStart.end()).outgoingEdgeTowardStart;
+                     stepsToStart++;
+                  }
+                  
+                  Mesh.Triangle.Edge walkToEnd = shortestPathRoot.outgoingEdgeTowardEnd;
+                  int stepsToEnd = 0;
+                  while (walkToEnd != null) {
+                    System.out.format(" --> Towards END Vertex %d to Vertex %d -- length %g\n", 
+                          walkToEnd.start().getIndex(),
+                          walkToEnd.end().getIndex(),
+                          walkToEnd.getEdge().length);
+                    
+                    Edge newEdge = (Edge)walkToEnd.getEdge();
+                    newEdge.colorCode = 2;
+                    newEdges.add(newEdge);
+
+                    walkToEnd = ((Vertex)walkToEnd.end()).outgoingEdgeTowardEnd;
+                    stepsToEnd++;
+                  }
+                  
+                  System.out.format("     Found improved path with LENGTH = %g and %d total steps -- %d edges instead of %d edges\n",
+                        shortestPathRoot.distanceToEnd + shortestPathRoot.distanceToStart, stepsToStart+stepsToEnd,
+                        newEdges.size(), path.edges.size());
+                  
+                  // ---------------------------------------
+                  // Okay, okay, this is real progress...
+                  // ---------------------------------------
+                  // now we need to replace all the cut-graph-path edges of path.edges,
+                  // with the new edges we've found here...
+                  // 
+                  // asssuming they're different, that is...
+                  boolean edgesChanged = false;
+                  if (newEdges.size() != path.edges.size()) {
+                     edgesChanged = true;
+                  } else {
+                     HashSet<Edge> newEdgesSet = new HashSet<Edge>();
+                     newEdgesSet.addAll(path.edges);
+                     for (Edge newEdge : newEdges) {
+                        if (!newEdgesSet.contains(newEdge)) { 
+                           edgesChanged = true;
+                           break;
+                        }
+                     }
+                  }
+                  
+                  if (edgesChanged) {
+                     System.out.format("Okay, going to replace the cut PATH\n");
+                     
+                     for (Edge oldEdge : path.edges) {
+                        Vertex v1 = (Vertex) oldEdge.getFirst().start();
+                        Vertex v2 = (Vertex) oldEdge.getFirst().end();
+                        oldEdge.inCutGraph = false;
+                        v1.cutGraphValence--;
+                        v2.cutGraphValence--;
+                     }
+                     for (Edge newEdge : newEdges) {
+                        Vertex v1 = (Vertex) newEdge.getFirst().start();
+                        Vertex v2 = (Vertex) newEdge.getFirst().end();
+                        newEdge.inCutGraph = true;
+                        v1.cutGraphValence++;
+                        v2.cutGraphValence++;
+                     }
+                     pathWasShrunk = true;
+                  }
+               }
+               if (pathWasShrunk) {
+                  // since we've changed the locations of some cut-graph edges, our count of the cut-graph paths,
+                  // the cut-graph valence of each vertex, may all be different.  We need to break..
+                  break;
+               }
+               //break;
             }
 
             if (pathWasShrunk) {
                furtherOptimizationPossible = true;
+               globalOptimizationStep++;
                System.out.format("REPEATING -----\n");
             } else {
                System.out.format("EXITING-OPTIMIZATION ----- (no changes after looking at each edge)\n");
@@ -936,8 +1172,17 @@ public class QuadCover {
          } else {
             System.out.format("SKIPPING-OPTIMIZATION ----- (no points above 2)\n");
          }
+         if (globalOptimizationStep == 20) {
+            break;
+         }
+         
       } while(furtherOptimizationPossible);
+
       
+      for (Mesh.Vertex vb : mesh.vertices) {
+         Vertex v = (Vertex) vb;
+         v.colorCode = 0;
+      }
       
       
       // --------------------------------------------------------------
@@ -1131,7 +1376,7 @@ public class QuadCover {
          }
       }
       for (Mesh.Boundary eb : mesh.boundaries) {
-         ((Boundary) eb).colorCode = 2;
+         ((Boundary) eb).colorCode = 1;
       }
 
       // -----------------------------------------------------------
@@ -1238,18 +1483,21 @@ public class QuadCover {
          if (numBoundaries == 0) {
             throw new RuntimeException("Mesh error, no boundaries after cut-graph cutting");
          }
+         
+         ArrayList<Boundary> boundariesInOrder = new ArrayList<Boundary>();
+         
          Mesh.Boundary eStart = mesh.boundaries.get(0);
-         int boundariesPassed = 0;
          Mesh.Boundary e = eStart;
          do {
-            boundariesPassed++;
-            e = e.next();         
+            Boundary eb = (Boundary) e;
+            boundariesInOrder.add(eb);
             boundaryVertices.add((Vertex)e.start()); 
-   
+            
+            e = e.next();
          } while (e != eStart);
-         if (numBoundaries != boundariesPassed) {
+         if (numBoundaries != boundariesInOrder.size()) {
             throw new RuntimeException(String.format("Mesh error, boundariePassed = %d but numBoundaries = %d",
-                  boundariesPassed, numBoundaries));
+                  boundariesInOrder.size(), numBoundaries));
          }
                
          System.out.format("Okay, our new SINGLE-LOOP mesh has %d triangles, %d edges, %d vertices, %d boundary edges -- %d vertices on the boundary, %d vertices internal\n",
@@ -1257,7 +1505,8 @@ public class QuadCover {
                boundaryVertices.size(),
                internalVertices.size());
          
-         // Now RENUMBER the vertices, so the interior ones are first
+         // Now RENUMBER the vertices and boundaries,
+         // so the interior ones are first,
          // followed by the boundary ones
          
          int newIndex = 0;
@@ -1271,6 +1520,12 @@ public class QuadCover {
             mesh.vertices.set(newIndex, v);
             newIndex++;
          }
+         newIndex = 0;
+         for (Boundary b : boundariesInOrder) {
+            b.setIndex(newIndex);
+            mesh.boundaries.set(newIndex, b);
+            newIndex++;
+         }
    
          // -----------------------------------------------------------
          // ASSEMBLE a sparse linear-system (Ax=b) to solve:
@@ -1280,11 +1535,19 @@ public class QuadCover {
          int numBoundaryVertices = boundaryVertices.size();
          
          // First SET the position of every BOUNDARY vertex to points on a circle...
+         double totalBoundaryLen = 0;
+         for (Mesh.Boundary eb : mesh.boundaries) {
+            totalBoundaryLen += eb.getEdge().getLength();
+         }
          int ind = 0;
-         for (Vertex v : boundaryVertices) {
-            float angle = (float)((2 * Math.PI * ind) / numBoundaryVertices);
+         double lenSoFar = 0;
+         for (Mesh.Boundary eb : mesh.boundaries) {
+            float angle = (float)((2 * Math.PI * lenSoFar) / totalBoundaryLen);
+            Vertex v = (Vertex)eb.start();
             v.texCoords = new Vector2((float)Math.cos(angle),(float)Math.sin(angle));
+            
             ind++;
+            lenSoFar += eb.getEdge().getLength();
          }
          
          // create two large sparse matrices

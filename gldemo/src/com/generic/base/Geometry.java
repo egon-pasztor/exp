@@ -520,7 +520,7 @@ public class Geometry {
       return vertices;
    }
    
-   public static MeshModel createTorus (float majorRadius, float minorRadius, int majorDivisions, int minorDivisions) {
+   public static MeshModel createTorus (float majorRadius, float minorRadiusA, float minorRadiusB, int majorDivisions, int minorDivisions) {
       MeshModel m = new MeshModel(new Mesh());
       
       
@@ -530,8 +530,8 @@ public class Geometry {
       Mesh.Vertex[] startVertices = new Mesh.Vertex[minorDivisions];
       {
          Vector3 discCenter = new Vector3(majorRadius, 0, 0);
-         Vector3 discX = Vector3.X.times(minorRadius);
-         Vector3 discY = Vector3.Z.times(minorRadius);
+         Vector3 discX = Vector3.X.times(minorRadiusA);
+         Vector3 discY = Vector3.Z.times(minorRadiusA);
          startVertices = createVertexRing(m.mesh, discCenter, discX, discY, minorDivisions);
       }
       Mesh.Vertex[] lastVertices = startVertices;      
@@ -542,6 +542,10 @@ public class Geometry {
          if (i == majorDivisions) {
             nextVertices = startVertices;
          } else {
+            float rot = (float) (majorAngle/Math.PI);
+            if (rot > 1) rot = 2.0f - rot;
+            float minorRadius = minorRadiusA * (1.0f-rot) + minorRadiusB * rot;
+            
             Vector3 discCenter = new Vector3(majorRadius * (float)Math.cos(majorAngle), majorRadius * (float)Math.sin(majorAngle), 0);
             Vector3 discX = new Vector3((float)Math.cos(majorAngle), (float)Math.sin(majorAngle), 0).times(minorRadius);
             Vector3 discY = Vector3.Z.times(minorRadius);

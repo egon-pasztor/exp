@@ -836,21 +836,37 @@ public class Algebra {
                   numRows, numCols, b.values.length));
          }
          Vector x = new Vector(numRows);
+         /*
          for (int i = 0; i < x.values.length; ++i) {
             x.values[i] = 0.5f;
          }
+         */
+         System.out.format("Low Level SOLVER started on a [%d x %d] matrix with %d non-zero elements \n", 
+               numRows, numCols, nonzeroElements.size());
+         long startTime = System.currentTimeMillis();
 
+         int maxIterations = 50000;
+         double eps = 0.0000003;
+         
          int iteration = 0;
          double diff = 1.0;
-         while (diff > 0.0000003) {
+         while ((diff > eps) && (iteration < maxIterations)) {
            Vector Ax = multiply(x);
            diff = Ax.dist(b);
-           System.out.format("Iteration %d -- %g error\n", iteration++, diff);
+           //System.out.format("Iteration %d -- %g error\n", iteration++, diff);
 
            for (int i = 0; i < x.values.length; ++i) {
               x.values[i] += 1.0*(b.values[i] - Ax.values[i]);
            }
+           iteration++;
          }
+         if (iteration == maxIterations) {
+            throw new RuntimeException(String.format("Didn't achieve conergence!  After %d iters diff is still %g!", iteration, diff));
+         }
+         
+         long endTime = System.currentTimeMillis();
+         System.out.format("Low Level SOLVER done, did %d iterations in %d ms\n", iteration, endTime-startTime);
+
          return x;
       }
    }

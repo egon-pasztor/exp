@@ -299,19 +299,20 @@ void apply_EdgeAndVertexColors() {
     int b2ColorCode = int(fragTriColorInfo.w)       & 0xff;
     
     int pixelScale = 1;
+    int vertexScale = 8;
     
     int boundaryScale = 4;
     int localEdgeScale = 2;
       
-    if ((d0 < 5*pixelScale) && (v0ColorCode > 0)) {
+    if ((d0 < vertexScale*pixelScale) && (v0ColorCode > 0)) {
        set(v0ColorCode);
        return;       
     }
-    if ((d1 < 5*pixelScale) && (v1ColorCode > 0)) {
+    if ((d1 < vertexScale*pixelScale) && (v1ColorCode > 0)) {
        set(v1ColorCode);
        return;
     }
-    if ((d2 < 5*pixelScale) && (v2ColorCode > 0)) {
+    if ((d2 < vertexScale*pixelScale) && (v2ColorCode > 0)) {
        set(v2ColorCode);
        return;       
     }

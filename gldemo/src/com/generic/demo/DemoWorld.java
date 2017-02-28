@@ -82,10 +82,9 @@ public class DemoWorld extends World {
       // TORUS
       // --------------------------
 
-      MeshModel tor0 = Geometry.createTorus(2.0f, 0.5f, 53, 23);
-      tor0.mesh.removeTriangle(tor0.mesh.triangles.get(tor0.mesh.triangles.size()/4));
+      MeshModel tor0 = Geometry.createTorus(2.0f, 0.5f, 0.3f, 53, 23);
       mappingModel3 = tor0;
-      QuadCover.run("DONUT WITH ONE MISSING TRIANGLE", tor0, -2.2f);
+      QuadCover.run("DONUT", tor0, -2.2f);
       
       Shader.Instance tor0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
       Shader.ManagedFloatTexture tor0_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(tor0));      
