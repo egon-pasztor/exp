@@ -771,20 +771,6 @@ void main()
    V2uv_ = V2uv;
    
    computeInfo();
-   
-   // hmm.. the triangle containing this point should be:
-   //
-   /*
-   uvPointer2 = vec2(2.051818132, 0.264054537);
-   bool debugFace = inSelectedFace2();
-   
-   if (debugFace) {
-     V0uv_ = vec2(2.052253723,0.263893485);
-     V1uv_ = vec2(2.052134752,0.263703674);
-     V2uv_ = vec2(2.050756216,0.264802217);
-     computeInfo();
-   }
-   */
       
    // 1st:  Edge and Vertex Colors
    apply_EdgeAndVertexColors();

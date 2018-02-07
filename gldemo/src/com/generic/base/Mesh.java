@@ -819,7 +819,34 @@ public class Mesh {
          }
       }  
    }   
+   
 
+   // --------------------------------------------------------
+   // DATA - LAYERS
+   // --------------------------------------------------------
+   // okay, what's a data layer?
+   //
+   // an instance of a class "X" that exists for each Triangle / or Vertex / or Boundary / or Edge
+   // a mesh could have data-layers "registered" for each type of object..
+   //   whenever onNewTriangle is called a new "X" is created..
+   //
+   // examples:
+   //    per-triangle "lat/lon"-triple for sphere generator
+   //    per-triangle texture info 
+   //    
+   //    per-triangle AND per-edge AND per-vertex info .. AnglesAndCurvature
+   //    per-triangle AND per-edge AND per-vertex info .. used for Cut-Graph-Computation
+   //    per-triangle AND per-edge AND per-vertex info .. used for Quad-Mesh
+   //    
+   // however all these examples are data-layers that 
+   // do NOT have to be persisted as trinalges are added or destroyed.
+   //
+   // so, if we're NOT going to add "listeners" or anything...
+   //   then, why not just use an Array?
+   // 
+   
+   
+   
    // --------------------------------------------------------
    // Buggy
    // --------------------------------------------------------
@@ -845,6 +872,8 @@ public class Mesh {
       return blInner;
    }
    */
+   
+   
    // --------------------------------------------------------
    // Validation -- is this mesh actually hooked up right?
    // --------------------------------------------------------

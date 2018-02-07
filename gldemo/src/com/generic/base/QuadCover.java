@@ -4,6 +4,7 @@ import com.generic.base.Algebra.*;
 import com.generic.base.Geometry.MeshModel;
 import com.generic.base.Geometry.TextureCoordProvider;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -31,27 +32,6 @@ public class QuadCover {
       public boolean pathToStartFixed;
       public float distanceToStart;
       public Mesh.Triangle.Edge outgoingEdgeTowardStart;
-      
-      public boolean pathToEndFixed;
-      public float distanceToEnd;
-      public Mesh.Triangle.Edge outgoingEdgeTowardEnd;
-      
-      public static class FixStep {
-         public FixStep(Vertex v, boolean fixStart) {
-            this.fixStart = fixStart;
-            this.v = v;
-         }
-         public float getDistance() {
-            return fixStart ? v.distanceToStart : v.distanceToEnd;
-         }
-         public final boolean fixStart;
-         public final Vertex v;         
-      }
-      public final FixStep fixStart, fixEnd;
-      public Vertex() {
-         fixStart = new FixStep(this,true);
-         fixEnd = new FixStep(this,false);
-      }
       
       // --------------------------------
       // Floater-coords
@@ -83,6 +63,9 @@ public class QuadCover {
       }
       
       public int cutPathIndex;
+      
+      public boolean possibleStartEdge;
+      public boolean possibleEndEdge;      
    }
    public static class Boundary extends Mesh.Boundary {
       // Every boundary has an associated <INT>
@@ -137,10 +120,27 @@ public class QuadCover {
 
 
    // -----------------------------------------------------------------------------------
-   // Array Assembly for Shaders
    // -----------------------------------------------------------------------------------
    
+   private static <T> T[] arrayOfObjects(Class<T> tClass, int n) {
+      T[] result = (T[]) Array.newInstance(tClass, n);;
+      try {
+         for (int i = 0; i < n; ++i) {
+            result[i] = tClass.newInstance();
+         }
+      } catch (InstantiationException | IllegalAccessException e) {
+         e.printStackTrace();
+      }
+      return result;
+   }
    
+   
+   // -----------------------------------------------------------------------------------
+   // What should DATA-LAYERS look like?
+   // The "directions" per-triangle can be the "directions" field of
+   // a custom Triangle classs, or they can be held in a simple array.  
+   // -----------------------------------------------------------------------------------
+
    private static Shader.ManagedBuffer newDirectionArrayManager(final Mesh mesh) {
       return new Shader.ManagedFloatBuffer(3) {
          @Override public int getNumElements() { return mesh.triangles.size() * 3; }
@@ -156,6 +156,25 @@ public class QuadCover {
          }
       };
    }
+   private static Shader.ManagedBuffer newDirectionArrayManager(Vector3[] directions) {
+      return new Shader.ManagedFloatBuffer(3) {
+         @Override public int getNumElements() { return directions.length * 3; }
+         @Override public void fillBuffer(float[] array) {
+            int pPos = 0;
+            for (Vector3 v : directions) {
+               pPos = (v).copyToFloatArray(array, pPos);
+               pPos = (v).copyToFloatArray(array, pPos);
+               pPos = (v).copyToFloatArray(array, pPos);
+            }
+         }
+      };
+   }
+   
+   // -----------------------------------------------------------------------------------
+   // The PER-COLOR info can be fields in Custom classes,
+   // or a class MeshColoringInfo holding several arrays...
+   // -----------------------------------------------------------------------------------
+   
    private static Shader.ManagedBuffer newTriangleColoringInfo(final Mesh mesh) {
       return new Shader.ManagedIntBuffer(4) {
          @Override public int getNumElements() { return mesh.triangles.size() * 3; }
@@ -196,6 +215,95 @@ public class QuadCover {
       };
    }
    
+   public static class MeshColoringInfo {
+      
+      // Note that if the mesh changes shape and component indices change,
+      // this class will be OUT OF DATE.
+      
+      public final Mesh mesh;
+      
+      private final int[] vertexColorCodes;
+      private final int[] boundaryColorCodes;
+      private final int[] edgeColorCodes;
+      private final int[] triangleColorCodes;
+      
+      public MeshColoringInfo(Mesh mesh) {
+         this.mesh = mesh;
+         this.vertexColorCodes = new int[mesh.vertices.size()];
+         this.boundaryColorCodes = new int[mesh.boundaries.size()];
+         this.edgeColorCodes = new int[mesh.edges.size()];
+         this.triangleColorCodes = new int[mesh.triangles.size()];
+      }
+      public int getVertexColor (Mesh.Vertex v) {
+         return vertexColorCodes[v.getIndex()];
+      }
+      public int getBoundaryColor (Mesh.Boundary b) {
+         return boundaryColorCodes[b.getIndex()];
+      }
+      public int getEdgeColor (Mesh.Edge e) {
+         return edgeColorCodes[e.getIndex()];
+      }
+      public int getTriangleColor (Mesh.Triangle t) {
+         return triangleColorCodes[t.getIndex()];
+      }
+      public void setVertexColor (Mesh.Vertex v, int colorCode) {
+         vertexColorCodes[v.getIndex()] = colorCode;
+      }
+      public void setBoundaryColor (Mesh.Boundary b, int colorCode) {
+         boundaryColorCodes[b.getIndex()] = colorCode;
+      }
+      public void setColorForEdge (Mesh.Edge e, int colorCode) {
+         edgeColorCodes[e.getIndex()] = colorCode;
+      }
+      public void setTriangleColor (Mesh.Triangle t, int colorCode) {
+         triangleColorCodes[t.getIndex()] = colorCode;
+      }
+   }
+
+   private static Shader.ManagedBuffer newTriangleColoringInfo(final Mesh mesh, final MeshColoringInfo colorInfo) {
+      return new Shader.ManagedIntBuffer(4) {
+         @Override public int getNumElements() { return mesh.triangles.size() * 3; }
+         @Override public void fillBuffer(int[] array) {
+            int pPos = 0;
+            int numA=0, numB=0, numT=0;
+            for (Mesh.Triangle tb : mesh.triangles) {
+               Triangle t = (Triangle) tb;
+               
+               // For triangle t we need to "aggregate" the colorCodes of all
+               // vertices, edges, and boundaries, in addition to the one
+               // from this triangle t:
+               
+               int tColorCode = colorInfo.getTriangleColor(tb);
+               
+               int v0ColorCode = colorInfo.getVertexColor(tb.vertices[0]);
+               int v1ColorCode = colorInfo.getVertexColor(tb.vertices[1]);
+               int v2ColorCode = colorInfo.getVertexColor(tb.vertices[2]);
+               
+               int e0ColorCode = colorInfo.getEdgeColor(t.edges[0].getEdge());
+               int e1ColorCode = colorInfo.getEdgeColor(t.edges[1].getEdge());
+               int e2ColorCode = colorInfo.getEdgeColor(t.edges[2].getEdge());
+               
+               int b0ColorCode = (!t.edges[0].opposite().isBoundary()) ? 0 : colorInfo.getBoundaryColor((Boundary)(t.edges[0].opposite()));
+               int b1ColorCode = (!t.edges[1].opposite().isBoundary()) ? 0 : colorInfo.getBoundaryColor((Boundary)(t.edges[1].opposite()));
+               int b2ColorCode = (!t.edges[2].opposite().isBoundary()) ? 0 : colorInfo.getBoundaryColor((Boundary)(t.edges[2].opposite()));
+               
+               for (int i = 0; i < 3; ++i) {
+                  array[pPos+0] = tColorCode;
+                  array[pPos+1] = (v0ColorCode << 16) | (v1ColorCode << 8) | (v2ColorCode);
+                  array[pPos+2] = (e0ColorCode << 16) | (e1ColorCode << 8) | (e2ColorCode);
+                  array[pPos+3] = (b0ColorCode << 16) | (b1ColorCode << 8) | (b2ColorCode);
+                  pPos += 4;
+               }
+            }
+            System.out.format("FILL-BUFFER called yay:  %d numA, %d numB, %d numT\n", numA,numB,numT);
+         }
+      };
+   }
+   
+   // -----------------------------------------------------------------------------------
+   // RUN
+   // -----------------------------------------------------------------------------------
+
    public static void run(String name, MeshModel model, float xOffset) {
       model.updateMesh(newMesh());
       model.setManagedBuffer(Shader.DIRECTION_SHADING_ARRAY, newDirectionArrayManager(model.mesh));
@@ -203,12 +311,12 @@ public class QuadCover {
       
       System.out.format("\nQUAD-COVER on \"%s\"\n",  name);
       
-      boolean useQuadCoverCoords = true;
-      setTextureCoords(model.mesh, xOffset, useQuadCoverCoords);
+      boolean useQuadCover = true;
+      setTextureCoords(model.mesh, xOffset, useQuadCover);
       
       // Organizer.setTextureCoords doesn't actually set anything yet,
       // so here's some "default" texture setting code:
-      if (useQuadCoverCoords) {
+      if (useQuadCover) {
          Vector2 offset = new Vector2(xOffset,0.0f);
          for (Mesh.Triangle tb : model.mesh.triangles) {
             Triangle t = (Triangle) tb;
@@ -239,8 +347,136 @@ public class QuadCover {
       }
    }
    
-   
-   
+
+   // -----------------------------------------------------------------------------------
+   // CUT GRAPH
+   // -----------------------------------------------------------------------------------
+
+   public static class CutGraphInfo {
+      
+      // Note that if the mesh changes shape and component indices change,
+      // this class will be OUT OF DATE.
+      
+      public final Mesh mesh;
+      public final ArrayList<Mesh.Triangle.Edge> cutLoop;
+      
+      public CutGraphInfo(Mesh mesh) {
+         this.mesh = mesh;
+         this.cutLoop = new ArrayList<Mesh.Triangle.Edge>();
+      }
+      
+      // ----------------------------------------------------------------------------
+      // First "BASIC" cut graph discovery code
+      // ----------------------------------------------------------------------------
+      
+      public static CutGraphInfo create(Mesh mesh, boolean optimize) {
+         CutGraphInfo result = new CutGraphInfo(mesh);
+         
+         // 1. For each Triangle, compute its center position
+         final Vector3[] triangleCenters = new Vector3[mesh.triangles.size()];
+         for (int i = 0; i < mesh.triangles.size(); ++i) {
+            Mesh.Triangle t = mesh.triangles.get(i);
+            triangleCenters[i] = (t.vertices[0].getPosition()
+                            .plus(t.vertices[1].getPosition())
+                            .plus(t.vertices[2].getPosition())).times(1.0f/3.0f);
+         }
+         // 2. For each non-boundary edge compute the distance
+         // between the centers of the two adjacent triangles
+         final float[] dualLen = new float[mesh.edges.size()];
+         for (int i = 0; i < mesh.edges.size(); ++i) {
+            Mesh.Edge e = mesh.edges.get(i);
+            e.computeLength();
+            if (!e.isBoundary()) {
+               Mesh.Triangle t1 = e.getFirst().getTriangle();
+               Mesh.Triangle t2 = ((Mesh.Triangle.Edge) e.getSecond()).getTriangle();
+               dualLen[i] = triangleCenters[t1.getIndex()]
+                     .minus(triangleCenters[t2.getIndex()]).length();
+            }
+         }
+       
+         // 3. Compute a shortest-path-tree, so that every triangle knows which
+         // of its neighbors lies along the shortest path to a root triangle
+         class TriangleInfo {
+            boolean fixed;
+            float distanceToRoot;
+            Integer edgeIndexTowardsRoot;
+         }
+         final TriangleInfo[] shortestPathInfo = new TriangleInfo[mesh.triangles.size()];
+         for (int i = 0; i < mesh.triangles.size(); ++i) {
+            shortestPathInfo[i] = new TriangleInfo();
+         }
+         PriorityQueue<Mesh.Triangle> queue = new PriorityQueue<Mesh.Triangle>(new Comparator<Mesh.Triangle>() {
+            @Override
+            public int compare(Mesh.Triangle o1, Mesh.Triangle o2) {
+               return Float.compare(shortestPathInfo[o1.getIndex()].distanceToRoot,
+                                    shortestPathInfo[o2.getIndex()].distanceToRoot);
+            }});
+         queue.add(mesh.triangles.get(0));  // Starting from an ARBITRARY root triangle
+         
+         while (!queue.isEmpty()) {
+            Mesh.Triangle t = queue.remove();
+            TriangleInfo ti = shortestPathInfo[t.getIndex()];
+            ti.fixed = true;
+            
+            for (Mesh.Triangle.Edge e : t.edges) {
+               if (e.isBoundary()) continue;
+
+               // For all the non-boundary edges of triangle t:
+               float eDualLen = dualLen[e.getEdge().getIndex()];
+
+               Mesh.Triangle.Edge etOpposite = (Mesh.Triangle.Edge) e.opposite();
+               Mesh.Triangle otherT = etOpposite.getTriangle();
+               TriangleInfo otherTi = shortestPathInfo[otherT.getIndex()];
+               
+               if (!otherTi.fixed) {
+                  float proposedDistanceToRootForOtherTriangle = ti.distanceToRoot + eDualLen;
+                  if ((otherTi.edgeIndexTowardsRoot != null) && 
+                      (otherTi.distanceToRoot > proposedDistanceToRootForOtherTriangle)) {
+                  
+                     queue.remove(otherT);
+                     otherTi.edgeIndexTowardsRoot = null;
+                  }
+                  if (otherTi.edgeIndexTowardsRoot == null) {
+                     otherTi.edgeIndexTowardsRoot = etOpposite.getEdgeIndex();
+                     otherTi.distanceToRoot = proposedDistanceToRootForOtherTriangle;
+                     queue.add(otherT);
+                  }
+               }
+            }
+         }
+         
+         // TODO -- at this point we should CHECK that all triangles have been reached.   there's nothing
+         // in "mesh" guaranteeing that the mesh is connected, indeed someone MIGHT pass in a mesh consisting
+         // of multiple disconnected pieces .. we need a solution for that...
+         
+         // 4. Mark all edges that don't cross the shortest-path-tree
+         final boolean[] inCutGraph = new boolean[mesh.edges.size()];
+         
+         for (Mesh.Edge e : mesh.edges) {
+            // First mark all edges true
+            inCutGraph[e.getIndex()] = true;
+         }
+         for (Mesh.Triangle t : mesh.triangles) {
+            // For each triangle, remove the edge crossed by the shortest path to the root triangle
+            TriangleInfo ti = (TriangleInfo) shortestPathInfo[t.getIndex()];
+            if (ti.edgeIndexTowardsRoot != null) {
+               Mesh.Triangle.Edge edgeCrossingPathToRoot = t.edges[ti.edgeIndexTowardsRoot];
+               inCutGraph[edgeCrossingPathToRoot.getEdge().getIndex()] = false;
+            }
+         }
+
+         
+         
+         if (optimize) result.optimize();
+         return result;
+      }
+      
+      private void optimize() {
+         
+      }
+   }
+      
+
    /*
    the PAPER talks about discrete DIV and discrete CURL
 
@@ -501,6 +737,12 @@ public class QuadCover {
       
       mesh.checkMesh();
       
+      // --------------------------------------------------
+      // the first step is to create a cut graph
+      // --------------------------------------------------
+      
+      
+      
       // ####################################################################
       // CUT-GRAPH
       // ####################################################################
@@ -608,7 +850,10 @@ public class QuadCover {
       ArrayList<Edge> cutGraphEdgesToRemove = new ArrayList<Edge>();
       for (Mesh.Edge eb : mesh.edges) {
          Edge e = (Edge) eb;
-         if (e.inCutGraph) numFullCutGraphEdges++;
+         if (e.inCutGraph) {
+            e.colorCode = 5;
+            numFullCutGraphEdges++;
+         }
          if (e.isEndOfCutGraph()) cutGraphEdgesToRemove.add(e);
       }
       
@@ -624,6 +869,7 @@ public class QuadCover {
                Vertex v2 = (Vertex) edgeToRemove.getFirst().end();
                
                numEdgesRemoved++;
+               edgeToRemove.colorCode = 1;
                edgeToRemove.inCutGraph = false;
                v1.cutGraphValence--;
                v2.cutGraphValence--;
@@ -653,22 +899,29 @@ public class QuadCover {
       
       ArrayList<Mesh.Triangle.Edge> boundaryLoop = new ArrayList<Mesh.Triangle.Edge>();
       boolean furtherOptimizationPossible = true;
-      boolean cuttingNeeded = false;
+      boolean cuttingNeeded = true;
       
       // We/re going to iteratively improve the longest path in the cut graph,
       // so we need to divide the cut-graph into paths....
       
       int globalOptimizationStep = 0;
+      if (true) {
       do {
+         System.out.format("===== Starting Global Optimization Step %d\n", globalOptimizationStep);
+         cuttingNeeded = false;
          furtherOptimizationPossible = false;
-               
+         
          // clear out edge data, only "inCutGraph" is valid:
          for (Mesh.Edge eb : mesh.edges) {
             Edge e = (Edge) eb;
             e.cutPathIndex = -1;
             e.colorCode = 0;
          }
-
+         for (Mesh.Vertex vb : mesh.vertices) {
+            Vertex v = (Vertex) vb;
+            v.colorCode = 0;
+         }
+         
          // Find a cut-graph edge to start with:
          
          Mesh.Triangle.Edge startingEdge = null;
@@ -716,15 +969,16 @@ public class QuadCover {
          int criticalPointIndex = 0;
          int numCriticalPoints = 0;
          int numBoundaryEdges = 0;
+         System.out.format("Seriously #****** Starting critical point scan..\n");
          for (int i = 0; i < boundaryLoop.size(); ++i) {
-            if (((Vertex)boundaryLoop.get(i).start()).cutGraphValence > 2) {
+            Vertex v = ((Vertex)boundaryLoop.get(i).start()); 
+            if (v.cutGraphValence > 2) {
+               System.out.format("  --> Encountered vertex %d with valence %d\n", v.getIndex(), v.cutGraphValence);
                if (!hasCriticalPoints) {
                   criticalPointIndex = i;
                   hasCriticalPoints = true;
                }
-               if (globalOptimizationStep == 1) {
-                  ((Vertex)boundaryLoop.get(i).start()).colorCode = 1;
-               }
+               v.colorCode = 8;
                numCriticalPoints++;
             }
             if (boundaryLoop.get(i).getEdge().isBoundary()) {
@@ -735,6 +989,18 @@ public class QuadCover {
          System.out.format("So... we have %d directedEdges in boundaryLoop -- with %d critical points, %d boundaryEdges\n", 
                boundaryLoop.size(), numCriticalPoints, numBoundaryEdges);
 
+         int numWhiteVertices = 0;
+         System.out.format("Scanning for white..\n");
+         for (Mesh.Vertex vb : mesh.vertices) {
+            Vertex v = (Vertex) vb;
+            if (v.colorCode == 8) {
+               numWhiteVertices++;
+               System.out.format("FOUND white vertex %d\n", v.getIndex());
+            }
+         }
+         System.out.format("EXIT from opt loop and, yes, %d vertices are white.\n", numWhiteVertices);
+
+         
          if (hasCriticalPoints) {
             cuttingNeeded = true;
             
@@ -793,8 +1059,8 @@ public class QuadCover {
             
             System.out.format("FOUND %d cut-paths\n",cutPaths.size());
             for (CutPath path : cutPaths) {
-               System.out.format("   %s Cut-Path of length %g, with %d total steps\n",
-                     path.isBoundary ? "boundary" : "interior", path.length, path.edges.size());
+               System.out.format("   Cut-Path %d, a %s path, total length %g, total edges %d\n",
+                     path.index, path.isBoundary ? "BOUNDARY" : "interior", path.length, path.edges.size());
             }
             System.out.format("End of cut-path list\n");
             
@@ -808,22 +1074,29 @@ public class QuadCover {
             // -------------------------------------------------------------------
             
             boolean pathWasShrunk = false;
+            int pathIndex = 0;
             for (CutPath path : cutPaths) {
                if (path.isBoundary) continue;
+               System.out.format("---_STARTING path %d, total length %g, total edges %d\n",
+                     path.index, path.length, path.edges.size());
                
-               if (globalOptimizationStep == -1) {
-                  for (Edge e : path.edges) {
-                     e.colorCode=4;
-                  }
+               for (Mesh.Edge eb : mesh.edges) {
+                  Edge e = (Edge) eb;
+                  e.colorCode = (e.inCutGraph ? 3:1);
+               }
+               for (Edge e : path.edges) {
+                  //e.colorCode=4;
                }
                
                Mesh.Triangle.Edge edgeFromPathStart;
                Mesh.Triangle.Edge edgeFromPathEnd;
                
                if (path.edges.size() == 1) {
+                  System.out.format("ONLY ONE path edge..\n");
                   edgeFromPathStart = path.edges.get(0).getFirst();
                   edgeFromPathEnd  = (Mesh.Triangle.Edge)edgeFromPathStart.opposite();
                } else {
+                  System.out.format("Total of %d path edges..\n", path.edges.size());
                   Edge e0  = path.edges.get(0);
                   Edge e1  = path.edges.get(1);
                   edgeFromPathStart = ((e0.getFirst().end() == e1.getFirst().start()) ||
@@ -855,11 +1128,17 @@ public class QuadCover {
                // first, clear out vertex data..
                for (Mesh.Vertex vb : mesh.vertices) {
                   Vertex v = (Vertex) vb;
-                  v.pathToEndFixed = v.pathToStartFixed = false;
-                  v.distanceToStart = v.distanceToEnd = 0.0f;
-                  v.outgoingEdgeTowardStart = v.outgoingEdgeTowardEnd = null;
+                  v.pathToStartFixed = false;
+                  v.distanceToStart = 0.0f;
+                  v.outgoingEdgeTowardStart = null;
                   v.optimizationBoundary = false;
                }
+               for (Mesh.Edge eb : mesh.edges) {
+                  Edge e = (Edge) eb;
+                  e.possibleEndEdge = false;
+                  e.possibleStartEdge = false;            
+               }
+               
                // mark vertices as an "optimizationBoundary" if it's part of a cut-graph
                // path other than the one we're working on:
                for (Mesh.Triangle.Edge boundaryEdge : boundaryLoop) {
@@ -868,8 +1147,12 @@ public class QuadCover {
                      ((Vertex)boundaryEdge.start()).optimizationBoundary = true;
                      ((Vertex)boundaryEdge.end()).optimizationBoundary = true;
                      
-                     ((Vertex)boundaryEdge.start()).colorCode = 1;
-                     ((Vertex)boundaryEdge.end()).colorCode = 1;
+                     if (((Vertex)boundaryEdge.start()).colorCode == 0) {
+                        ((Vertex)boundaryEdge.start()).colorCode = 1;
+                     }
+                     if (((Vertex)boundaryEdge.end()).colorCode == 0) {
+                        ((Vertex)boundaryEdge.end()).colorCode = 1;
+                     }
                   }
                }
                
@@ -883,7 +1166,7 @@ public class QuadCover {
                   // Step 0 is to gather all possibleStartEdges by visiting alternate START points
                   // Step 1 is to gather all possibleEndEdges by visiting alternate END points
                   
-                  Mesh.Triangle.Edge edgeOnPath                    = (step==0) ? edgeFromPathStart  : edgeFromPathEnd;
+                  Mesh.Triangle.Edge edgeOnPath                  = (step==0) ? edgeFromPathStart  : edgeFromPathEnd;
                   HashSet<Mesh.Triangle.Edge> otherPossibleEdges = (step==0) ? possibleStartEdges : possibleEndEdges;
                   
                   // In both cases, we're WALKING counterclockwise around a LOOP of possible
@@ -906,6 +1189,12 @@ public class QuadCover {
                      // But we could add a check here to detect infinite loops, just for safety                     
                      while (!((Edge)(possibleEdge.getEdge())).inCutGraph || 
                            (((Edge)(possibleEdge.getEdge())).cutPathIndex == path.index)) {
+                        
+                        if (step==0) {
+                           ((Edge)(possibleEdge.getEdge())).possibleStartEdge = true;
+                        } else {
+                           ((Edge)(possibleEdge.getEdge())).possibleEndEdge = true;
+                        }
                         
                         // We believe that all the edges encountered in this fashion will
                         // be Mesh.Triangle.Edge and not Boundary, since we know that "path"
@@ -932,10 +1221,18 @@ public class QuadCover {
                // now then, we're going to do a two-frontier shortest-path sweep
                // we need a priority-queue of instructions, each of which fixes the 'start' or 'end'
                // side of a vertex.   the first time a vertex has both sides fixed, we've found the shortest path!
-               PriorityQueue<Vertex.FixStep> vqueue = new PriorityQueue<Vertex.FixStep>(new Comparator<Vertex.FixStep>() {
+               
+               //
+               //  NO, NO ... this doesn't work!   The BUNNY-UNDERSIDE first optimization shows a case where the best
+               //  edge is a SINGLE edge from a start vertex to an end vertex, but this algorithm find a 2-edge cut instead,
+               //  DUDE!
+               // 
+               
+               
+               PriorityQueue<Vertex> vqueue = new PriorityQueue<Vertex>(new Comparator<Vertex>() {
                   @Override
-                  public int compare(Vertex.FixStep o1, Vertex.FixStep o2) {
-                     return Float.compare(o1.getDistance(), o2.getDistance());
+                  public int compare(Vertex o1, Vertex o2) {
+                     return Float.compare(o1.distanceToStart, o2.distanceToStart);
                   }});
                
                // the "start" vertices of the edges in possibleStartEdges are the possible
@@ -950,20 +1247,25 @@ public class QuadCover {
                   possibleStartVertex.pathToStartFixed = true;
                   
                   Vertex v = (Vertex) edgeFromStart.end();
-                  if (!v.optimizationBoundary || possibleEndEdges.contains(edgeFromStart.opposite())) {
-                     //((Edge)edgeFromStart.getEdge()).colorCode = 5;
+                  if (!v.optimizationBoundary || ((Edge)(edgeFromStart.getEdge())).possibleEndEdge) {
+                     //if (((Edge)edgeFromStart.getEdge()).colorCode == 1) {
+                     //   ((Edge)edgeFromStart.getEdge()).colorCode = 3;
+                     //}
                      
                      float proposedDistanceToStart = ((Edge) edgeFromStart.getEdge()).length;
                      if ((v.outgoingEdgeTowardStart != null) &&
                          (v.distanceToStart > proposedDistanceToStart)) {
                         
-                        vqueue.remove(v.fixStart);
+                        vqueue.remove(v);
+                        //System.out.format("Removing %d\n", v.getIndex());
                         v.outgoingEdgeTowardStart = null;
                      }
                      if (v.outgoingEdgeTowardStart == null) {
                         v.outgoingEdgeTowardStart = (Mesh.Triangle.Edge) edgeFromStart.opposite();
+                        //System.out.format("Adding %d -> %d as possible first edge\n", v.getIndex(),
+                        //      v.outgoingEdgeTowardStart.end().getIndex());
                         v.distanceToStart = proposedDistanceToStart;
-                        vqueue.add(v.fixStart);
+                        vqueue.add(v);
                      }
                   }
                }
@@ -973,12 +1275,13 @@ public class QuadCover {
                   Vertex possibleEndVertex = (Vertex) edgeFromEnd.start();
                   //System.out.format("       possible end vertex %d\n", i++,possibleEndVertex);
 
-                  possibleEndVertex.pathToEndFixed = true;
-                  
                   Vertex v = (Vertex) edgeFromEnd.end();
-                  if (!v.optimizationBoundary || possibleStartEdges.contains(edgeFromEnd.opposite())) {
-                     //((Edge)edgeFromEnd.getEdge()).colorCode = 7;
+                  if (!v.optimizationBoundary || ((Edge)(edgeFromEnd.getEdge())).possibleStartEdge) {
+                     //if (((Edge)edgeFromEnd.getEdge()).colorCode == 1) {
+                     //   ((Edge)edgeFromEnd.getEdge()).colorCode = 7;
+                     //}
                      
+                     /*
                      float proposedDistanceToEnd = ((Edge) edgeFromEnd.getEdge()).length;
                      if ((v.outgoingEdgeTowardEnd != null) &&
                          (v.distanceToEnd > proposedDistanceToEnd)) {
@@ -991,6 +1294,7 @@ public class QuadCover {
                         v.distanceToEnd = proposedDistanceToEnd;
                         vqueue.add(v.fixEnd);
                      }
+                     */
                   }
                }
                
@@ -1001,157 +1305,122 @@ public class QuadCover {
                // whose start is already fixed.
                Vertex shortestPathRoot = null;
 
-               if (true) {
+               System.out.format("Starting opt with %d possible second vertices in queue..\n", vqueue.size());
+               
+               if (true) { //(globalOptimizationStep < 1)||(pathIndex<2)) {
                   while (!vqueue.isEmpty()) {
-                     Vertex.FixStep fs = vqueue.remove();
-                     //System.out.format("FStep->   Vertex %d fix %s to distance %g\n", fs.v.getIndex(), fs.fixStart?"start":"end", fs.getDistance());
+                     Vertex fixedV = vqueue.remove();
+                     //System.out.format("FStep->   Vertex %d fix (TOWARD START v=%d) to distance %g\n", 
+                     //      fixedV.getIndex(), fixedV.outgoingEdgeTowardStart.end().getIndex(), fixedV.distanceToStart);
                      
-                     if (fs.fixStart) {
-                        // We're fixing some vertex's path to start...
-                        fs.v.pathToStartFixed = true;
+                     // We're fixing some vertex's path to start...
+                     fixedV.pathToStartFixed = true;
+                     if (((Edge)(fixedV.outgoingEdgeTowardStart.getEdge())).possibleEndEdge) {
+                        System.out.format("  wow, vertex %d's pathToStart is an end-path!\n", fixedV.getIndex());
+                        // if this vertex's path to end is already fixed, we're DONE!
+                        shortestPathRoot = fixedV;
+                        break;
+                     }
+                     
+                     // otherwise let's consider all neighboring vertices that aren't on the boundary:
+                     for (Mesh.DirectedEdge outgoingEdge : fixedV.outgoingEdges()) {
+                        Vertex v = (Vertex) outgoingEdge.end();
                         
-                        if (fs.v.pathToEndFixed) {
-                           System.out.format("  wow, vertex %d's pathToEnd is fixed!\n", fs.v.getIndex());
-                           fs.v.colorCode = 8;
-                           // if this vertex's path to end is already fixed, we're DONE!
-                           shortestPathRoot = fs.v;
-                           break;
-                        }
+                        boolean possibleEndEdge = ((Edge)(outgoingEdge.getEdge())).possibleEndEdge;
+                        if ((!v.optimizationBoundary && !v.pathToStartFixed) || possibleEndEdge) {
                         
-                        // otherwise let's consider all neighboring vertices that aren't on the boundary:
-                        for (Mesh.DirectedEdge outgoingEdge : fs.v.outgoingEdges()) {
-                           Vertex v = (Vertex) outgoingEdge.end();
-                           if (v.optimizationBoundary || v.pathToStartFixed) continue;
-                           
                            // If this vertex does not have start fixed, we might have a better path...
-                           float proposedDistanceToStart = ((Edge) outgoingEdge.getEdge()).length + fs.v.distanceToStart;
+                           float proposedDistanceToStart = ((Edge) outgoingEdge.getEdge()).length + fixedV.distanceToStart;
                            if ((v.outgoingEdgeTowardStart != null) &&
                                (v.distanceToStart > proposedDistanceToStart)) {
                               
-                              vqueue.remove(v.fixStart);
+                              vqueue.remove(v);
                               v.outgoingEdgeTowardStart = null;
                            }
                            if (v.outgoingEdgeTowardStart == null) {
                               v.outgoingEdgeTowardStart = (Mesh.Triangle.Edge) outgoingEdge.opposite();
                               v.distanceToStart = proposedDistanceToStart;
-                              vqueue.add(v.fixStart);
-                           }
-                        }
-                     } else {
-                        // We're fixing some vertex's path to end...
-                        fs.v.pathToEndFixed = true;
-                        
-                        if (fs.v.pathToStartFixed) {
-                          // if this vertex's path to start is already fixed, we're DONE!
-                          shortestPathRoot = fs.v;
-                          break;
-                        }
-                        
-                        // otherwise let's consider all neighboring vertices that aren't on the boundary:
-                        for (Mesh.DirectedEdge outgoingEdge : fs.v.outgoingEdges()) {
-                           Vertex v = (Vertex) outgoingEdge.end();
-                           if (v.optimizationBoundary || v.pathToEndFixed) continue;
-                           
-                           // If this vertex does not have end fixed, we might have a better path...
-                           float proposedDistanceToEnd = ((Edge) outgoingEdge.getEdge()).length + fs.v.distanceToEnd;
-                           if ((v.outgoingEdgeTowardEnd != null) &&
-                               (v.distanceToEnd > proposedDistanceToEnd)) {
-                                
-                              vqueue.remove(v.fixEnd);
-                              v.outgoingEdgeTowardEnd = null;
-                           }
-                           if (v.outgoingEdgeTowardEnd == null) {
-                              v.outgoingEdgeTowardEnd = (Mesh.Triangle.Edge) outgoingEdge.opposite();
-                              v.distanceToEnd = proposedDistanceToEnd;
-                              vqueue.add(v.fixEnd);
+                              vqueue.add(v);
                            }
                         }
                      }
-                  }
+                  }                     
                   if (shortestPathRoot == null) {
                      throw new RuntimeException("We expected to find a shortest-path but found...NOTHING??");
                   }
                   System.out.format("     Found improved path with LENGTH = %g ...\n",
-                        shortestPathRoot.distanceToEnd + shortestPathRoot.distanceToStart);
+                        shortestPathRoot.distanceToStart);
                   
 
                   ArrayList<Edge> newEdges = new ArrayList<Edge>();
                   
                   Mesh.Triangle.Edge walkToStart = shortestPathRoot.outgoingEdgeTowardStart;
                   int stepsToStart = 0;
-                  while (walkToStart != null) {
-                     System.out.format(" --> Towards START Vertex %d to Vertex %d -- length %g\n", 
-                           walkToStart.start().getIndex(),
-                           walkToStart.end().getIndex(),
-                           walkToStart.getEdge().length);
+                  while(true) {
+                     //System.out.format(" --> Towards START Vertex %d to Vertex %d -- length %g\n", 
+                     //      walkToStart.start().getIndex(),
+                     //      walkToStart.end().getIndex(),
+                     //      walkToStart.getEdge().length);
                      
                      Edge newEdge = (Edge)walkToStart.getEdge();
-                     newEdge.colorCode = 2;
+                     //newEdge.colorCode = 2;
                      newEdges.add(newEdge);
-                     
-                     walkToStart = ((Vertex)walkToStart.end()).outgoingEdgeTowardStart;
                      stepsToStart++;
+                     
+                     if (((Edge)walkToStart.getEdge()).possibleStartEdge) {
+                        break;
+                     }
+                     walkToStart = ((Vertex)walkToStart.end()).outgoingEdgeTowardStart;
                   }
-                  
-                  Mesh.Triangle.Edge walkToEnd = shortestPathRoot.outgoingEdgeTowardEnd;
-                  int stepsToEnd = 0;
-                  while (walkToEnd != null) {
-                    System.out.format(" --> Towards END Vertex %d to Vertex %d -- length %g\n", 
-                          walkToEnd.start().getIndex(),
-                          walkToEnd.end().getIndex(),
-                          walkToEnd.getEdge().length);
-                    
-                    Edge newEdge = (Edge)walkToEnd.getEdge();
-                    newEdge.colorCode = 2;
-                    newEdges.add(newEdge);
-
-                    walkToEnd = ((Vertex)walkToEnd.end()).outgoingEdgeTowardEnd;
-                    stepsToEnd++;
-                  }
-                  
-                  System.out.format("     Found improved path with LENGTH = %g and %d total steps -- %d edges instead of %d edges\n",
-                        shortestPathRoot.distanceToEnd + shortestPathRoot.distanceToStart, stepsToStart+stepsToEnd,
+                  System.out.format("     Best path found has LENGTH = %g and %d total steps -- %d edges instead of %d edges\n",
+                        shortestPathRoot.distanceToStart, stepsToStart,
                         newEdges.size(), path.edges.size());
                   
-                  // ---------------------------------------
-                  // Okay, okay, this is real progress...
-                  // ---------------------------------------
-                  // now we need to replace all the cut-graph-path edges of path.edges,
-                  // with the new edges we've found here...
-                  // 
-                  // asssuming they're different, that is...
-                  boolean edgesChanged = false;
-                  if (newEdges.size() != path.edges.size()) {
-                     edgesChanged = true;
-                  } else {
-                     HashSet<Edge> newEdgesSet = new HashSet<Edge>();
-                     newEdgesSet.addAll(path.edges);
-                     for (Edge newEdge : newEdges) {
-                        if (!newEdgesSet.contains(newEdge)) { 
-                           edgesChanged = true;
-                           break;
+                  if (shortestPathRoot.distanceToStart < path.length - .000001) {
+                     // ---------------------------------------
+                     // Okay, okay, this is real progress...
+                     // ---------------------------------------
+                     // now we need to replace all the cut-graph-path edges of path.edges,
+                     // with the new edges we've found here...
+                     // 
+                     // asssuming they're different, that is...
+                     boolean edgesChanged = false;
+                     if (newEdges.size() != path.edges.size()) {
+                        edgesChanged = true;
+                     } else {
+                        HashSet<Edge> newEdgesSet = new HashSet<Edge>();
+                        newEdgesSet.addAll(path.edges);
+                        for (Edge newEdge : newEdges) {
+                           if (!newEdgesSet.contains(newEdge)) { 
+                              edgesChanged = true;
+                              break;
+                           }
                         }
                      }
-                  }
-                  
-                  if (edgesChanged) {
-                     System.out.format("Okay, going to replace the cut PATH\n");
                      
-                     for (Edge oldEdge : path.edges) {
-                        Vertex v1 = (Vertex) oldEdge.getFirst().start();
-                        Vertex v2 = (Vertex) oldEdge.getFirst().end();
-                        oldEdge.inCutGraph = false;
-                        v1.cutGraphValence--;
-                        v2.cutGraphValence--;
+                     if (edgesChanged) {
+                        System.out.format("Okay, going to replace the cut PATH\n");
+                        
+                        for (Edge oldEdge : path.edges) {
+                           Vertex v1 = (Vertex) oldEdge.getFirst().start();
+                           Vertex v2 = (Vertex) oldEdge.getFirst().end();
+                           oldEdge.inCutGraph = false;
+                           v1.cutGraphValence--;
+                           v2.cutGraphValence--;
+                        }
+                        for (Edge newEdge : newEdges) {
+                           Vertex v1 = (Vertex) newEdge.getFirst().start();
+                           Vertex v2 = (Vertex) newEdge.getFirst().end();
+                           newEdge.inCutGraph = true;
+                           v1.cutGraphValence++;
+                           v2.cutGraphValence++;
+                        }
+                        pathWasShrunk = true;
+                     } else {
+                        System.out.format("There has been NO CHANGE to the cut PATH length.. trying another path...\n");
                      }
-                     for (Edge newEdge : newEdges) {
-                        Vertex v1 = (Vertex) newEdge.getFirst().start();
-                        Vertex v2 = (Vertex) newEdge.getFirst().end();
-                        newEdge.inCutGraph = true;
-                        v1.cutGraphValence++;
-                        v2.cutGraphValence++;
-                     }
-                     pathWasShrunk = true;
+                  } else {
+                     System.out.format("Not updating path because of EPSILON THRESHOLD\n");
                   }
                }
                if (pathWasShrunk) {
@@ -1159,7 +1428,10 @@ public class QuadCover {
                   // the cut-graph valence of each vertex, may all be different.  We need to break..
                   break;
                }
-               //break;
+               pathIndex++;
+               //if (pathIndex == 1) {
+               //   break;
+               //}
             }
 
             if (pathWasShrunk) {
@@ -1172,17 +1444,23 @@ public class QuadCover {
          } else {
             System.out.format("SKIPPING-OPTIMIZATION ----- (no points above 2)\n");
          }
-         if (globalOptimizationStep == 20) {
-            break;
-         }
+         //if (globalOptimizationStep == 1) {
+         //   break;
+         //}
          
       } while(furtherOptimizationPossible);
-
+      }
       
+      int numWhiteVertices = 0;
+      System.out.format("Scanning for white..\n");
       for (Mesh.Vertex vb : mesh.vertices) {
          Vertex v = (Vertex) vb;
-         v.colorCode = 0;
+         if (v.colorCode == 8) {
+            numWhiteVertices++;
+            System.out.format("FOUND white vertex %d\n", v.getIndex());
+         }
       }
+      System.out.format("EXIT from opt loop and, yes, %d vertices are white.\n", numWhiteVertices);
       
       
       // --------------------------------------------------------------
