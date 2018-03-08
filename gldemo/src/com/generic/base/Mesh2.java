@@ -12,6 +12,10 @@ public class Mesh2 {
    // so numDirectedEdges() is always 2x numEdges()
    public int numDirectedEdges() { return 2*numEdges; }
    
+   
+   // What if we DON'T KEEP TRACK of boundaryEdges?
+   // what then?
+   
    // Every directedEdge is part of a loop, either a boundary-loop or one encircling a Face.
    // Call this to get a count of how many directedEdges are in boundary-loops.
    public int numBoundaryEdges() { return numBoundaryEdges; }
@@ -74,7 +78,7 @@ public class Mesh2 {
    }
    public int edgeToReverseDirectedEdge (int edge) {
       return 2 * edge + 1;
-   }   
+   }
 
    // Every directedEdge is part of a loop, either a boundary-loop or one encircling a Face.
    // Given a directedEdge-id, call this to determine if it's part of a boundary loop.
@@ -82,7 +86,7 @@ public class Mesh2 {
       int faceOrBoundaryIndex = directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 1];
       return ((faceOrBoundaryIndex & 0x8000) != 0);
    }
-   
+
    // Each face has an id between 0 and (numFace()-1).
    // Given a directedEdge-id that's part of a loop encircling a Face,
    // you can get the id of the Face:
@@ -90,7 +94,7 @@ public class Mesh2 {
       int faceOrBoundaryIndex = directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 1];
       return ((faceOrBoundaryIndex & 0x8000) == 0) ? (faceOrBoundaryIndex & 0x7fff) : -1;
    }
-   
+
    // Each boundaryEdge has an id between 0 and (numBoundaryEdges()-1).
    // Given a directedEdge-id that's part of a boundary-loop, call this to convert from
    // the directedEdge-id to a boundaryEdge-id:
@@ -98,11 +102,11 @@ public class Mesh2 {
       int faceOrBoundaryIndex = directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 1];
       return ((faceOrBoundaryIndex & 0x8000) != 0) ? (faceOrBoundaryIndex & 0x7fff) : -1;
    }
-   
+
    // Given a vertex-id, you can retrieve the id of an "outgoing" directedEdge
    public int vertexToDirectedEdge (int vertex) {
       return vertexToDirectedEdge[vertex];
-   }   
+   }
    // Given a face-id, you can retrieve the id of a directedEdge that's part
    // of the loop encircling it:
    public int faceToDirectedEdge (int face) {
@@ -111,7 +115,7 @@ public class Mesh2 {
    // Given a boundaryEdge-id, you can retrieve the id of the directedEdge mapped to it:
    public int boundaryToDirectedEdge (int boundaryEdge) {
       return boundaryToDirectedEdge[boundaryEdge];
-   }   
+   }
 
    // -----------------------------------------------------   
    // A Mesh can be built up iteratively by adding disconnected vertices,
@@ -276,20 +280,86 @@ public class Mesh2 {
    // Now then, the "userdata" segment...
    // -------------------------------------------------------
    
-   enum Layer         { VERTEX, EDGE, FACE, BOUNDARY };
-   enum PrimitiveType { INTEGER, FLOAT, OBJECT }; 
-   
+   enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE, PER_BOUNDARY };
+   enum ElementType { INTEGER, FLOAT };
+
    public static class DataLayerType {
-      public final Layer layer;
       public final int elementCount;
-      public final PrimitiveType elementType;
+      public final ElementType elementType;
+      public final LayerType layerType;
       
-      public DataLayerType(Layer layer, int elementCount, PrimitiveType elementType) {
-         this.layer = layer;
+      public DataLayerType(
+            int elementCount, ElementType elementType, LayerType layerType) {
+         this.layerType = layerType;
          this.elementCount = elementCount;
          this.elementType = elementType;
       }
    }
+
+   // now then, the addFace/removeFace/addVertex/removeVertex methods
+   // make calls to "reserve" and "release" IDs for vertices, edges, faces, boundaries
+   // For each of these four, we want to ask "getNewID" and "releaseID"....
+   // and also, there is an "operation" we call "compacting", that causes
+   // "moves" from upper-indices into the individual spaces..
+   //
+   // this is like an "id manager" ..
+   //
+   public static class IDManager {
+      private int numReservedIDs;
+      private PrimitiveIntArray releasedIDs;
+
+      public IDManager() {
+         numReservedIDs = 0;
+         releasedIDs = new PrimitiveIntArray();
+      }
+      
+      int getNewID() {
+         int numReleasedIDs = releasedIDs.size();
+         if (numReleasedIDs > 0) {
+            int newID = releasedIDs.array()[numReleasedIDs-1];
+            releasedIDs.setSize(numReleasedIDs-1);
+            return newID;
+         } else {
+
+            // "Increase numReservedIDs??"
+            // TODO -- tell all dataLayers to make sure there's space?
+            numReservedIDs = numReservedIDs + 1;
+            
+            return numReservedIDs-1;
+         }
+      }
+      
+      void releaseID(int releasedID) {
+         int numReleasedIDs = releasedIDs.size();
+         releasedIDs.setSize(numReleasedIDs+1);
+         releasedIDs.array()[numReleasedIDs] = releasedID;
+         
+         // --------------------
+         // so instead of the above, with an impossible "compact" function to implement,
+         // we have to do the remove motion HERE...
+         // that is,
+         //
+         // if (releasedID is not numReservedID-1),
+         //    
+         //
+         
+      }
+      
+      void compact() {
+         // For each releasedID,
+         // ??? yeah well, what?  do we have to walk all the way over each ID?
+         // clearly, if we've delayed.. 
+         
+      }
+      
+      
+   }
+   //
+   // 
+   
+   
+   
+   
    
    // imagine that the user wants to add a structure with 3-floats-per-vertex...
    // then they call:
@@ -335,11 +405,11 @@ public class Mesh2 {
          this.type = type;
       }
       public int size() {
-         switch (type.layer) {
-            case VERTEX   : return mesh.numVertices();
-            case EDGE     : return mesh.numEdges();
-            case FACE     : return mesh.numFaces();
-            case BOUNDARY : return mesh.numBoundaryEdges();
+         switch (type.layerType) {
+            case PER_VERTEX   : return mesh.numVertices();
+            case PER_EDGE     : return mesh.numEdges();
+            case PER_FACE     : return mesh.numFaces();
+            case PER_BOUNDARY : return mesh.numBoundaryEdges();
          }
          throw new RuntimeException();
       }
@@ -349,7 +419,7 @@ public class Mesh2 {
    public static abstract class IntDataLayer extends DataLayer {
       private IntDataLayer(Mesh2 mesh, String name, DataLayerType type) {
          super (mesh, name, type);
-         if (type.elementType != PrimitiveType.INTEGER) {
+         if (type.elementType != ElementType.INTEGER) {
             throw new RuntimeException();
          }
       }
