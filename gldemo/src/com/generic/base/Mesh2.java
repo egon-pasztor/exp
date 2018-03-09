@@ -1,78 +1,27 @@
 package com.generic.base;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+
 public class Mesh2 {
 
-   // A Mesh instance keeps track of connectivity information about
-   // a set of Vertices, Faces, and Edges
-   public int numVertices() { return numVertices; }
-   public int numFaces()    { return numFaces;    }
-   public int numEdges()    { return numEdges;    }
+   // -----------------------------------------------------   
+   // A Mesh keeps track of connectivity between
+   // a number of Vertices, Faces, and Edges
+   // -----------------------------------------------------   
    
-   // Each edge can be considered two directed-edges,
-   // so numDirectedEdges() is always 2x numEdges()
-   public int numDirectedEdges() { return 2*numEdges; }
-   
-   
-   // What if we DON'T KEEP TRACK of boundaryEdges?
-   // what then?
-   
-   // Every directedEdge is part of a loop, either a boundary-loop or one encircling a Face.
-   // Call this to get a count of how many directedEdges are in boundary-loops.
-   public int numBoundaryEdges() { return numBoundaryEdges; }
-   
-   // Each directedEdge has an id between 0 and (numDirectedEdges()-1).
-   // Given a directedEdge-id, you can retrieve the directedEdge-id
-   // pointing the opposite way
-   public int opposite (int directedEdge) {
-      return directedEdge ^ 1;
-   }
-   
-   // Each vertex has an id between 0 and (numVertices()-1).
-   // Given a directedEdge-id, you can retrieve the vertex-id
-   // that's at the START or END of the directedEdge.
-   public int startOf (int directedEdge) {
-      return directedEdgeData[sizeOfDirectedEdgeData * directedEdge];
-   }
-   public int endOf (int directedEdge) {
-      return startOf(opposite(directedEdge));
-   }
+   // Each vertex, face, and edge has an integer ID.
+   // This tells you how many have been allocated:
+   public int numVertexIDs() { return vertexIDManager.getNumReservedIDs(); }
+   public int numEdgeIDs()   { return edgeIDManager.getNumReservedIDs();   }
+   public int numFaceIDs()   { return faceIDManager.getNumReservedIDs();   }
 
-   // Every directedEdge is part of a loop, either a boundary-loop or one encircling a Face.
-   // Given a directedEdge-id, you can retrieve the id of the directedEdge
-   // that's next, or previous, going around its loop.
-   public int nextDirectedEdge (int directedEdge) {
-      return directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 2];
-   }
-   public int prevDirectedEdge (int directedEdge) {
-      return directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 3];
-   }
    
-   // Given a directedEdge-id, you can retrieve the id of the directedEdge
-   // that's counterclockwise, or clockwise, when iterating around
-   // the outgoing edges of the START vertex
-   public int ccwAroundStart (int directedEdge) {
-      return opposite(prevDirectedEdge(directedEdge));
-   }
-   public int cwAroundStart (int directedEdge) {
-      return nextDirectedEdge(opposite(directedEdge));
-   }
-      
-   // Given a directedEdge-id, you can retrieve the id of the directedEdge
-   // that's counterclockwise, or clockwise, when iterating around
-   // the incoming edges of the END vertex
-   public int ccwAroundEnd (int directedEdge) {
-      return prevDirectedEdge(opposite(directedEdge));
-   }
-   public int cwAroundEnd (int directedEdge) {
-      return opposite(nextDirectedEdge(directedEdge));
-   }
-   
-   // Each edge has an id between 0 and (numEdges()-1).
-   // Given a directedEdge-id, you can retrieve the id of the edge it's part of
-   public int edgeOf (int directedEdge) {
-      return directedEdge / 2;
-   }
-   // Given an edge-id, you can retrieve the id of its forward or reverse directedEdges
+   // Each edge is associated with two directed-edges pointing in opposite directions.
+   // Given an edge-ID, you can find the IDs of its directed-edges
+   // by doubling and optionally adding one:
    public int edgeToForwardDirectedEdge (int edge) {
       return 2 * edge;
    }
@@ -80,57 +29,89 @@ public class Mesh2 {
       return 2 * edge + 1;
    }
 
-   // Every directedEdge is part of a loop, either a boundary-loop or one encircling a Face.
-   // Given a directedEdge-id, call this to determine if it's part of a boundary loop.
-   public boolean isBoundary (int directedEdge) {
-      int faceOrBoundaryIndex = directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 1];
-      return ((faceOrBoundaryIndex & 0x8000) != 0);
+   // Likewise, divide a directedEdge-ID in half to get its edge-ID:
+   public int edgeOf (int directedEdge) {
+      return directedEdge / 2;
+   }
+   // From one directedEdge-ID you can get the directedEdge-ID
+   // that's pointing in the opposite direction
+   public int opposite (int directedEdge) {
+      return directedEdge ^ 1;
    }
 
-   // Each face has an id between 0 and (numFace()-1).
-   // Given a directedEdge-id that's part of a loop encircling a Face,
-   // you can get the id of the Face:
+   // Given a directedEdge-ID, you can retrieve the vertex-ID
+   // of the Vertex that's at the START or END of the directedEdge.
+   public int startOf (int directedEdge) {
+      return directedEdgeData.array()[4 * directedEdge];
+   }
+   public int endOf (int directedEdge) {
+      return startOf(opposite(directedEdge));
+   }
+
+   // Every directedEdge is part of a loop --
+   // (either a loop encircling a Face or a boundary-loop)
+   // If it encircles a Face, you can get its Face-ID:
    public int faceOf (int directedEdge) {
-      int faceOrBoundaryIndex = directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 1];
-      return ((faceOrBoundaryIndex & 0x8000) == 0) ? (faceOrBoundaryIndex & 0x7fff) : -1;
+      return directedEdgeData.array()[4 * directedEdge + 1];
+   }
+   // A directedEdge that's part of a boundary-loop
+   // doesn't have a Face associated with it, so faceOf returns -1
+   public boolean isBoundary (int directedEdge) {
+      return faceOf(directedEdge) == -1;
    }
 
-   // Each boundaryEdge has an id between 0 and (numBoundaryEdges()-1).
-   // Given a directedEdge-id that's part of a boundary-loop, call this to convert from
-   // the directedEdge-id to a boundaryEdge-id:
-   public int boundaryEdgeOf (int directedEdge) {
-      int faceOrBoundaryIndex = directedEdgeData[sizeOfDirectedEdgeData * directedEdge + 1];
-      return ((faceOrBoundaryIndex & 0x8000) != 0) ? (faceOrBoundaryIndex & 0x7fff) : -1;
+   // Every directedEdge is part of a loop, and you can call these methods
+   // to go to the next or previous directedEdge along a loop:
+   public int nextInLoop (int directedEdge) {
+      return directedEdgeData.array()[4 * directedEdge + 2];
    }
+   public int prevInLoop (int directedEdge) {
+      return directedEdgeData.array()[4 * directedEdge + 3];
+   }
+   
+   // Given a directedEdge-id, you can also traverse a loop of directedEdges
+   // by looping over the outgoing edges of the START vertex
+   public int nextAroundStart (int directedEdge) {
+      return opposite(prevInLoop(directedEdge));
+   }
+   public int prevAroundStart (int directedEdge) {
+      return nextInLoop(opposite(directedEdge));
+   }
+      
+   // Given a directedEdge-id, you can also traverse a loop of directedEdges
+   // by looping over the incoming edges of the END vertex
+   public int nextAroundEnd (int directedEdge) {
+      return prevInLoop(opposite(directedEdge));
+   }
+   public int prevAroundEnd (int directedEdge) {
+      return opposite(nextInLoop(directedEdge));
+   }
+   
 
-   // Given a vertex-id, you can retrieve the id of an "outgoing" directedEdge
+   // Given a vertex-ID, you can retrieve the ID of an outgoing directedEdge:
    public int vertexToDirectedEdge (int vertex) {
-      return vertexToDirectedEdge[vertex];
+      return vertexToDirectedEdge.array()[vertex];
    }
-   // Given a face-id, you can retrieve the id of a directedEdge that's part
-   // of the loop encircling it:
+   // Given a face-ID, you can retrieve the ID of a directedEdge
+   // that's part of the loop encircling it.
    public int faceToDirectedEdge (int face) {
-      return faceToDirectedEdge[face];
+      return faceToDirectedEdge.array()[face];
    }
-   // Given a boundaryEdge-id, you can retrieve the id of the directedEdge mapped to it:
-   public int boundaryToDirectedEdge (int boundaryEdge) {
-      return boundaryToDirectedEdge[boundaryEdge];
-   }
+   
 
    // -----------------------------------------------------   
-   // A Mesh can be built up iteratively by adding disconnected vertices,
-   // then connecting them by adding faces.
+   // A Mesh can be built up iteratively by adding disconnected,
+   // vertices then connecting them by adding faces.
    // -----------------------------------------------------
 
    // Call this to add a new vertex:
    public int addVertex() {   
-      // Increase vertex array size,  (fill new element with -1)
-      // Increase the sizes of any vertex-based dataLayers
-      return -1;
+      return vertexIDManager.getNewID();
    }
    
    // Call this to connect vertices to form a new Face:
    public int addFace(int... vertices) {
+      
       
 
       // --------------------------------------------
@@ -177,6 +158,183 @@ public class Mesh2 {
    
    // -----------------------------------------------------   
    // -----------------------------------------------------
+
+   public static class PrimitiveIntArray {
+      public PrimitiveIntArray (int elementSize) {
+         this.elementSize = elementSize;
+         this.numElements = 0;
+         array = new int[4 * elementSize];
+      }
+      
+      public final int elementSize;
+      
+      public int numElements() { return numElements;  }
+      public int[] array()     { return array;        }
+      
+      public void setNumElements(int newNumElements) {
+         int lengthNeeded = elementSize * newNumElements;
+         if (array.length < lengthNeeded) {
+            int newLength = array.length;
+            while (newLength < lengthNeeded) newLength *= 2;
+            int[] newArray = new int [newLength];
+            System.arraycopy(array, 0, newArray, 0, elementSize * numElements);
+            array = newArray;
+         }
+         numElements = newNumElements;
+      }
+      
+      // - - - - - - - - - - - - - 
+      private int[] array;
+      private int numElements;
+   }
+
+   public static class PrimitiveFloatArray {
+      public PrimitiveFloatArray (int elementSize) {
+         this.elementSize = elementSize;
+         this.numElements = 0;
+         array = new float[4 * elementSize];
+      }
+      
+      public final int elementSize;
+      
+      public int numElements() { return numElements;  }
+      public float[] array()   { return array;        }
+      
+      public void setNumElements(int newNumElements) {
+         int lengthNeeded = elementSize * newNumElements;
+         if (array.length < lengthNeeded) {
+            int newLength = array.length;
+            while (newLength < lengthNeeded) newLength *= 2;
+            float[] newArray = new float [newLength];
+            System.arraycopy(array, 0, newArray, 0, elementSize * numElements);
+            array = newArray;
+         }
+         numElements = newNumElements;
+      }
+      
+      // - - - - - - - - - - - - - 
+      private float[] array;
+      private int numElements;
+   }
+   
+   // -----------------------------------------------------
+   // -----------------------------------------------------
+
+   public static class IDManager {
+      public IDManager() {
+         numReservedIDs = 0;
+         releasedIDs = new PrimitiveIntArray(1);
+         intArrays = new HashSet<PrimitiveIntArray>();
+      }
+      
+      public void addIntArray(PrimitiveIntArray intArray) {
+         intArray.setNumElements(numReservedIDs);
+         intArrays.add(intArray);
+      }
+      public void removeIntArray(PrimitiveIntArray intArray) {
+         intArrays.remove(intArray);
+      }
+      public void addFloatArray(PrimitiveFloatArray floatArray) {
+         floatArray.setNumElements(numReservedIDs);
+         floatArrays.add(floatArray);
+      }
+      public void removeFloatArray(PrimitiveFloatArray floatArray) {
+         floatArrays.remove(floatArray);
+      }
+      
+      public int getNewID() {
+         int numReleasedIDs = releasedIDs.numElements();
+         if (numReleasedIDs > 0) {
+            int newID = releasedIDs.array()[numReleasedIDs-1];
+            releasedIDs.setNumElements(numReleasedIDs-1);
+            return newID;
+         } else {
+            numReservedIDs = numReservedIDs + 1;
+            updateArrayLengths();
+            return numReservedIDs-1;
+         }
+      }
+      
+      public void releaseID(int releasedID) {
+         int numReleasedIDs = releasedIDs.numElements();
+         releasedIDs.setNumElements(numReleasedIDs+1);
+         releasedIDs.array()[numReleasedIDs] = releasedID;
+      }
+      
+      public int getNumReservedIDs() {
+         return numReservedIDs;
+      }
+      public void reset(int numReservedIDs) {
+         this.numReservedIDs = numReservedIDs;
+         updateArrayLengths();
+         releasedIDs.setNumElements(0);
+      }
+      public void clear() {
+         reset(0);
+      }
+
+      // - - - - - - - - - - - - - 
+      
+      private int numReservedIDs;
+      private PrimitiveIntArray releasedIDs;
+      private Set<PrimitiveIntArray> intArrays;
+      private Set<PrimitiveFloatArray> floatArrays;
+
+      private void updateArrayLengths() {
+         for (PrimitiveIntArray intArray : intArrays) {
+            intArray.setNumElements(numReservedIDs);
+         }
+         for (PrimitiveFloatArray floatArray : floatArrays) {
+            floatArray.setNumElements(numReservedIDs);
+         }
+      }
+   }
+
+   // -----------------------------------------------------   
+   // -----------------------------------------------------
+   
+   private final PrimitiveIntArray vertexToDirectedEdge;
+   private final PrimitiveIntArray faceToDirectedEdge;
+   private final PrimitiveIntArray directedEdgeData;
+   
+   private final IDManager vertexIDManager;
+   private final IDManager faceIDManager;
+   private final IDManager edgeIDManager;
+   
+   public Mesh2() {
+      
+      vertexToDirectedEdge = new PrimitiveIntArray(1);
+      faceToDirectedEdge = new PrimitiveIntArray(1);
+      directedEdgeData = new PrimitiveIntArray(8);
+      
+      vertexIDManager = new IDManager();
+      faceIDManager = new IDManager();
+      edgeIDManager = new IDManager();
+      
+      vertexIDManager.addIntArray(vertexToDirectedEdge);
+      faceIDManager.addIntArray(faceToDirectedEdge);
+      edgeIDManager.addIntArray(directedEdgeData);
+      
+   }
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   public int numVertices() { return numVertices; }
+   public int numFaces()    { return numFaces;    }
+   public int numEdges()    { return numEdges;    }
+   
+   private int numVertices;
+   private int numFaces;
+   private int numEdges;
    
    
    // Given a vertex-id, this function will count the number of 
@@ -198,7 +356,7 @@ public class Mesh2 {
          // "ccwAroundStart" function always returns a valid directedEdge?
          // Should we check the return values of *every* function for "validity"?
          
-         outgoingDirectedEdge = ccwAroundStart(outgoingDirectedEdge);
+         outgoingDirectedEdge = nextAroundStart(outgoingDirectedEdge);
          if (outgoingDirectedEdge == firstOutgoingDirectedEdge) return count;
          count++;
       }
@@ -213,7 +371,7 @@ public class Mesh2 {
       int count = 1;
       int directedEdge = firstDirectedEdge;
       while (true) {
-         directedEdge = nextDirectedEdge(directedEdge);
+         directedEdge = nextInLoop(directedEdge);
          if (directedEdge == firstDirectedEdge) return count;
          count++;
       }
@@ -221,49 +379,6 @@ public class Mesh2 {
 
    // ---------------------------------------------------------------------------------
    // ---------------------------------------------------------------------------------
-   
-   private int numVertices;
-   private int numFaces;
-   private int numEdges;
-   private int numBoundaryEdges;
-   
-   private int[] vertexToDirectedEdge;
-   private int[] faceToDirectedEdge;
-   private int[] boundaryToDirectedEdge;   
-   private int[] directedEdgeData;
-   
-   
-   public static class PrimitiveIntArray {
-      public PrimitiveIntArray () {
-         array = new int[10];
-         size = 0;
-      }
-      
-      public int size()     { return size;  }
-      public int[] array()  { return array; }
-      
-      public void setSize(int newSize) {
-         if (array.length < newSize) {
-            int newCapacity = array.length;
-            while (newCapacity < newSize) newCapacity *= 2;
-            int[] newArray = new int [newCapacity];
-            System.arraycopy(array, 0, newArray, 0, size);
-            array = newArray;
-         }
-         size = newSize;
-      }
-      
-      private int[] array;
-      private int size;
-   }
-
-   private PrimitiveIntArray vertexToDirectedEdge_;
-   private PrimitiveIntArray faceToDirectedEdge_;
-   private PrimitiveIntArray boundaryToDirectedEdge_;
-
-   private static final int sizeOfDirectedEdgeData = 4;
-   private PrimitiveIntArray directedEdgeData_;
-   
    
    // -------------------------------------------------------
    // So, we need separate arrays keeping track of the "deleted ids"
@@ -280,7 +395,7 @@ public class Mesh2 {
    // Now then, the "userdata" segment...
    // -------------------------------------------------------
    
-   enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE, PER_BOUNDARY };
+   enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE };
    enum ElementType { INTEGER, FLOAT };
 
    public static class DataLayerType {
@@ -296,71 +411,6 @@ public class Mesh2 {
       }
    }
 
-   // now then, the addFace/removeFace/addVertex/removeVertex methods
-   // make calls to "reserve" and "release" IDs for vertices, edges, faces, boundaries
-   // For each of these four, we want to ask "getNewID" and "releaseID"....
-   // and also, there is an "operation" we call "compacting", that causes
-   // "moves" from upper-indices into the individual spaces..
-   //
-   // this is like an "id manager" ..
-   //
-   public static class IDManager {
-      private int numReservedIDs;
-      private PrimitiveIntArray releasedIDs;
-
-      public IDManager() {
-         numReservedIDs = 0;
-         releasedIDs = new PrimitiveIntArray();
-      }
-      
-      int getNewID() {
-         int numReleasedIDs = releasedIDs.size();
-         if (numReleasedIDs > 0) {
-            int newID = releasedIDs.array()[numReleasedIDs-1];
-            releasedIDs.setSize(numReleasedIDs-1);
-            return newID;
-         } else {
-
-            // "Increase numReservedIDs??"
-            // TODO -- tell all dataLayers to make sure there's space?
-            numReservedIDs = numReservedIDs + 1;
-            
-            return numReservedIDs-1;
-         }
-      }
-      
-      void releaseID(int releasedID) {
-         int numReleasedIDs = releasedIDs.size();
-         releasedIDs.setSize(numReleasedIDs+1);
-         releasedIDs.array()[numReleasedIDs] = releasedID;
-         
-         // --------------------
-         // so instead of the above, with an impossible "compact" function to implement,
-         // we have to do the remove motion HERE...
-         // that is,
-         //
-         // if (releasedID is not numReservedID-1),
-         //    
-         //
-         
-      }
-      
-      void compact() {
-         // For each releasedID,
-         // ??? yeah well, what?  do we have to walk all the way over each ID?
-         // clearly, if we've delayed.. 
-         
-      }
-      
-      
-   }
-   //
-   // 
-   
-   
-   
-   
-   
    // imagine that the user wants to add a structure with 3-floats-per-vertex...
    // then they call:
    //
@@ -409,7 +459,6 @@ public class Mesh2 {
             case PER_VERTEX   : return mesh.numVertices();
             case PER_EDGE     : return mesh.numEdges();
             case PER_FACE     : return mesh.numFaces();
-            case PER_BOUNDARY : return mesh.numBoundaryEdges();
          }
          throw new RuntimeException();
       }
