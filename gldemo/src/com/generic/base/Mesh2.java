@@ -50,7 +50,7 @@ public class Mesh2 {
 
    // Every directedEdge is part of a loop --
    // (either a loop encircling a Face or a boundary-loop)
-   // If it encircles a Face, you can get its Face-ID:
+   // If it encircles a Face, you can get its face-ID, otherwise -1
    public int faceOf (int directedEdge) {
       return directedEdgeData.array()[4 * directedEdge + 1];
    }
@@ -68,7 +68,8 @@ public class Mesh2 {
    public int prevInLoop (int directedEdge) {
       return directedEdgeData.array()[4 * directedEdge + 3];
    }
-   
+
+
    // Given a directedEdge-id, you can also traverse a loop of directedEdges
    // by looping over the outgoing edges of the START vertex
    public int nextAroundStart (int directedEdge) {
@@ -104,16 +105,134 @@ public class Mesh2 {
    // vertices then connecting them by adding faces.
    // -----------------------------------------------------
 
-   // Call this to add a new vertex:
-   public int addVertex() {   
+   // Call this to add a new vertex.
+   // A new vertex-ID is returned, but it's not connected to anything,
+   // (that is, "vertexToDirectedEdge" will return -1)
+   public int addVertex() {
       return vertexIDManager.getNewID();
    }
    
-   // Call this to connect vertices to form a new Face:
+   // Call this to connect vertices to form a new face.
+   // A new face-ID is returned, and it'll be connected to a new loop
+   // of directedEdges going around the provided vertices.
    public int addFace(int... vertices) {
+      int numVertices = vertices.length;
       
-      
+      // For each edge of this new face, we want to know if the edge
+      // connects this new face to an existing face or not.
+      int[] boundaryDirectedEdges = new int[numVertices];
+      for (int i = 0; i < numVertices; ++i) {
+         boundaryDirectedEdges[i] = -1;
+         
+         int startVertex = vertices[i];
+         int endVertex = vertices[(i + 1) % numVertices];
+          
+         // Does "startVertex" have any edges already connected to it?
+         // If so, are any of them boundary edges?
+         boolean anyOutgoingEdgesfromStart = false;
+         boolean anyOutgoingBoundaryEdgesFromStart = false;
 
+         int firstEdgeOutgoingFromStart = vertexToDirectedEdge(startVertex);
+         if (firstEdgeOutgoingFromStart != -1) {
+            anyOutgoingEdgesfromStart = true;
+             
+            // Examine each pre-existing edge outgoing from start
+            int edgeOutgoingFromStart = firstEdgeOutgoingFromStart;
+            do {
+               if (endOf(edgeOutgoingFromStart) == endVertex) {
+                  // We've discovered there's already a directedEdge going
+                  // from startVertex to endVertex.  This must be on the boundary,
+                  // otherwise a face with this directed edge already exists
+                  if (!isBoundary(edgeOutgoingFromStart)) {
+                     throw new RuntimeException(String.format(
+                        "DirectedEdge from %d to %d already exists",
+                        startVertex, endVertex));
+                  }
+                  
+                  boundaryDirectedEdges[i] = edgeOutgoingFromStart;
+                  anyOutgoingBoundaryEdgesFromStart = true;
+                  break;
+
+               } else {
+                  // This edge connects startVertex to some other endpoint
+                  // that's not endVertex.  Let's note if any of these edges
+                  // are boundaries:
+                  if (isBoundary(edgeOutgoingFromStart) ||
+                      isBoundary(opposite(edgeOutgoingFromStart))) {
+                     anyOutgoingBoundaryEdgesFromStart = true;
+                  }
+               }
+               
+               edgeOutgoingFromStart = nextAroundStart(edgeOutgoingFromStart);               
+            } while (edgeOutgoingFromStart != firstEdgeOutgoingFromStart);
+         }
+         
+         // If startVertex had any edges attached to it, then at least one 
+         // of those must have been a boundary, since we can't create a face
+         // with a corner that's already completely surrounded by faces.
+         if (anyOutgoingEdgesfromStart && !anyOutgoingBoundaryEdgesFromStart) {
+            throw new RuntimeException(String.format(
+               "Vertex %d already completely surrounded by faces",
+               startVertex));
+         }
+      }
+      
+      // Check if two adjacent edges of the new face connect to existing faces
+      for (int i = 0; i < numVertices; ++i) {
+         int firstEdge = boundaryDirectedEdges[(i + (numVertices-1)) % numVertices];
+         int secondEdge = boundaryDirectedEdges[i];
+         
+         if ((firstEdge != -1) && (secondEdge != -1)) {
+            int vertex = startOf(secondEdge);
+            
+            // Both 'firstEdge' and 'secondEdge' are directedEdges
+            // that are part of boundary-loops, but are they adjacent edges
+            // in the same boundary-loop?            
+            if (prevInLoop(secondEdge) != firstEdge) {
+             
+               // No, apparently there are other edges touching this vertex
+               // that lie between 'firstEdge' and 'secondEdge'.
+               // These other edges will have to be moved to a different position
+               // around the vertex, which is not a problem so long as there's
+               // another pair of boundary edges they can be placed between:
+               
+               boolean foundAlternateBoundary = false;
+               int edgeOutgoingFromStart = nextAroundStart(opposite(firstEdge));
+               while (edgeOutgoingFromStart != secondEdge) {
+                  if (isBoundary(edgeOutgoingFromStart)) {
+                     foundAlternateBoundary = true;
+                     break;
+                  }
+                  edgeOutgoingFromStart = nextAroundStart(edgeOutgoingFromStart);
+               }
+               
+               if (!foundAlternateBoundary) {
+                  throw new RuntimeException(String.format(
+                     "Vertex %d has faces that block the addition of this face",
+                     vertex));
+               }
+            }            
+         }
+      }
+      
+      // Okay the CHECKS are done and we've confirmed this face can be
+      // added without messing up the mesh.  At this point, we're
+      // committed to modifying the mesh:
+      int newFaceID = faceIDManager.getNewID();
+      
+      // For each edge of this new face, if we DIDNT find a pre-existing boundary
+      // edge in the scan above, we have to CREATE the edge here.
+      for (int i = 0; i < numVertices; ++i) {
+         int directedEdge = boundaryDirectedEdges[i];
+         if (directedEdge == -1) {
+            
+            
+         } else {
+            
+            
+         }
+      }      
+      
       // --------------------------------------------
       // adding a triangular face 
       //    will either add 3 boundary edges,  (adding a new face in empty space)
@@ -154,6 +273,27 @@ public class Mesh2 {
    }
 
    public void removeFace(int face) {
+   }
+   
+   
+   
+   private void setStartOf (int directedEdge, int vertex) {
+      directedEdgeData.array()[4 * directedEdge] = vertex;
+   }
+   private void setFaceOf (int directedEdge, int face) {
+      directedEdgeData.array()[4 * directedEdge + 1] = face;
+   }
+   private void setNextInLoop (int directedEdge, int nextDirectedEdge) {
+      directedEdgeData.array()[4 * directedEdge + 2] = nextDirectedEdge;
+   }
+   private void setPrevInLoop (int directedEdge, int prevDirectedEdge) {
+      directedEdgeData.array()[4 * directedEdge + 3] = prevDirectedEdge;
+   }
+   private void setDirectedEdgeForVertex (int vertex, int directedEdge) {
+      vertexToDirectedEdge.array()[vertex] = directedEdge;
+   }
+   private void setDirectedEdgeForFace(int face, int directedEdge) {
+      faceToDirectedEdge.array()[face] = directedEdge;
    }
    
    // -----------------------------------------------------   
