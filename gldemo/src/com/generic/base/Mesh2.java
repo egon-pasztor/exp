@@ -215,60 +215,47 @@ public class Mesh2 {
          }
       }
       
-      // Okay the CHECKS are done and we've confirmed this face can be
+      // Okay we've CHECKED everything and confirmed this face can be
       // added without messing up the mesh.  At this point, we're
       // committed to modifying the mesh:
       int newFaceID = faceIDManager.getNewID();
       
-      // For each edge of this new face, if we DIDNT find a pre-existing boundary
+      // For each edge of this new face, if we DIDNT find a pre-existing
       // edge in the scan above, we have to CREATE the edge here.
       for (int i = 0; i < numVertices; ++i) {
          int directedEdge = boundaryDirectedEdges[i];
          if (directedEdge == -1) {
+            int startVertex = vertices[i];
+            int endVertex = vertices[(i + 1) % numVertices];
+         
+            int newEdgeID = edgeIDManager.getNewID();
+            int newForwardDirectedEdge = edgeToForwardDirectedEdge(newEdgeID);
+            int newReverseDirectedEdge = edgeToReverseDirectedEdge(newEdgeID);
             
-            
-         } else {
-            
-            
+            setStartOf(newForwardDirectedEdge, startVertex);
+            setStartOf(newReverseDirectedEdge, endVertex);
+            boundaryDirectedEdges[i] = newForwardDirectedEdge;
          }
       }      
       
-      // --------------------------------------------
-      // adding a triangular face 
-      //    will either add 3 boundary edges,  (adding a new face in empty space)
-      //             or add 1 boundary edge,   (if 1 side is connected to an existing face)
-      //          or remove 1 boundary edge,   (if 2 sides are connected to existing faces)
-      //          or remove 3 boundary edges,  (filling a triangular hole in an existing mesh)
+      // now let's see... the edges in "boundaryDirectedEdges" are ready,
+      //   we know (a) their start and end vertices are already set,
+      //   we know (b) they can all be pointed at new face,
+      //       and (c) they all need to link to each other forming a loop...
       //
-      //    it will either add 3 new edges     (adding a new face in empty space)
-      //                or add 2 new edges     (if 1 side is connected to an existing face)
-      //                or add 1 new edges     (if 2 sides is connected to an existing face)
-      //               or add no new edges     (filling a triangular hole in an existing mesh)
+      // but what are they linked to NOW?  when we relink them,
+      // how do we fix up the gaps the relinking will create?
       //
-      // if 3 new edges are created, that's 6 new directedEdges --
-      //          3 of which point to the "new face"
-      //      and 3 of which have "boundary edge ids"
-      // 
-      // if 2 new edges are created, (the triangle has 1 side adjacent to an existing face)
-      //      then 1 existing directedEdge (which has a boundary-id) changes to a face id.
-      //          (that makes a boundary-edge-id "unused" -- 
-      //          and boundaryEdgeToDirectedEdge[ boundary_edge_id ] should be cleared,
-      //              (set to -1?), it should no longer point back to the directedEdge got changed.
-      //
-      //      creating 2 new edges means increasing
-      //      the directedEdgeData array by (4 *  sizeOfDirectedEdgeData),
-      //      that is, creating 4 new directedEdges which must be "wired in to existing directedEdges.
-      //         (the "inner two" directedEdges connect to the "existing" directedEdge that
-      //             was "transformed" in the previous step)
-      //          the "outer two" directedEdges are connected to the boundary-loop that was
-      //             left broken by the removal of the "existing" directedEdge 
-      //             was "transformed" in the previous step)
-      //
-      //
-      //      the "outer" two directedEdges both need "boundary-edge-ids"..
-      //
-      //      one of the "new" boundary-edges can get the same id as the recently deleted one..
-      //      
+      // Now let's consider each VERTEX in turn
+      
+      for (int i = 0; i < numVertices; ++i) {
+         int vertex = vertices[i];
+         
+         int firstEdge = boundaryDirectedEdges[(i + (numVertices-1)) % numVertices];
+         int secondEdge = boundaryDirectedEdges[i];
+
+      
+      
       return -1;
    }
 
