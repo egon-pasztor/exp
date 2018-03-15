@@ -121,59 +121,66 @@ public class Mesh2 {
    // of directedEdges going around the provided vertices.
    public int addFace(int... vertices) {
       int numVertices = vertices.length;
-      
-      // For each edge of this new face, we want to know if the edge
-      // connects this new face to an existing face or not.
-      int[] boundaryDirectedEdges = new int[numVertices];
+
+      // We'll use these arrays to temporarily store edge indices
+      int[] faceBoundaryEdges = new int[numVertices];
+      int[] vertexOutgoingBoundaryEdges = new int[numVertices];
       for (int i = 0; i < numVertices; ++i) {
-         boundaryDirectedEdges[i] = -1;
-         
+         faceBoundaryEdges[i] = -1;
+         vertexOutgoingBoundaryEdges[i] = -1;
+      }
+      
+      // We examine each edge in turn to see if it will connect this face
+      // to any pre-existing edges.  Along the way we CHECK mesh validity.
+      for (int i = 0; i < numVertices; ++i) {
          int startVertex = vertices[i];
          int endVertex = vertices[(i + 1) % numVertices];
-          
+         
          // Does "startVertex" have any edges already connected to it?
          // If so, are any of them boundary edges?
-         boolean anyOutgoingEdgesfromStart = false;
-         boolean anyOutgoingBoundaryEdgesFromStart = false;
+         boolean foundBoundaryEdgeFromStart = false;
+         boolean foundAnyEdgeFromStart = false;
 
-         int firstEdgeOutgoingFromStart = vertexToDirectedEdge(startVertex);
-         if (firstEdgeOutgoingFromStart != -1) {
-            anyOutgoingEdgesfromStart = true;
+         int firstOutgoingEdgeFromStart = vertexToDirectedEdge(startVertex);
+         if (firstOutgoingEdgeFromStart != -1) {
+            foundAnyEdgeFromStart = true;
              
             // Examine each pre-existing edge outgoing from start
-            int edgeOutgoingFromStart = firstEdgeOutgoingFromStart;
+            int outgoingEdgeFromStart = firstOutgoingEdgeFromStart;
             do {
-               if (endOf(edgeOutgoingFromStart) == endVertex) {
+               if (endOf(outgoingEdgeFromStart) == endVertex) {
                   // We've discovered there's already a directedEdge going
-                  // from startVertex to endVertex.  This must be on the boundary,
-                  // otherwise a face with this directed edge already exists
-                  if (!isBoundary(edgeOutgoingFromStart)) {
+                  // from startVertex to endVertex.  If this edge already has
+                  // a face then it's not valid to add this face!
+                  if (!isBoundary(outgoingEdgeFromStart)) {
                      throw new RuntimeException(String.format(
                         "DirectedEdge from %d to %d already exists",
                         startVertex, endVertex));
                   }
                   
-                  boundaryDirectedEdges[i] = edgeOutgoingFromStart;
-                  anyOutgoingBoundaryEdgesFromStart = true;
+                  foundBoundaryEdgeFromStart = true;
+                  faceBoundaryEdges[i] = outgoingEdgeFromStart;
+                  vertexOutgoingBoundaryEdges[i] = -1;
                   break;
 
                } else {
                   // This edge connects startVertex to some other endpoint
                   // that's not endVertex.  Let's note if any of these edges
                   // are boundaries:
-                  if (isBoundary(edgeOutgoingFromStart)) {
-                     anyOutgoingBoundaryEdgesFromStart = true;
+                  if (isBoundary(outgoingEdgeFromStart)) {
+                     vertexOutgoingBoundaryEdges[i] = outgoingEdgeFromStart;
+                     foundBoundaryEdgeFromStart = true;
                   }
                }
-               
-               edgeOutgoingFromStart = nextAroundStart(edgeOutgoingFromStart);               
-            } while (edgeOutgoingFromStart != firstEdgeOutgoingFromStart);
+
+               outgoingEdgeFromStart = nextAroundStart(outgoingEdgeFromStart);               
+            } while (outgoingEdgeFromStart != firstOutgoingEdgeFromStart);
          }
          
          // If startVertex had any edges attached to it, then at least one 
          // of those must have been a boundary, since we can't create a face
          // with a corner that's already completely surrounded by faces.
-         if (anyOutgoingEdgesfromStart && !anyOutgoingBoundaryEdgesFromStart) {
+         if (foundAnyEdgeFromStart && !foundBoundaryEdgeFromStart) {
             throw new RuntimeException(String.format(
                "Vertex %d already completely surrounded by faces",
                startVertex));
@@ -182,16 +189,16 @@ public class Mesh2 {
       
       // Check if two adjacent edges of the new face connect to existing faces
       for (int i = 0; i < numVertices; ++i) {
-         int firstEdge = boundaryDirectedEdges[(i + (numVertices-1)) % numVertices];
-         int secondEdge = boundaryDirectedEdges[i];
+         int prevEdge = faceBoundaryEdges[(i + (numVertices-1)) % numVertices];
+         int nextEdge = faceBoundaryEdges[i];
          
-         if ((firstEdge != -1) && (secondEdge != -1)) {
-            int vertex = startOf(secondEdge);
+         if ((prevEdge != -1) && (nextEdge != -1)) {
+            int vertex = startOf(nextEdge);
             
-            // Both 'firstEdge' and 'secondEdge' are directedEdges
-            // that are part of boundary-loops, but are they adjacent edges
-            // in the same boundary-loop?            
-            if (prevInLoop(secondEdge) != firstEdge) {
+            // We know endOf(firstEdge) == startOf(secondEdge),
+            // and both are part of boundary-loops -- but are they
+            // adjacent edges in the same boundary-loop?s
+            if (prevInLoop(nextEdge) != prevEdge) {
              
                // No, apparently there are other edges touching this vertex
                // that lie between 'firstEdge' and 'secondEdge'.
@@ -200,13 +207,14 @@ public class Mesh2 {
                // another pair of boundary edges they can be placed between:
                
                boolean foundAlternateBoundary = false;
-               int edgeOutgoingFromStart = nextAroundStart(opposite(firstEdge));
-               while (edgeOutgoingFromStart != secondEdge) {
-                  if (isBoundary(edgeOutgoingFromStart)) {
+               int outgoingEdgeFromStart = nextAroundStart(opposite(prevEdge));
+               while (outgoingEdgeFromStart != nextEdge) {
+                  if (isBoundary(outgoingEdgeFromStart)) {
+                     vertexOutgoingBoundaryEdges[i] = outgoingEdgeFromStart;
                      foundAlternateBoundary = true;
                      break;
                   }
-                  edgeOutgoingFromStart = nextAroundStart(edgeOutgoingFromStart);
+                  outgoingEdgeFromStart = nextAroundStart(outgoingEdgeFromStart);
                }
                
                if (!foundAlternateBoundary) {
@@ -218,27 +226,20 @@ public class Mesh2 {
          }
       }
       
-      // Okay we've CHECKED everything and confirmed this face can be
-      // added without messing up the mesh.  At this point, we're
-      // committed to modifying the mesh:
+      // Okay we've CHECKED everything and confirmed this face can be added
+      // without messing up the mesh.  At this point, we're committed to
+      // modifying the mesh, and won't be throwing any more exceptions.
       int newFaceID = faceIDManager.getNewID();
-      
-      // For each edge of this new face, if we DIDNT find a pre-existing
+
+      // For each edge of this new face, if we DIDN'T find a pre-existing
       // edge in the scan above, we have to CREATE the edge here.
       for (int i = 0; i < numVertices; ++i) {
-         int directedEdge = boundaryDirectedEdges[i];
-         if (directedEdge != -1) {
+         if (faceBoundaryEdges[i] == -1) {
             int startVertex = vertices[i];
             int endVertex = vertices[(i + 1) % numVertices];
          
             // --- Create a new Edge -------------------------
             int newEdgeID = edgeIDManager.getNewID();
-            
-            int newForwardDirectedEdge = edgeToForwardDirectedEdge(newEdgeID);
-            setStartOf    (newForwardDirectedEdge, startVertex);
-            setNextInLoop (newForwardDirectedEdge, -1);
-            setPrevInLoop (newForwardDirectedEdge, -1);
-            setFaceOf     (newForwardDirectedEdge, -1);
             
             int newReverseDirectedEdge = edgeToReverseDirectedEdge(newEdgeID);
             setStartOf    (newReverseDirectedEdge, endVertex);
@@ -246,102 +247,94 @@ public class Mesh2 {
             setPrevInLoop (newReverseDirectedEdge, -1);
             setFaceOf     (newReverseDirectedEdge, -1);
             
-            boundaryDirectedEdges[i] = newForwardDirectedEdge;
+            int newForwardDirectedEdge = edgeToForwardDirectedEdge(newEdgeID);
+            setStartOf    (newForwardDirectedEdge, startVertex);
+            setNextInLoop (newForwardDirectedEdge, -1);
+            setPrevInLoop (newForwardDirectedEdge, -1);
+            faceBoundaryEdges[i] = newForwardDirectedEdge;
          }
+         
+         // Point all the edges at the new face:         
+         setFaceOf(faceBoundaryEdges[i], newFaceID);
       }
+      setDirectedEdgeForFace(newFaceID, faceBoundaryEdges[0]);
       
-      // ---
-      // now let's see... the edges in "boundaryDirectedEdges" are ready,
-      //   we know (a) their start and end vertices are already set,
-      //   we know (b) they can all be pointed at new face,
-      //       and (c) they all need to link to each other forming a loop...
-      //
-      // but what are they linked to NOW?  when we relink them,
-      // how do we fix up the gaps the relinking will create?
-      //
-      // Now let's consider each VERTEX in turn
-      // ---
-      
+      // Finally, we have to fix up the various edge links --
+      // We consider each VERTEX in turn:
       for (int i = 0; i < numVertices; ++i) {
          int vertex = vertices[i];
          
-         // The boundaryDirectedEdge will form the loop encircling this face.
-         // Here prevDirectedEdge is incoming to vertex, 
-         // and nextDirectedEdge is outgoing from vertex
-         
-         int prevDirectedEdge = boundaryDirectedEdges[(i + (numVertices-1)) % numVertices];
-         int nextDirectedEdge = boundaryDirectedEdges[i];
+         int prevI = (i + (numVertices-1)) % numVertices;
+         int prevEdge = faceBoundaryEdges[prevI];   // incoming to vertex
+         int nextEdge = faceBoundaryEdges[i];       // outgoing from vertex
 
-         int oppositePrevDirectedEdge = opposite(prevDirectedEdge);  // outoing from vertex
-         int oppositeNextDirectedEdge = opposite(nextDirectedEdge);  // incoming from vertex
-         boolean prevEdgeAttached = isBoundary(oppositePrevDirectedEdge);
-         boolean nextEdgeAttached = isBoundary(oppositeNextDirectedEdge);
+         int oppositePrevEdge = opposite(prevEdge);  // outgoing from vertex
+         int oppositeNextEdge = opposite(nextEdge);  // incoming to vertex
+         boolean prevEdgeFree = isBoundary(oppositePrevEdge);
+         boolean nextEdgeFree = isBoundary(oppositeNextEdge);
          
          // There are 4 cases based on whether the prev and next edges are attached:
-         if (!prevEdgeAttached && !nextEdgeAttached) {
+         if (prevEdgeFree && nextEdgeFree) {
+
             // CASE 1. BOTH prevDirectedEdge and nextDirectedEdge were created here just a moment ago.
             //         Their opposites still need to be wired up.
             //
-            // How we do that depends on whether vertex han any other pre-existing edges.
-            int firstEdgeOutgoingFromStart = vertexToDirectedEdge(vertex);
-            if (firstEdgeOutgoingFromStart != -1) {
-               // vertex has NO existing edges, it's NEW being connected to this face first.               
-               // Here we just wire the two opposites edges together:
+            // How we do that depends on whether vertex than any other pre-existing edges.
+            
+            if (vertexOutgoingBoundaryEdges[i] != -1) {
+               // vertex HAS existing edges.  In this case we've already located
+               // a boundary-edge outgoing from vertex, and we have to insert this
+               // new corner in between the existing boundary edges:
+               int outgoingBoundary = vertexOutgoingBoundaryEdges[i];
+               int incomingBoundary = prevInLoop(outgoingBoundary);
                
-               setNextInLoop (oppositeNextDirectedEdge, oppositePrevDirectedEdge);
-               setPrevInLoop (oppositePrevDirectedEdge, oppositeNextDirectedEdge);
-               
-               // This vertex is being connected for the first time:
-               setDirectedEdgeForVertex(vertex, nextDirectedEdge);
+               connectEdges (oppositeNextEdge, outgoingBoundary);
+               connectEdges (incomingBoundary, oppositePrevEdge);
                
             } else {
-               // vertex HAS existing edges, and we're adding two more.
-               // We've already confirmed that v is on the boundary, we actually walked right past
-               // a Boundary that confirmed it, but we didn't save it anywhere
-               //
-               // TODO:  now we have to look for it again?  save it at the first scan over vertices..
+               // vertex has NO existing edges, it's NEW being connected to this face first.
+               // Here we just wire the two opposites edges together:               
+               connectEdges (oppositeNextEdge, oppositePrevEdge);
                
-               
-               
+               // This vertex is being connected for the first time:
+               setDirectedEdgeForVertex(vertex, nextEdge);
             }
-               anyOutgoingEdgesfromStart = true;
-                
-               // Examine each pre-existing edge outgoing from start
-               int edgeOutgoingFromStart = firstEdgeOutgoingFromStart;
-               do {
-                  if (endOf(edgeOutgoingFromStart) == endVertex) {
-                     
-                  }
-                     // We've discovered there's already a directedEdge going
-                     // from startVertex to endVertex.  This must be on the boundary,
-                     // otherwise a face with this directed edge already exists
-                     if (!isBoundary(edgeOutgoingFromStart)) {
-                        throw new RuntimeException(String.format(
-                           "DirectedEdge from %d to %d already exists",
-                           startVertex, endVertex));
-                     }
-                     
-                     boundaryDirectedEdges[i] = edgeOutgoingFromStart;
-                     anyOutgoingBoundaryEdgesFromStart = true;
-                     break;
+            
+         } else if (!prevEdgeFree && nextEdgeFree) {
+            
+            // CASE 2. Only oppositeNextEdge needs to be wired up...            
+            int outgoingBoundary = nextInLoop(prevEdge);
+            connectEdges (oppositeNextEdge, outgoingBoundary);
 
-                  } else {
-                     // This edge connects startVertex to some other endpoint
-                     // that's not endVertex.  Let's note if any of these edges
-                     // are boundaries:
-                     if (isBoundary(edgeOutgoingFromStart)) {
-                        anyOutgoingBoundaryEdgesFromStart = true;
-                     }
-                  }
-                  
-                  edgeOutgoingFromStart = nextAroundStart(edgeOutgoingFromStart);               
-               } while (edgeOutgoingFromStart != firstEdgeOutgoingFromStart);
-         
+         } else if (prevEdgeFree && !nextEdgeFree) {
             
+            // CASE 3. Only oppositePrevEdge needs to be wired up...            
+            int incomingBoundary = prevInLoop(nextEdge);
+            connectEdges (incomingBoundary, oppositePrevEdge);
+
+         } else {
             
+            // CASE 4. BOTH edges are attached.
+            //         Their opposites are already wired correctly.            
+            if (vertexOutgoingBoundaryEdges[i] != -1) {
+               // This occurs when (prevInLoop(nextEdge) != prevEdge).
+               // We have to move the edges in-between to a different position
+               // around the vertex, and we've already located the replacement point..               
+               int outgoingBoundary = vertexOutgoingBoundaryEdges[i];
+               int incomingBoundary = prevInLoop(outgoingBoundary);
+               
+               int incomingOrphan = prevInLoop(nextEdge);
+               int outgoingOrphan = nextInLoop(prevEdge);
+               
+               connectEdges(incomingOrphan, outgoingBoundary);
+               connectEdges(incomingBoundary, outgoingOrphan);
+            }            
+         }
+
+         connectEdges(prevEdge, nextEdge);
+      }
       
-      
-      return -1;
+      return newFaceID;
    }
 
    public void removeFace(int face) {
@@ -370,6 +363,10 @@ public class Mesh2 {
    
    // ------------------------------------------
    
+   private void connectEdges (int prevEdge, int nextEdge) {
+      setNextInLoop (prevEdge, nextEdge);
+      setPrevInLoop (nextEdge, prevEdge);      
+   }
    
    
    // -----------------------------------------------------   
