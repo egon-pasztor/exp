@@ -122,6 +122,12 @@ public class Mesh2 {
    public int addFace(int... vertices) {
       int numVertices = vertices.length;
 
+      // Must have at least 3 vertices
+      if (numVertices < 3) {
+         throw new RuntimeException(String.format(
+            "Cannat add face with only %d vertices", numVertices));
+      }
+      
       // We'll use these arrays to temporarily store edge indices
       int[] faceBoundaryEdges = new int[numVertices];
       int[] vertexOutgoingBoundaryEdges = new int[numVertices];
@@ -338,9 +344,40 @@ public class Mesh2 {
    }
 
    public void removeFace(int face) {
+      int firstEdgeOfFace = faceToDirectedEdge (face);
+      if (firstEdgeOfFace == -1) return;
+
+      // First count the faces
+      int numVertices = 1;
+      int edgeOfFace = nextInLoop(firstEdgeOfFace);
+      while (edgeOfFace != firstEdgeOfFace) {
+         numVertices++;
+         edgeOfFace = nextInLoop(edgeOfFace);
+      }
+      
+      // We'll use this array to temporarily store edges
+      int[] faceBoundaryEdges = new int[numVertices];
+      for (int i = 0; i < numVertices; ++i) {
+         faceBoundaryEdges[i] = edgeOfFace;
+         edgeOfFace = nextInLoop(edgeOfFace);
+      }
+      
+      // Finally, we have to fix up the various edge links --
+      // We consider each VERTEX in turn:
+      for (int i = 0; i < numVertices; ++i) {
+         int vertex = vertices[i];
+         
+         int prevI = (i + (numVertices-1)) % numVertices;
+         int prevEdge = faceBoundaryEdges[prevI];   // incoming to vertex
+         int nextEdge = faceBoundaryEdges[i];       // outgoing from vertex
+
+      }
+      
    }
    
    
+   // ==================================================================
+   // ==================================================================
    
    private void setStartOf (int directedEdge, int vertex) {
       directedEdgeData.array()[4 * directedEdge] = vertex;
