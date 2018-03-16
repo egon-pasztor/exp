@@ -4,6 +4,7 @@ import com.generic.base.Mesh.DirectedEdge;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
@@ -24,10 +25,10 @@ public class Mesh2 {
    // Each edge is associated with two directed-edges pointing in opposite directions.
    // Given an edge-ID, you can find the IDs of its directed-edges
    // by doubling and optionally adding one:
-   public int edgeToForwardDirectedEdge (int edge) {
+   public int forwardDirectedEdge (int edge) {
       return 2 * edge;
    }
-   public int edgeToReverseDirectedEdge (int edge) {
+   public int reverseDirectedEdge (int edge) {
       return 2 * edge + 1;
    }
 
@@ -92,19 +93,129 @@ public class Mesh2 {
    
 
    // Given a vertex-ID, you can retrieve the ID of an outgoing directedEdge:
-   public int vertexToDirectedEdge (int vertex) {
+   public int directedEdgeForVertex (int vertex) {
       return vertexToDirectedEdge.array()[vertex];
    }
    // Given a face-ID, you can retrieve the ID of a directedEdge
    // that's part of the loop encircling it.
-   public int faceToDirectedEdge (int face) {
+   public int directedEdgeForFace (int face) {
       return faceToDirectedEdge.array()[face];
    }
    
+   
+   // A vertex-ID that doesn't have a directedEdge is "disconnected"
+   public boolean isDisconnectedVertex (int vertex) {
+      return directedEdgeForVertex(vertex) == -1;
+   }
+   // An face-ID that doesn't have a directedEdge is "disconnected"
+   public boolean isDisconnectedFace (int face) {
+      return directedEdgeForFace(face) == -1;
+   }
+   // A directedEdge-ID that doesn't have a start-vertex is "disconnected"
+   public boolean isDisconnectedDirectedEdge (int directedEdge) {
+      return startOf(directedEdge) == -1;
+   }
+   // An edge-ID whose directedEdge is "disconnected" is itself "disconnected"
+   public boolean isDisconnectedEdge (int edge) {
+      return isDisconnectedDirectedEdge(forwardDirectedEdge(edge));
+   }
+   
+   // --------------------------------------------------------
+   // These methods provide convenient Iterators to loop over
+   // edges around face, or edges around a vertex...
+   // --------------------------------------------------------
 
+   public Iterable<Integer> vertices() {
+      return new Iterable<Integer>() {
+         public Iterator<Integer> iterator() {
+            return new Iterator<Integer>() {
+               private int maxVertexID = numVertexIDs();
+               private int vertex = nextVertex(0);
+               
+               public boolean hasNext() {
+                  return (vertex < maxVertexID);
+               }
+               public Integer next() {
+                  int result = vertex;
+                  vertex = nextVertex(vertex+1);
+                  return result;
+               }
+               
+               private int nextVertex(int v) {
+                  while ((v < maxVertexID) && isDisconnectedVertex(v)) v++;
+                  return v;
+               }
+            };
+         };
+      };
+   }
+   
+   public Iterable<Integer> faceEdges(final int face) {
+      return new Iterable<Integer>() {
+         public Iterator<Integer> iterator() {
+            return new Iterator<Integer>() {
+               private int firstEdge = directedEdgeForFace(face);
+               private int edge = firstEdge;
+ 
+               public boolean hasNext() {
+                  return (edge >= 0);
+               }
+               public Integer next() {
+                  int result = edge;
+                  edge = nextInLoop(edge);
+                  if (edge == firstEdge) {
+                     edge = -1;
+                  }
+                  return result;
+               }};
+         }};
+   }
+   
+   public Iterable<Integer> outgoingEdges(final int vertex) {
+      return new Iterable<Integer>() {
+         public Iterator<Integer> iterator() {
+            return new Iterator<Integer>() {
+               private int firstOutgoingEdge = directedEdgeForVertex(vertex);
+               private int outgoingEdge = firstOutgoingEdge;
+               
+               public boolean hasNext() {
+                  return (outgoingEdge >= 0);
+               }
+               public Integer next() {
+                  int result = outgoingEdge;
+                  outgoingEdge = nextAroundStart(outgoingEdge);
+                  if (outgoingEdge == firstOutgoingEdge) {
+                     outgoingEdge = -1;
+                  }
+                  return result;
+               }};
+         }};
+   }
+   
+   public Iterable<Integer> incomingEdges(final int vertex) {
+      return new Iterable<Integer>() {
+         public Iterator<Integer> iterator() {
+            return new Iterator<Integer>() {
+               private int firstIncomingEdge = opposite(directedEdgeForVertex(vertex));
+               private int incomingEdge = firstIncomingEdge;
+ 
+               public boolean hasNext() {
+                  return (incomingEdge >= 0);
+               }
+               public Integer next() {
+                  int result = incomingEdge;
+                  incomingEdge = nextAroundEnd(incomingEdge);
+                  if (incomingEdge == firstIncomingEdge) {
+                     incomingEdge = -1;
+                  }
+                  return result;
+               }};
+         }};
+   }
+   
    // -----------------------------------------------------   
-   // A Mesh can be built up iteratively by adding disconnected,
-   // vertices then connecting them by adding faces.
+   // A Mesh can be built up iteratively by adding disconnected vertices,
+   // then connecting the vertices by adding faces.
    // -----------------------------------------------------
 
    // Call this to add a new vertex.
@@ -147,7 +258,7 @@ public class Mesh2 {
          boolean foundBoundaryEdgeFromStart = false;
          boolean foundAnyEdgeFromStart = false;
 
-         int firstOutgoingEdgeFromStart = vertexToDirectedEdge(startVertex);
+         int firstOutgoingEdgeFromStart = directedEdgeForVertex(startVertex);
          if (firstOutgoingEdgeFromStart != -1) {
             foundAnyEdgeFromStart = true;
              
@@ -166,7 +277,6 @@ public class Mesh2 {
                   
                   foundBoundaryEdgeFromStart = true;
                   faceBoundaryEdges[i] = outgoingEdgeFromStart;
-                  vertexOutgoingBoundaryEdges[i] = -1;
                   break;
 
                } else {
@@ -203,15 +313,15 @@ public class Mesh2 {
             
             // We know endOf(firstEdge) == startOf(secondEdge),
             // and both are part of boundary-loops -- but are they
-            // adjacent edges in the same boundary-loop?s
+            // adjacent edges in the same boundary-loops?
             if (prevInLoop(nextEdge) != prevEdge) {
-             
+
                // No, apparently there are other edges touching this vertex
                // that lie between 'firstEdge' and 'secondEdge'.
                // These other edges will have to be moved to a different position
                // around the vertex, which is not a problem so long as there's
                // another pair of boundary edges they can be placed between:
-               
+
                boolean foundAlternateBoundary = false;
                int outgoingEdgeFromStart = nextAroundStart(opposite(prevEdge));
                while (outgoingEdgeFromStart != nextEdge) {
@@ -228,7 +338,7 @@ public class Mesh2 {
                      "Vertex %d has faces that block the addition of this face",
                      vertex));
                }
-            }            
+            }
          }
       }
       
@@ -247,19 +357,19 @@ public class Mesh2 {
             // --- Create a new Edge -------------------------
             int newEdgeID = edgeIDManager.getNewID();
             
-            int newReverseDirectedEdge = edgeToReverseDirectedEdge(newEdgeID);
+            int newReverseDirectedEdge = reverseDirectedEdge(newEdgeID);
             setStartOf    (newReverseDirectedEdge, endVertex);
             setNextInLoop (newReverseDirectedEdge, -1);
             setPrevInLoop (newReverseDirectedEdge, -1);
             setFaceOf     (newReverseDirectedEdge, -1);
             
-            int newForwardDirectedEdge = edgeToForwardDirectedEdge(newEdgeID);
+            int newForwardDirectedEdge = forwardDirectedEdge(newEdgeID);
             setStartOf    (newForwardDirectedEdge, startVertex);
             setNextInLoop (newForwardDirectedEdge, -1);
             setPrevInLoop (newForwardDirectedEdge, -1);
             faceBoundaryEdges[i] = newForwardDirectedEdge;
          }
-         
+
          // Point all the edges at the new face:         
          setFaceOf(faceBoundaryEdges[i], newFaceID);
       }
@@ -268,12 +378,11 @@ public class Mesh2 {
       // Finally, we have to fix up the various edge links --
       // We consider each VERTEX in turn:
       for (int i = 0; i < numVertices; ++i) {
-         int vertex = vertices[i];
          
          int prevI = (i + (numVertices-1)) % numVertices;
-         int prevEdge = faceBoundaryEdges[prevI];   // incoming to vertex
-         int nextEdge = faceBoundaryEdges[i];       // outgoing from vertex
-
+         int prevEdge = faceBoundaryEdges[prevI];    // incoming to vertex
+         int nextEdge = faceBoundaryEdges[i];        // outgoing from vertex
+         int vertex = startOf(nextEdge);             // == endOf(prevEdge)
          int oppositePrevEdge = opposite(prevEdge);  // outgoing from vertex
          int oppositeNextEdge = opposite(nextEdge);  // incoming to vertex
          boolean prevEdgeFree = isBoundary(oppositePrevEdge);
@@ -282,7 +391,7 @@ public class Mesh2 {
          // There are 4 cases based on whether the prev and next edges are attached:
          if (prevEdgeFree && nextEdgeFree) {
 
-            // CASE 1. BOTH prevDirectedEdge and nextDirectedEdge were created here just a moment ago.
+            // CASE 1. BOTH prevEdge and nextEdge were created here just a moment ago.
             //         Their opposites still need to be wired up.
             //
             // How we do that depends on whether vertex than any other pre-existing edges.
@@ -344,36 +453,90 @@ public class Mesh2 {
    }
 
    public void removeFace(int face) {
-      int firstEdgeOfFace = faceToDirectedEdge (face);
-      if (firstEdgeOfFace == -1) return;
+      int firstFaceEdge = directedEdgeForFace (face);
+      if (firstFaceEdge == -1) return;
 
       // First count the faces
       int numVertices = 1;
-      int edgeOfFace = nextInLoop(firstEdgeOfFace);
-      while (edgeOfFace != firstEdgeOfFace) {
+      int faceEdge = nextInLoop(firstFaceEdge);
+      while (faceEdge != firstFaceEdge) {
          numVertices++;
-         edgeOfFace = nextInLoop(edgeOfFace);
+         faceEdge = nextInLoop(faceEdge);
       }
       
-      // We'll use this array to temporarily store edges
+      // We'll use this array to temporarily store edge indices
       int[] faceBoundaryEdges = new int[numVertices];
       for (int i = 0; i < numVertices; ++i) {
-         faceBoundaryEdges[i] = edgeOfFace;
-         edgeOfFace = nextInLoop(edgeOfFace);
+         faceBoundaryEdges[i] = faceEdge;
+         setFaceOf(faceEdge, -1);
+         
+         // We examine each vertex in turn and make sure the first outgoing edge
+         // listed for each vertex is not one of the edges of this face
+         int vertex = startOf(faceEdge);
+         if (directedEdgeForVertex(vertex) == faceEdge) {
+            int outgoingEdge = faceEdge;
+            do {
+               outgoingEdge = nextAroundStart(outgoingEdge);
+            } while (isBoundary(outgoingEdge) && (outgoingEdge != faceEdge));
+            
+            setDirectedEdgeForVertex(vertex, outgoingEdge);
+         }
+         faceEdge = nextInLoop(faceEdge);
       }
       
-      // Finally, we have to fix up the various edge links --
+      // First we have to fix up the various edge links --
       // We consider each VERTEX in turn:
       for (int i = 0; i < numVertices; ++i) {
-         int vertex = vertices[i];
          
          int prevI = (i + (numVertices-1)) % numVertices;
-         int prevEdge = faceBoundaryEdges[prevI];   // incoming to vertex
-         int nextEdge = faceBoundaryEdges[i];       // outgoing from vertex
+         int prevEdge = faceBoundaryEdges[prevI];    // incoming to vertex
+         int nextEdge = faceBoundaryEdges[i];        // outgoing from vertex
+         int vertex = startOf(nextEdge);             // == endOf(prevEdge)
+         int oppositePrevEdge = opposite(prevEdge);  // outgoing from vertex
+         int oppositeNextEdge = opposite(nextEdge);  // incoming to vertex
+         boolean prevEdgeFree = isBoundary(oppositePrevEdge);
+         boolean nextEdgeFree = isBoundary(oppositeNextEdge);
+         
+         // There are 4 cases based on whether the prev and next edges are attached:
+         if (prevEdgeFree && nextEdgeFree) {
 
-      }
-      
+            // CASE 1. BOTH prevEdge and nextEdge are going to be deleted, they're
+            //         connected to this face and nothing else.
+            //
+            // How we do this depends on whether vertex has any other edges
+            
+            if (nextInLoop(oppositeNextEdge) == oppositePrevEdge) {               
+               // vertex has NO other edges.  The removal of this face will leave the
+               // vertex disconnected, so the vertex gets removed as well
+               setDirectedEdgeForVertex (vertex, -1);
+               
+            } else {
+               // vertex HAS other edges.
+               int outgoingBoundary = nextInLoop(oppositeNextEdge);
+               int incomingBoundary = prevInLoop(oppositePrevEdge);
+               connectEdges (outgoingBoundary, incomingBoundary);
+               
+            }
+         } else if (!prevEdgeFree && nextEdgeFree) {
+            
+            // CASE 2. prevEdge will be preserved, but it'll be a boudary edge needs to be wired up...
+            connectEdges(prevEdge, nextInLoop(oppositeNextEdge));
+
+         } else if (prevEdgeFree && !nextEdgeFree) {
+            
+            // CASE 3. Only oppositePrevEdge needs to be wired up...            
+            // TODO
+
+         } else {
+            
+            // CASE 4. BOTH edges are attached.
+            //         Their opposites are already wired correctly.            
+            // TODO
+         }
+
+      }      
    }
+   
    
    
    // ==================================================================
