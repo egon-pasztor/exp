@@ -22,11 +22,6 @@ public class Mesh2 {
    public int numEdgeIDs()   { return edgeIDManager.getNumReservedIDs();   }
    public int numFaceIDs()   { return faceIDManager.getNumReservedIDs();   }
 
-   // The largest IDs in use, provided above, may not be the same as the
-   // actual number of vertices, edges, and faces 
-   public int numVertices () { return numVertices; }
-   public int numFaces ()    { return numFaces; }
-   public int numEdges ()    { return numEdges; }
    
    
    
@@ -133,30 +128,65 @@ public class Mesh2 {
    // edges around face, or edges around a vertex...
    // --------------------------------------------------------
 
-   public Iterable<Integer> vertices() {
-      return new Iterable<Integer>() {
-         public Iterator<Integer> iterator() {
-            return new Iterator<Integer>() {
-               private int maxVertexID = numVertexIDs();
-               private int vertex = nextVertex(0);
-               
-               public boolean hasNext() {
-                  return (vertex < maxVertexID);
-               }
-               public Integer next() {
-                  int result = vertex;
-                  vertex = nextVertex(vertex+1);
-                  return result;
-               }
-               
-               private int nextVertex(int v) {
-                  while ((v < maxVertexID) && isDisconnectedVertex(v)) v++;
-                  return v;
-               }
-            };
+   // The largest IDs in use, provided above, 
+   // may not be the same as the number of vertices, edges, and faces 
+   
+   private interface IterableSupport {
+      int maxID();
+      boolean isValid(int id);
+      
+      static Iterable<Integer> elements(final IterableSupport support) {
+         return new Iterable<Integer>() {
+            public Iterator<Integer> iterator() {
+               return new Iterator<Integer>() {
+                  private int maxID = support.maxID();
+                  private int id= nextID(0);
+                  
+                  public boolean hasNext() {
+                     return (id < maxID);
+                  }
+                  public Integer next() {
+                     int result = id;
+                     id = nextID(id+1);
+                     return result;
+                  }
+                  
+                  private int nextID(int element) {
+                     while ((id < maxID) && !support.isValid(id)) id++;
+                     return id;
+                  }
+               };
+            }
          };
-      };
+      }
    }
+      
+
+   public int numVertices () { return numVertices; }
+   public int numFaces ()    { return numFaces; }
+   public int numEdges ()    { return numEdges; }
+   
+   public Iterable<Integer> vertices() {
+      return IterableSupport.elements(new IterableSupport(){
+         public int maxID() { return numVertexIDs(); }
+         public boolean isValid(int vertex) { return !isDisconnectedVertex(vertex); }
+      });
+   }
+   public Iterable<Integer> faces() {
+      return IterableSupport.elements(new IterableSupport(){
+         public int maxID() { return numFaceIDs(); }
+         public boolean isValid(int face) { return !isDisconnectedFace(face); }
+      });
+   }
+   public Iterable<Integer> edges() {
+      return IterableSupport.elements(new IterableSupport(){
+         public int maxID() { return numEdgeIDs(); }
+         public boolean isValid(int edge) { return !isDisconnectedEdge(edge); }
+      });
+   }
+   
+   
+   
    
    public Iterable<Integer> faceEdges(final int face) {
       return new Iterable<Integer>() {
@@ -178,7 +208,7 @@ public class Mesh2 {
                }};
          }};
    }
-   public int numEdgesForFace (int face) {
+   public int numFaceEdges (int face) {
       int count = 0;
       for (Integer outgoingEdge : faceEdges(face)) count++;
       return count;
@@ -204,7 +234,7 @@ public class Mesh2 {
                }};
          }};
    }
-   public int numEdgesForVertex (int vertex) {
+   public int numOutgoingEdges (int vertex) {
       int count = 0;
       for (Integer outgoingEdge : outgoingEdges(vertex)) count++;
       return count;
@@ -535,12 +565,13 @@ public class Mesh2 {
          }
       }      
       
-      // First we have to fix up the various edge links --
-      // We consider each VERTEX in turn:
-      for (int i = 0; i < numVertices; ++i) {
+      // I guess finally, we have to remove the edges that were
+      // not attached:for (int i = 0; i < numVertices; ++i) {
          faceEdge = faceEdges[i];
-         
-         // ...
+         if (isBoundary(opposite(faceEdge))) {
+            
+            
+         }
       }
    }
    
