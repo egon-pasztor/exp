@@ -10,10 +10,11 @@ import java.util.Set;
 
 public class Mesh2 {
 
-   // -----------------------------------------------------   
-   // A Mesh keeps track of connectivity between
-   // a number of Vertices, Faces, and Edges
-   // -----------------------------------------------------   
+   // ==================================================================
+   // A Mesh keeps track of CONNECTIVITY
+   // within a set of Vertices, Faces, and Edges,
+   // along with arrays of per-Vertex, per-Face, or per-Edge data.
+   // ==================================================================
    
    // Each vertex, face, and edge has an integer ID.
    // This tells you how many have been allocated:
@@ -21,6 +22,13 @@ public class Mesh2 {
    public int numEdgeIDs()   { return edgeIDManager.getNumReservedIDs();   }
    public int numFaceIDs()   { return faceIDManager.getNumReservedIDs();   }
 
+   // The largest IDs in use, provided above, may not be the same as the
+   // actual number of vertices, edges, and faces 
+   public int numVertices () { return numVertices; }
+   public int numFaces ()    { return numFaces; }
+   public int numEdges ()    { return numEdges; }
+   
+   
    
    // Each edge is associated with two directed-edges pointing in opposite directions.
    // Given an edge-ID, you can find the IDs of its directed-edges
@@ -170,6 +178,11 @@ public class Mesh2 {
                }};
          }};
    }
+   public int numEdgesForFace (int face) {
+      int count = 0;
+      for (Integer outgoingEdge : faceEdges(face)) count++;
+      return count;
+   }
    
    public Iterable<Integer> outgoingEdges(final int vertex) {
       return new Iterable<Integer>() {
@@ -191,27 +204,12 @@ public class Mesh2 {
                }};
          }};
    }
-   
-   public Iterable<Integer> incomingEdges(final int vertex) {
-      return new Iterable<Integer>() {
-         public Iterator<Integer> iterator() {
-            return new Iterator<Integer>() {
-               private int firstIncomingEdge = opposite(directedEdgeForVertex(vertex));
-               private int incomingEdge = firstIncomingEdge;
- 
-               public boolean hasNext() {
-                  return (incomingEdge >= 0);
-               }
-               public Integer next() {
-                  int result = incomingEdge;
-                  incomingEdge = nextAroundEnd(incomingEdge);
-                  if (incomingEdge == firstIncomingEdge) {
-                     incomingEdge = -1;
-                  }
-                  return result;
-               }};
-         }};
+   public int numEdgesForVertex (int vertex) {
+      int count = 0;
+      for (Integer outgoingEdge : outgoingEdges(vertex)) count++;
+      return count;
    }
+
    
    // -----------------------------------------------------   
    // A Mesh can be built up iteratively by adding disconnected vertices,
@@ -465,9 +463,9 @@ public class Mesh2 {
       }
       
       // We'll use this array to temporarily store edge indices
-      int[] faceBoundaryEdges = new int[numVertices];
+      int[] faceEdges = new int[numVertices];
       for (int i = 0; i < numVertices; ++i) {
-         faceBoundaryEdges[i] = faceEdge;
+         faceEdges[i] = faceEdge;
          setFaceOf(faceEdge, -1);
          
          // We examine each vertex in turn and make sure the first outgoing edge
@@ -489,8 +487,8 @@ public class Mesh2 {
       for (int i = 0; i < numVertices; ++i) {
          
          int prevI = (i + (numVertices-1)) % numVertices;
-         int prevEdge = faceBoundaryEdges[prevI];    // incoming to vertex
-         int nextEdge = faceBoundaryEdges[i];        // outgoing from vertex
+         int prevEdge = faceEdges[prevI];    // incoming to vertex
+         int nextEdge = faceEdges[i];        // outgoing from vertex
          int vertex = startOf(nextEdge);             // == endOf(prevEdge)
          int oppositePrevEdge = opposite(prevEdge);  // outgoing from vertex
          int oppositeNextEdge = opposite(nextEdge);  // incoming to vertex
@@ -506,35 +504,44 @@ public class Mesh2 {
             // How we do this depends on whether vertex has any other edges
             
             if (nextInLoop(oppositeNextEdge) == oppositePrevEdge) {               
-               // vertex has NO other edges.  The removal of this face will leave the
-               // vertex disconnected, so the vertex gets removed as well
+               // vertex has NO other edges.  The removal of both of these edges
+               // will leave the vertex completely disconnected,
+               // so the vertex is being removed as well
                setDirectedEdgeForVertex (vertex, -1);
                
             } else {
-               // vertex HAS other edges.
+               // vertex HAS other edges -- we just have to hook up the boundary loop
                int outgoingBoundary = nextInLoop(oppositeNextEdge);
                int incomingBoundary = prevInLoop(oppositePrevEdge);
                connectEdges (outgoingBoundary, incomingBoundary);
-               
             }
          } else if (!prevEdgeFree && nextEdgeFree) {
             
-            // CASE 2. prevEdge will be preserved, but it'll be a boudary edge needs to be wired up...
-            connectEdges(prevEdge, nextInLoop(oppositeNextEdge));
+            // CASE 2. only prevEdge will be preserved, nextEdge is being removed.
+            // prevEdge will turn into a boudary edge, it needs to be wired up...
+            int outgoingBoundary = nextInLoop(oppositeNextEdge);
+            connectEdges(prevEdge, outgoingBoundary);
 
          } else if (prevEdgeFree && !nextEdgeFree) {
             
-            // CASE 3. Only oppositePrevEdge needs to be wired up...            
-            // TODO
+            // CASE 2. only nextEdge will be preserved, prevEdge is being removed.
+            // nextEdge will turn into a boudary edge, it needs to be wired up...
+            int incomingBoundary = prevInLoop(oppositePrevEdge);
+            connectEdges(incomingBoundary, nextEdge);
 
          } else {
-            
-            // CASE 4. BOTH edges are attached.
-            //         Their opposites are already wired correctly.            
-            // TODO
+            // CASE 4. BOTH edges will be preserved, so everything is already
+            // wired up correctly.
          }
-
       }      
+      
+      // First we have to fix up the various edge links --
+      // We consider each VERTEX in turn:
+      for (int i = 0; i < numVertices; ++i) {
+         faceEdge = faceEdges[i];
+         
+         // ...
+      }
    }
    
    
@@ -569,8 +576,9 @@ public class Mesh2 {
    }
    
    
-   // -----------------------------------------------------   
-   // -----------------------------------------------------
+   // ==================================================================
+   // MESH STORAGE
+   // ==================================================================
 
    public static class PrimitiveIntArray {
       public PrimitiveIntArray (int elementSize) {
@@ -714,7 +722,15 @@ public class Mesh2 {
    private final IDManager faceIDManager;
    private final IDManager edgeIDManager;
    
+   private int numVertices;
+   private int numFaces;
+   private int numEdges;
+   
+   
    public Mesh2() {
+      numVertices = 0;
+      numFaces = 0;
+      numEdges = 0;
       
       vertexToDirectedEdge = new PrimitiveIntArray(1);
       faceToDirectedEdge = new PrimitiveIntArray(1);
@@ -727,7 +743,6 @@ public class Mesh2 {
       vertexIDManager.addIntArray(vertexToDirectedEdge);
       faceIDManager.addIntArray(faceToDirectedEdge);
       edgeIDManager.addIntArray(directedEdgeData);
-      
    }
 
    
@@ -740,40 +755,7 @@ public class Mesh2 {
    
    
    
-   
-   public int numVertices() { return numVertices; }
-   public int numFaces()    { return numFaces;    }
-   public int numEdges()    { return numEdges;    }
-   
-   private int numVertices;
-   private int numFaces;
-   private int numEdges;
-   
-   
-   // Given a vertex-id, this function will count the number of 
-   // outgoing edges.  This is the "valence" of the vertex.
-   public int countOutgoingEdges (int vertex) {
-      int firstOutgoingDirectedEdge = vertexToDirectedEdge(vertex);
-      if (firstOutgoingDirectedEdge < 0) return 0;
-      
-      int count = 1;
-      int outgoingDirectedEdge = firstOutgoingDirectedEdge;
-      while (true) {
-         // NOTE: in a properly built Mesh there's no danger of this looping
-         // around forever, without returning to the firstOutputDirectedEdge,
-         // but should we explicitly detect and break out of the infinite loop
-         // that could occur here if the Mesh were invalid?
-         //
-         // It's hard to know how to handle inconsistencies.  If we check for
-         // the possibility of an infinite loop, should we also check that the
-         // "ccwAroundStart" function always returns a valid directedEdge?
-         // Should we check the return values of *every* function for "validity"?
-         
-         outgoingDirectedEdge = nextAroundStart(outgoingDirectedEdge);
-         if (outgoingDirectedEdge == firstOutgoingDirectedEdge) return count;
-         count++;
-      }
-   }
+
    
    // Given a face-id, this function will count the number of 
    // edges going around it.  This is the number of sides of the face.
