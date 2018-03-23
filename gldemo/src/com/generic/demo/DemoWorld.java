@@ -4,6 +4,7 @@ import com.generic.base.Geometry;
 import com.generic.base.World;
 import com.generic.base.Geometry.*;
 import com.generic.base.Mesh;
+import com.generic.base.Mesh2;
 import com.generic.base.QuadCover;
 import com.generic.base.Algebra.*;
 
@@ -83,11 +84,12 @@ public class DemoWorld extends World {
       // --------------------------
 
       MeshModel tor0 = Geometry.createTorus(2.0f, 0.5f, 0.3f, 53, 23);
+      tor0.mesh.removeTriangle(tor0.mesh.triangles.get(tor0.mesh.triangles.size()/3));
       mappingModel3 = tor0;
       QuadCover.run("DONUT", tor0, -2.2f);
       
-      Shader.Instance tor0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);      
-      Shader.ManagedFloatTexture tor0_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(tor0));      
+      Shader.Instance tor0Instance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
+      Shader.ManagedFloatTexture tor0_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(tor0));
       tor0Instance.bind(Shader.MESH_INFO, new Shader.Variable.Sampler.Binding2(tor0_mesh_info));
       
       m = new ShaderExecutingModel(tor0Instance, tor0);
@@ -111,6 +113,9 @@ public class DemoWorld extends World {
       root.children.add(m);
       m.translate(Vector3.Y.times(+5.0f));
       
+      // --------------------------
+      // NOISE-BALLS
+      // --------------------------
       
       MeshModel perlinNoiseBall = Geometry.createIco(3);
       //
@@ -143,6 +148,18 @@ public class DemoWorld extends World {
          root.children.add(m);
          m.translate(Vector3.X.times(6).rotated(Vector3.Y, angle));
       }
+      
+      // --------------------------
+      // MESH2
+      // --------------------------
+      Mesh2 mesh2 = Mesh2.loadMesh("bunny.obj");
+      System.out.format("---#-#-#-#-#-\nLoaded Mesh2\n");
+      mesh2.print();
+      
+      // ---
+      
+      
+
       
       System.out.format("DONE..\n");
       updateDemoWorld(0.0f);      

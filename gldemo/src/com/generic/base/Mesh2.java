@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Objects;
@@ -796,6 +797,8 @@ public class Mesh2 {
    private int numFaces;
    private int numEdges;
    
+   private HashMap<String, DataLayer> dataLayers;
+   
    
    public Mesh2() {
       vertexToDirectedEdge = new PrimitiveIntArray(1);
@@ -809,9 +812,11 @@ public class Mesh2 {
       vertexIDManager.addIntArray(vertexToDirectedEdge);
       faceIDManager.addIntArray(faceToDirectedEdge);
       edgeIDManager.addIntArray(directedEdgeData);
+      
+      dataLayers = new HashMap<String, DataLayer>();
    }
 
-   void clear() {
+   public void clear() {
       numVertices = 0;
       numFaces = 0;
       numEdges = 0;
@@ -820,7 +825,7 @@ public class Mesh2 {
       edgeIDManager.clear();
    }
   
-   void print() {
+   public void print() {
       System.out.format("NumVertices: %d  (NumVertexIDs: %d)\n", numVertices, numVertexIDs());
       System.out.format("NumEdges: %d  (NumEdgesIDs: %d)\n", numEdges, numEdgeIDs());
       System.out.format("NumFaces: %d  (NumFacesIDs: %d)\n", numFaces, numFaceIDs());
@@ -852,9 +857,103 @@ public class Mesh2 {
       public int hashCode() {
          return Objects.hash(elementCount, elementType, layerType);
       }
+   }   
+   public static abstract class DataLayer {
+      public final Mesh2 mesh;
+      public final String name;
+      public final DataLayerType type;
+      
+      public DataLayer(Mesh2 mesh, String name, DataLayerType type) {
+         this.mesh = mesh;
+         this.name = name;
+         this.type = type;
+      }
+      public abstract void disconnect();
+   }
+   public static class IntDataLayer extends DataLayer {
+      public final PrimitiveIntArray data;
+      
+      public IntDataLayer(Mesh2 mesh, String name, DataLayerType type) {
+         super (mesh, name, type);
+         this.data = new PrimitiveIntArray(type.elementCount);
+         
+         if (type.layerType == LayerType.PER_VERTEX) {
+            mesh.vertexIDManager.addIntArray(data);
+         }
+         if (type.layerType == LayerType.PER_FACE) {
+            mesh.faceIDManager.addIntArray(data);
+         }
+         if (type.layerType == LayerType.PER_EDGE) {
+            mesh.edgeIDManager.addIntArray(data);
+         }
+      }
+      public void disconnect() {
+         if (type.layerType == LayerType.PER_VERTEX) {
+            mesh.vertexIDManager.removeIntArray(data);
+         }
+         if (type.layerType == LayerType.PER_FACE) {
+            mesh.faceIDManager.removeIntArray(data);
+         }
+         if (type.layerType == LayerType.PER_EDGE) {
+            mesh.edgeIDManager.removeIntArray(data);
+         }         
+         data.setNumElements(0);
+      }
+   }
+   public static class FloatDataLayer extends DataLayer {
+      public final PrimitiveFloatArray data;
+      
+      private FloatDataLayer(Mesh2 mesh, String name, DataLayerType type) {
+         super (mesh, name, type);
+         this.data = new PrimitiveFloatArray(type.elementCount);
+         
+         if (type.layerType == LayerType.PER_VERTEX) {
+            mesh.vertexIDManager.addFloatArray(data);
+         }
+         if (type.layerType == LayerType.PER_FACE) {
+            mesh.faceIDManager.addFloatArray(data);
+         }
+         if (type.layerType == LayerType.PER_EDGE) {
+            mesh.edgeIDManager.addFloatArray(data);
+         }
+      }
+      public void disconnect() {
+         if (type.layerType == LayerType.PER_VERTEX) {
+            mesh.vertexIDManager.removeFloatArray(data);
+         }
+         if (type.layerType == LayerType.PER_FACE) {
+            mesh.faceIDManager.removeFloatArray(data);
+         }
+         if (type.layerType == LayerType.PER_EDGE) {
+            mesh.edgeIDManager.removeFloatArray(data);
+         }
+         data.setNumElements(0);
+      }
+   }
+  
+   public DataLayer newDataLayer(String name, DataLayerType type) {
+      DataLayer layer = null;
+      if (type.elementType == ElementType.INTEGER) {
+         layer = new IntDataLayer(this, name, type);
+      }
+      if (type.elementType == ElementType.FLOAT) {
+         layer = new FloatDataLayer(this, name, type);
+      }
+      dataLayers.put(name, layer);
+      return layer;
+   }
+   public DataLayer getDataLayer(String name) {
+      return dataLayers.get(name);
+   }
+   public void removeDataLayer(String name) {
+      DataLayer layer = dataLayers.get(name);
+      if (layer != null) {
+         layer.disconnect();
+         dataLayers.remove(name);
+      }
    }
 
-   // --------------------------------------------------------
+      
    /*   
    public interface ElementData {
       public int size();
@@ -873,49 +972,13 @@ public class Mesh2 {
    }
    */
 
-   public static abstract class DataLayer {
-      public final String name;
-      public final DataLayerType type;
-      
-      private DataLayer(String name, DataLayerType type) {
-         this.name = name;
-         this.type = type;
-      }
-   }
 
-   public static abstract class IntDataLayer extends DataLayer {
-      private final Mesh2 mesh;
-      private final PrimitiveIntArray data;
-      
-      private IntDataLayer(Mesh2 mesh, String name, DataLayerType type) {
-         super (name, type);
-         if (type.elementType != ElementType.INTEGER) {
-            throw new RuntimeException();
-         }
-         this.mesh = mesh;
-         this.data = new PrimitiveIntArray(type.elementCount);
-      }
-//      public MutableElementIntData at(int i) {
-//         final int offset = i * type.elementCount;
-//         return new MutableElementIntData() {
-//            public int get(int i) {
-//               return 0;
-//            }
-//            public int size() {
-//               return 0;
-//            }
-//            public void set(int i, int v) {
-//            }
-//         };
-//      }
-   }
-   
    
    // #############################################################################################
    // Specific Models for Testing
    // #############################################################################################
    
-   static class SavedModel {
+   private static class SavedModel {
       public static class Triangle {
          public final int v0,v1,v2;
          public Triangle(int v0, int v1, int v2) {
@@ -933,10 +996,9 @@ public class Mesh2 {
       public void addFace(int v0, int v1, int v2) { 
          faceIds.add(new Triangle(v0,v1,v2)); 
       }
-   }
-   
-   private String loadStringFileFromCurrentPackage(String fileName){
-      InputStream stream = this.getClass().getResourceAsStream(fileName);
+   }   
+   private static String loadStringFileFromCurrentPackage(String filename){
+      InputStream stream = Mesh2.class.getResourceAsStream(filename);
       BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
       StringBuilder strBuilder = new StringBuilder();
       try {
@@ -952,10 +1014,9 @@ public class Mesh2 {
       } catch (IOException e) {
          e.printStackTrace();
       }
-
       return strBuilder.toString();
    }  
-   public static SavedModel loadFromString(String serialized) {
+   private static SavedModel savedModelFromString(String serialized) {
       SavedModel result = new SavedModel();
 
       for (String line : serialized.split("\n")) {
@@ -983,79 +1044,24 @@ public class Mesh2 {
          }
       }
       return result;
-   }   
-
-
-   // -----------------------------------------------------------
-   // MAIN
-   // -----------------------------------------------------------
-
-   public static void main(String[] args) {
-      System.out.format("Hello from Mesh2\n");
-      
-      Mesh2 m2 = new Mesh2();
-      Mesh m1 = new Mesh();
-      SavedModel model = loadFromString(m2.loadStringFileFromCurrentPackage("bunny.obj"));
-      
-      PrimitiveFloatArray positions = new PrimitiveFloatArray(3);
-      m2.vertexIDManager.addFloatArray(positions);
-      
-      /*
-      int v0 = m.newVertexID();
-      int v1 = m.newVertexID();
-      int v2 = m.newVertexID();
-      
-      m.print();
-      System.out.format("-----\n");
-      
-      int f0 = m.addFace(v0,v1,v2);
-      
-      m.print();
-      System.out.format("-----\n");
-      
-      m.removeFace(f0);
-      
-      m.print();
-      */
-      
-      long start1 = System.currentTimeMillis();
-      { for (Vector3 position : model.vertexPositions) {
-           Mesh.Vertex v = m1.addVertex();
-           v.setPosition(position);
-        }
-        for (SavedModel.Triangle t : model.faceIds) {
-           m1.addTriangle(m1.vertices.get(t.v0), 
-                          m1.vertices.get(t.v1),
-                          m1.vertices.get(t.v2));
-        }
-      }
-      long end1 = System.currentTimeMillis();
-      System.out.format("Mesh1 init with %d vertices, %d faces, %d edges in .... %d ms\n",
-            m1.vertices.size(), m1.triangles.size(), m1.edges.size(),
-            end1-start1);
-
-      long start2 = System.currentTimeMillis();
-      { for (Vector3 position : model.vertexPositions) {
-           int v = m2.newVertexID();
-           
-           float[] positionsArray = positions.array();
-           positionsArray[3*v + 0] = position.x;
-           positionsArray[3*v + 1] = position.y;
-           positionsArray[3*v + 2] = position.z;
-        }
-        for (SavedModel.Triangle t : model.faceIds) {
-           m2.addFace(t.v0, t.v1, t.v2);
-        }
-      }
-      long end2 = System.currentTimeMillis();
-      System.out.format("Mesh2 init with %d vertices, %d faces, %d edges in .... %d ms\n",
-            m2.numVertices(), m2.numFaces(), m2.numEdges(),
-            end2-start2);
-
-
-      m2.print();
-      System.out.format("-----\n");
    }
-   
-   
+   public static Mesh2 loadMesh(String filename) {
+      Mesh2 mesh = new Mesh2();
+      FloatDataLayer positions = (FloatDataLayer) mesh.newDataLayer("positions",
+            new DataLayerType(3, ElementType.FLOAT, LayerType.PER_VERTEX));
+      
+      SavedModel model = savedModelFromString(loadStringFileFromCurrentPackage(filename));
+      for (Vector3 position : model.vertexPositions) {
+         int v = mesh.newVertexID();
+         
+         float[] positionsArray = positions.data.array();
+         positionsArray[3*v + 0] = position.x;
+         positionsArray[3*v + 1] = position.y;
+         positionsArray[3*v + 2] = position.z;
+      }
+      for (SavedModel.Triangle t : model.faceIds) {
+         mesh.addFace(t.v0, t.v1, t.v2);
+      }
+      return mesh;
+   }   
 }
