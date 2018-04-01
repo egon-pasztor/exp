@@ -75,7 +75,7 @@ public class World {
         
    // ------- Shader-Instance Models
    
-   public static class ShaderExecutingModel extends Model {
+   public static class ShadedTrianglesModel extends Model {
       
       // ------------------------------------------------------------------
       // Let's review:
@@ -105,20 +105,20 @@ public class World {
       // in each Shader.Instance.   Three other uniform variable bindings are also
       // set by that function:  WORLD_TO_CLIP_MATRIX, WINDOW_WIDTH, and WINDOW_HEIGHT.
       //
-      // Second, a ShaderExecutingModel holds a reference to a MeshModel, and any 
-      // VertexBuffer bindings required by the Shader.Instance are bound, each in turn, 
+      // Second, a ShaderExecutingModel holds a reference to a MeshModel, and any
+      // VertexBuffer bindings required by the Shader.Instance are bound, each in turn,
       // to a BufferManager of the same name, if one is owned by the MeshModel.
       //
       // Note that, for a Shader.Instance to be runnable, all its variables must
       // have bindings, and many Shader.Instances have uniform or vertexBuffer
       // variables in addition to the few that are bound by ShaderExecutingModel,
       // that must be bound by the caller.
-      
-      
-      public ShaderExecutingModel(Shader.Instance instance, MeshModel model) {
+
+      public ShadedTrianglesModel(Shader.Instance instance, MeshModel model) {
          this.model = model;
+         this.numTriangles = model.mesh.triangles.size();
          this.instance = instance;
-         
+
          // When the ShaderExecutingModel is constructed, we bind any VertexBuffer
          // variables to matching BufferManager's provided by the mesh:
          for (Shader.Variable variable : instance.program.variables) {
@@ -132,7 +132,13 @@ public class World {
             }
          }
       }
-      public final MeshModel model;
+      public ShadedTrianglesModel(Shader.Instance instance, int numTriangles) {
+         this.model = null;
+         this.numTriangles = numTriangles;
+         this.instance = instance;
+      }
+      public final MeshModel model;      
+      public final int numTriangles;
       public final Shader.Instance instance;
    }
    
@@ -151,8 +157,8 @@ public class World {
             addBuffers(child, buffers);
          }
       }
-      if (m instanceof ShaderExecutingModel) {
-         Shader.Instance shaderInstance = ((ShaderExecutingModel) m).instance;
+      if (m instanceof ShadedTrianglesModel) {
+         Shader.Instance shaderInstance = ((ShadedTrianglesModel) m).instance;
          for (Map.Entry<Shader.Variable, Shader.Variable.Binding> entry : shaderInstance.boundVariables.entrySet()) {
             Shader.Variable.Binding binding = entry.getValue();
             if (binding instanceof Shader.Variable.VertexBuffer.Binding) {
@@ -174,8 +180,8 @@ public class World {
             addShaderInstances(child, shaderInstances);
          }
       }
-      if (m instanceof ShaderExecutingModel) {
-         shaderInstances.add(((ShaderExecutingModel) m).instance);
+      if (m instanceof ShadedTrianglesModel) {
+         shaderInstances.add(((ShadedTrianglesModel) m).instance);
       }
    }
 
@@ -235,8 +241,8 @@ public class World {
    
    public void bindPositions(Model m, Matrix4x4 projMatrix, Matrix4x4 viewMatrix, int windowWidth, int windowHeight) {
       viewMatrix = Matrix4x4.product(viewMatrix, m.getModelToWorld());
-      if (m instanceof ShaderExecutingModel) {
-         Shader.Instance shaderInstance = ((ShaderExecutingModel) m).instance;
+      if (m instanceof ShadedTrianglesModel) {
+         Shader.Instance shaderInstance = ((ShadedTrianglesModel) m).instance;
          
          shaderInstance.bind(Shader.WORLD_TO_CLIP_MATRIX, new Shader.Variable.Uniform.Mat4Binding(projMatrix));
          shaderInstance.bind(Shader.MODEL_TO_WORLD_MATRIX, new Shader.Variable.Uniform.Mat4Binding(viewMatrix));

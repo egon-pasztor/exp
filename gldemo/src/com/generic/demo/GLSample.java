@@ -77,6 +77,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    
    public GLSample() {
+      
+      /// so, create some "SystemInterface" class?
+      // then, DemoApp app = new DemoApp(systemInterface)?
+      
+      
+      
+      
+      
       System.out.println("GLSample constructor BEGIN\n");
       
       // Create "Demo World" object...
@@ -924,11 +932,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    }
    private String loadStringFileFromCurrentPackage(String fileName){
       InputStream stream = this.getClass().getResourceAsStream(fileName);
-
       BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-      // allocate a string builder to add line per line 
       StringBuilder strBuilder = new StringBuilder();
-
       try {
          String line = reader.readLine();
          // get text from file, line per line
@@ -1150,17 +1155,18 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    
    public void renderShaderInstances(GL3 gl, Model m, Matrix4x4 viewMatrix) {
       viewMatrix = Matrix4x4.product(viewMatrix, m.getModelToWorld());
+      //System.out.format("Starting render..\n");
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel)m).children) {
             renderShaderInstances(gl, child, viewMatrix);
          }
       }
-      if (m instanceof ShaderExecutingModel) {
-         Shader.Instance shaderInstance = ((ShaderExecutingModel) m).instance;
-         MeshModel model = ((ShaderExecutingModel) m).model;
-
+      if (m instanceof ShadedTrianglesModel) {
+         Shader.Instance shaderInstance = ((ShadedTrianglesModel) m).instance;
+         MeshModel model = ((ShadedTrianglesModel) m).model;
+            
          boolean intersected = ((hoverX != null) && (hoverY != null)) 
-                                  ? intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY)
+                                  ? ((model != null) && intersects(model, viewMatrix, cameraController.getCamera(), hoverX, hoverY))
                                   : false;
          if (intersected) {
             shaderInstance.bind(Shader.HIGHLIGHT_BOOL, new Shader.Variable.Uniform.IntBinding(1));
@@ -1175,6 +1181,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          
          // Tell GL to use the shader program for this instance...
          // shaderInstance.checkAllVariablesBindingsPresent();
+         //System.out.format("Switching to program %d\n", shaderInstance.program.getGLProgramID());
          gl.glUseProgram(shaderInstance.program.getGLProgramID());  
 
          for (Shader.Variable variable : shaderInstance.program.variables) {
@@ -1211,8 +1218,10 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          gl.glBindVertexArray(shaderInstance.getGLVertexArraySetupID());
 
          // Draw the bound arrays...
-         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * model.mesh.triangles.size());
+         gl.glDrawArrays(GL.GL_TRIANGLES, 0, 3 * ((ShadedTrianglesModel) m).numTriangles);
       }
+      //System.out.format("Render done..\n");
+
    }
    
    public void sendMatrixToGL(GL3 gl, Matrix4x4 m, int glLoc) {
@@ -1326,7 +1335,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       for (Shader.Program shaderProgram : Arrays.asList(Shader.TEXTURE_SHADER, 
                                                         Shader.FACE_COLOR_SHADER,
-                                                        Shader.POINT_COLOR_SHADER)) {
+                                                        Shader.POINT_COLOR_SHADER,
+                                                        Shader.FLAT_SHADER)) {
          
          int v = this.newShaderFromCurrentClass(gl, shaderProgram.vertexShaderName,   ShaderType.VertexShader);
          int f = this.newShaderFromCurrentClass(gl, shaderProgram.fragmentShaderName, ShaderType.FragmentShader);
@@ -1336,6 +1346,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          // Complete the "shader program"
          int programID = gl.glCreateProgram();
          shaderProgram.setGLProgramID(programID);
+         System.out.format("Created Program ID: %d\n", programID);
          gl.glAttachShader(programID, v);
          gl.glAttachShader(programID, f);
          gl.glLinkProgram(programID);

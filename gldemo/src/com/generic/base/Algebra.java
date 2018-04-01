@@ -244,6 +244,9 @@ public class Algebra {
          a[offset+0]=x; a[offset+1]=y; a[offset+2]=z;
          return offset+3;
       }
+      public static Vector3 fromFloatArray(float[] a, int offset) {
+         return new Vector3(a[offset+0], a[offset+1], a[offset+2]);
+      }
 
       public static final Vector3 ORIGIN = new Vector3(0.0f, 0.0f, 0.0f);
       public static final Vector3 X      = new Vector3(1.0f, 0.0f, 0.0f);

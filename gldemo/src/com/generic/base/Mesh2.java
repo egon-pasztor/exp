@@ -835,8 +835,8 @@ public class Mesh2 {
    // Now then, the "userdata" segment...
    // -------------------------------------------------------
 
-   enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE };
-   enum ElementType { INTEGER, FLOAT };
+   public enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE };
+   public enum ElementType { INTEGER, FLOAT };
 
    public static class DataLayerType {
       public final int elementCount;
@@ -942,8 +942,9 @@ public class Mesh2 {
       dataLayers.put(name, layer);
       return layer;
    }
-   public DataLayer getDataLayer(String name) {
-      return dataLayers.get(name);
+   public DataLayer getDataLayer(String name, DataLayerType type) {
+      DataLayer layer = dataLayers.get(name);
+      return (layer.type.equals(type)) ? layer : null;
    }
    public void removeDataLayer(String name) {
       DataLayer layer = dataLayers.get(name);
@@ -1063,5 +1064,5 @@ public class Mesh2 {
          mesh.addFace(t.v0, t.v1, t.v2);
       }
       return mesh;
-   }   
+   }
 }

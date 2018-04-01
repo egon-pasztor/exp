@@ -7,6 +7,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 
 public class Mesh {
+   
+   // -------------------------------------------------------------------------
 
    public static class Factory {
       public Vertex   newVertex()    { return new Vertex();   }
@@ -380,7 +382,7 @@ public class Mesh {
          boolean any_outgoing_boundary_edges = false;
           
          for (DirectedEdge outgoingEdge : start.outgoingEdges()) {
-            any_outgoing_edges = true;                
+            any_outgoing_edges = true;
             if (outgoingEdge.isBoundary()) {
                 any_outgoing_boundary_edges = true;
             }

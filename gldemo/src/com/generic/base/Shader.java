@@ -12,9 +12,23 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class Shader {
-
+   
+   public static class DisplayList {
+      
+      // The idea is that some collection of "3D Object" classes would assemble
+      // a Shader.DisplayList to pass to the platform-specific side.
+      // 
+      // Shader.DisplayList consists of:
+      //
+      public HashSet<Shader.Program> programs;
+      
+      
+      
+   }
+   
    // -----------------------------
    // Shader.Variable
    // -----------------------------
@@ -24,8 +38,8 @@ public class Shader {
       
       public Variable(String name) {
          this.name = name;
-      }      
-      
+      }
+
       public interface Binding {}
       
       // ProgramLocation Int -----------------------
@@ -44,7 +58,7 @@ public class Shader {
       
       public static class VertexBuffer extends Variable {
          public final Type type;
-         
+
          public enum Type {
             UINT  (false, 1), FLOAT (true, 1),
             UVEC2 (false, 2), VEC2  (true, 2), 
@@ -432,6 +446,20 @@ public class Shader {
    // Names for Shader Constants
    // -----------------------------
 
+   public static final Program FLAT_SHADER = new Program("flat_shader", 
+         "flat_vertex.shader", "flat_fragment.shader") {
+      @Override
+      protected void initVariables() {
+         variables.add(new Variable.VertexBuffer(Shader.POSITION_ARRAY,  Variable.VertexBuffer.Type.VEC4));
+         variables.add(new Variable.VertexBuffer(Shader.COLOR_ARRAY,     Variable.VertexBuffer.Type.VEC3));
+         variables.add(new Variable.VertexBuffer(Shader.NORMAL_ARRAY,    Variable.VertexBuffer.Type.VEC3));
+         variables.add(new Variable.VertexBuffer(Shader.BARY_COORDS,     Variable.VertexBuffer.Type.VEC3));         
+         
+         variables.add(new Variable.Uniform(Shader.WORLD_TO_CLIP_MATRIX,  Variable.Uniform.Type.MATRIX4));
+         variables.add(new Variable.Uniform(Shader.MODEL_TO_WORLD_MATRIX, Variable.Uniform.Type.MATRIX4));
+      }
+   };
+   
    public static final Program TEXTURE_SHADER = new Program("textured_shader", 
          "vertex.shader", "fragment.shader") {
       @Override
@@ -493,6 +521,7 @@ public class Shader {
    };
    
    public static final String POSITION_ARRAY = "vertexPosition";
+   public static final String NORMAL_ARRAY   = "vertexNormal";
    public static final String COLOR_ARRAY    = "vertexColor";
    public static final String COLOR_INFO     = "triColorInfo";
    
