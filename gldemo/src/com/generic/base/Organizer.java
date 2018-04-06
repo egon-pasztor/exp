@@ -34,14 +34,14 @@ public class Organizer {
                this.y = y;
             }
          }
-
-            
       }
-      
-      
-      
    }
+
    
+   // so we'll need ... Window.Image
+   //                   Window.Viewport2D
+   //                   Window.Viewport3D
+   //
    
    
    

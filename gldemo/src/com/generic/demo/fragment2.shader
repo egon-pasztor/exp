@@ -11,8 +11,9 @@ vec2 uvPointer2;
 
 // Input varying values include:
 
-uniform sampler2D meshInfo;  // okay.. this texture has rows x cols .. nRows == numTriangles, nCols == .. well, 9.  
-                             // each ROW should hold the A,B,C,D,E,F,G,H,I values for that triangle...
+uniform sampler2D meshInfo;  
+// okay.. this texture has rows x cols .. nRows == numTriangles, nCols == .. well, 9.  
+// each ROW should hold the A,B,C,D,E,F,G,H,I values for that triangle...
 
 in vec4 gl_FragCoord;
 
@@ -30,6 +31,9 @@ flat in vec4 V2pos;
 
 flat in uvec4 fragTriColorInfo;
 flat in float triangleIndex;
+
+// Okay, v0uv,V1uv,V2uv -- these are the UV values of the corners?
+// 
 flat in vec2 V0uv;
 flat in vec2 V1uv;
 flat in vec2 V2uv;
