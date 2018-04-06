@@ -42,10 +42,131 @@ public class Organizer {
    //                   Window.Viewport2D
    //                   Window.Viewport3D
    //
+   //                   Window.Label
+   //                   Window.Button
+   //                   Window.Toggle
+   //                   Window.TextEntry
+
+   // but today we've been thinking of "Mutable<Contents>"
+   //
+   public static class Mutable<Contents> {
+
+      public Contents contents;
+ 
+      // -------------------------------------------------
+      // Listeners
+      
+      public static class Listener {
+         private boolean changed;
+         public Listener() { changed = false; }
+         public void setChanged(boolean newChanged) { this.changed = newChanged; }
+         public boolean hasChanged() { return changed; }
+      }
+      
+      private HashSet<Listener> listeners = null;
+      
+      public synchronized void addListener(Listener listener) {
+         if (listeners == null) listeners = new HashSet<Listener>();
+         listeners.add(listener);
+      }
+      public synchronized void removeListener(Listener listener) {
+         if (listeners != null) listeners.remove(listener);
+      }
+      public void notifyListeners() {
+         // must be called from methods within synchronized lock
+         if (listeners != null) {
+            for (Listener listener : listeners) {
+               listener.setChanged(true);
+            }
+         }
+      }
+      
+      // -------------------------------------------------
+      // Refresher
+      
+      public void refreshIfNeeded() {}
+   }
+
+   // --------------------------------------------------
    
+   public abstract static class Generated<Contents,Source> extends Mutable<Contents> {
+      public final Mutable<Source> source;
+      public final Listener listener;
+      
+      public Generated(Mutable<Source> source) {
+         this.source = source;
+         listener = new Listener();
+         source.addListener(listener);
+      }
+      
+      public void refreshIfNeeded() {
+         source.refreshIfNeeded();
+         synchronized (source) {
+            if (listener.hasChanged()) {
+               System.out.format("Refreshing...\n");
+               listener.setChanged(false);
+               synchronized(this) {
+                  generate();
+                  notifyListeners();
+               }
+            } else {
+               System.out.format("No refresh needed\n");
+            }
+         }
+      }
+      
+      public abstract void generate();
+   }
    
+   // --------------------------------------------------
+
+   public static void main(String[] args) {
+      System.out.format("Hello.67\n");
+      test();
+   }
    
-   
+   public static void test() {
+      Mutable<String> h = new Mutable<String>();
+      
+      Mutable<String> h2 = new Generated<String, String>(h) {
+         public void generate() {
+            contents = source.contents + "-x2";
+         }
+      };
+
+      Mutable<String> h3 = new Generated<String, String>(h2) {
+         public void generate() {
+            contents = source.contents + "-x3";
+         }
+      };
+      Mutable<String> h4 = new Generated<String, String>(h2) {
+         public void generate() {
+            contents = source.contents + "-x4";
+         }
+      };
+      
+      synchronized (h) {
+         h.contents = "hello";
+         h.notifyListeners();
+      }
+      
+      System.out.format("1 h3 is [%s]\n", h3.contents);
+      h3.refreshIfNeeded();
+      System.out.format("2 h3 is [%s]\n", h3.contents);
+      h3.refreshIfNeeded();
+      System.out.format("3 h3 is [%s]\n", h3.contents);
+      
+      synchronized (h) {
+         h.contents = "goodbyte";
+         h.notifyListeners();
+      }
+
+      h3.refreshIfNeeded();
+      System.out.format("3 h3 is [%s]\n", h3.contents);
+      h4.refreshIfNeeded();
+      System.out.format("3 h3 is [%s]\n", h4.contents);
+      
+   }
    
    
    
