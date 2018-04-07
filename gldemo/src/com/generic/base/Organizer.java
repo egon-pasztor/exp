@@ -58,25 +58,26 @@ public class Organizer {
       
       public static class Listener {
          private boolean changed;
-         public Listener() { changed = false; }
-         public void setChanged(boolean newChanged) { this.changed = newChanged; }
-         public boolean hasChanged() { return changed; }
+         public Listener()   { changed = false; }
+         public void set()   { this.changed = true; }
+         public void clear() { this.changed = false; }
+         public boolean changeOccurred() { return changed; }
       }
       
       private HashSet<Listener> listeners = null;
       
-      public synchronized void addListener(Listener listener) {
+      public void addListener(Listener listener) {
          if (listeners == null) listeners = new HashSet<Listener>();
          listeners.add(listener);
       }
-      public synchronized void removeListener(Listener listener) {
+      public void removeListener(Listener listener) {
          if (listeners != null) listeners.remove(listener);
       }
       public void notifyListeners() {
          // must be called from methods within synchronized lock
          if (listeners != null) {
             for (Listener listener : listeners) {
-               listener.setChanged(true);
+               listener.set();
             }
          }
       }
@@ -91,21 +92,36 @@ public class Organizer {
    
    public abstract static class Generated<Contents,Source> extends Mutable<Contents> {
       public final Mutable<Source> source;
-      public final Listener listener;
+      public final Listener sourceListener;
       
       public Generated(Mutable<Source> source) {
          this.source = source;
-         listener = new Listener();
-         source.addListener(listener);
+         sourceListener = new Listener();
+         source.addListener(sourceListener);
       }
       
+      public void refreshIfNeeded() {
+         source.refreshIfNeeded();
+         
+         if (sourceListener.changeOccurred()) {
+            System.out.format("Refreshing...\n");
+            sourceListener.clear();
+            generate();
+            notifyListeners();
+            
+         } else {
+            System.out.format("No refresh needed\n");
+         }
+      }
+      
+      /*
       public void refreshIfNeeded() {
          source.refreshIfNeeded();
          synchronized (source) {
             if (listener.hasChanged()) {
                System.out.format("Refreshing...\n");
                listener.setChanged(false);
-               synchronized(this) {
+               synchronized (this) {
                   generate();
                   notifyListeners();
                }
@@ -113,11 +129,19 @@ public class Organizer {
                System.out.format("No refresh needed\n");
             }
          }
-      }
+      }*/
       
       public abstract void generate();
    }
    
+   // --------------------------------------------------
+   // --------------------------------------------------
+   
+   
+   
+   
+   
+   // --------------------------------------------------
    // --------------------------------------------------
 
    public static void main(String[] args) {
@@ -145,10 +169,10 @@ public class Organizer {
          }
       };
       
-      synchronized (h) {
+      //synchronized (h) {
          h.contents = "hello";
          h.notifyListeners();
-      }
+      //}
       
       System.out.format("1 h3 is [%s]\n", h3.contents);
       h3.refreshIfNeeded();
@@ -156,10 +180,10 @@ public class Organizer {
       h3.refreshIfNeeded();
       System.out.format("3 h3 is [%s]\n", h3.contents);
       
-      synchronized (h) {
+      //synchronized (h) {
          h.contents = "goodbyte";
          h.notifyListeners();
-      }
+      //}
 
       h3.refreshIfNeeded();
       System.out.format("3 h3 is [%s]\n", h3.contents);
