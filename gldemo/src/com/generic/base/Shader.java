@@ -13,21 +13,84 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 
 public class Shader {
    
+   // The idea is that some collection of "3D Object" classes would assemble
+   // a Shader.DisplayList to pass to the platform-specific side...
+   
    public static class DisplayList {
       
-      // The idea is that some collection of "3D Object" classes would assemble
-      // a Shader.DisplayList to pass to the platform-specific side.
-      // 
-      // Shader.DisplayList consists of:
+      // A DisplayList just consists of a sequence of instances to execute,
+      // where each Instance consists:
+      
+      // Shader.DisplayList consists of a list of shader instances...
+      //    each ShaderInstance contains
+      //       1. a reference to a Shader.Program, (of which only a few exist)
+      //       2. bindings, linking Shader.Variables to objects like
+      //            2a.  a "Managed.Uniform" -- a class holding one primitive
+      //                     where primitive is (Int or Float)x(1-4) or Mat4x4
+      //            2b.  a "Managed.VertexBuffer" .. a class holding a NATIVE-ARRAY Buffer containing multiple primitives
+      //                     where primitive is (Int or Float)x(1-4)
+      //            2c.  a "Managed.Sampler" ... a class containing a NATIVE-ARRAY Buffer containing a grid of primitives
+      //                     where primitive is (Byte or Int or Float)
       //
-      public HashSet<Shader.Program> programs;
+      // It's very likely that multiple Shader.Instance objects will refer to the same VertexBuffer or Sampler..
+      // and the platform-specific PAINTING code will need to
+      //    iterate over all "Managed.VertexBuffer" or "Managed.Sampler" objects..
+      //   
+      //  ...
+      // if a Scene class contains a hierarchy of Objects ..
+      //    the Scene class can "paint" itself into a DisplayList...
+      //
+      // so a Scene class creates and manages ONE DisplayList
+      // 
+      //    
+      //
+      // 
+      public List<Shader.Instance> shaders;
       
       
-      
+      public interface Listener {
+
+         // The DisplayList can change when Scenes add or remove shader-instances...
+         // So in principle the "delta" to a DisplayList is a "delta to list",
+         // including deleted Shader.Instances,
+         //             added Shader.Instances,
+         //      and modified Shader.Instances,
+         // 
+         // or we can have just a single bool that gets set when any change occurs to the shaders..
+         //
+         // But, with the Shaders unchanged, each Managed.Uniforn, Managed.VertexBuffer, Manager.Sampler can also have changes...
+         
+         // so if this DisplayList has a "peer"
+         //    when someone creates a Scene.Model,
+         //       the Scene.Model creates a Shader.Instance and attaches Managed.VertexBuffer objects, reusing existing ones.
+         //       existing ones?
+         //       (Well, Scene must contain a map of already created Managed.VertexBuffer objects.
+         //        So Scene.Model doesn't create its Shader.Instance until it's "hooked up" to a Scene in which case,
+         //           it's reusing any existing Managed.VertexBuffer's the Scene might have for the Scene.Model's mesh..
+         //
+         //       So:  Scene must contain a map of Managed.VertexBuffer objects used in the DisplayList.
+         //       
+         // But the DisplayList peer also wants a map of Managed.VertexBuffer objects,
+         //    because the DisplayList peer (or peer(s)) want to associate each Managed.VertexBuffer object
+         //    with some platform-specific object...
+         //
+         
+         void vertexBufferAdded   (Shader.ManagedBuffer buffer);
+         void vertexBufferDeleted (Shader.ManagedBuffer buffer);
+         
+         // so a DisplayList-peer could implement DisplayList.Listener..
+         // whenever 
+        
+         
+      }
    }
+   
+   
+   
    
    // -----------------------------
    // Shader.Variable

@@ -38,14 +38,27 @@ public class Organizer {
    }
 
    
-   // so we'll need ... Window.Image
+   // to provide a full windowing system,
+   // we'd like:
+   //
+   //                   Window.Image
    //                   Window.Viewport2D
    //                   Window.Viewport3D
    //
    //                   Window.Label
    //                   Window.Button
    //                   Window.Toggle
+   //                   Window.Pulldown
    //                   Window.TextEntry
+   
+   // --------------------------------------------------------
+   // but, critically, it also needs Window.Container and Window.TopLevel
+   //
+   // we'd like to keep 
+   //    
+   
+   
+   
 
    // but today we've been thinking of "Mutable<Contents>"
    //
