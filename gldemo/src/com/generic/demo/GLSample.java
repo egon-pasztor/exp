@@ -1085,6 +1085,27 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    }
    
    // -----------------------------------------------------------
+   // -----------------------------------------------------------
+   // we think platform-specific side presents a single "GL class" that...
+   // acts like opengl, i guess ...
+   //
+   // 
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   // -----------------------------------------------------------
    // GL-RENDERING
    // -----------------------------------------------------------
    

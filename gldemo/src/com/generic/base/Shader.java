@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class Shader {
    
@@ -21,7 +22,6 @@ public class Shader {
    // a Shader.DisplayList to pass to the platform-specific side...
    
    public static class DisplayList {
-      
       // A DisplayList just consists of a sequence of instances to execute,
       // where each Instance consists:
       
