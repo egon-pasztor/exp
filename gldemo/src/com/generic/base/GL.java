@@ -3,6 +3,7 @@ package com.generic.base;
 import java.nio.IntBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 public class GL {
@@ -16,41 +17,49 @@ public class GL {
       
       public static class VertexBuffer {
 
-        // --------------------------------------
-        // First, a Type class
-        // --------------------------------------
-        public static class Type {
-           public final int numElements;
-           public final PrimitiveType primitive;
-           public final int primitivesPerElement;
+      // --------------------------------------
+      // First, a Type class
+      // --------------------------------------
+      public static class Type {
+         public final int numElements;
+         public final PrimitiveType primitive;
+         public final int primitivesPerElement;
          
-           public Type (int numElements, PrimitiveType primitive, int primitivesPerElement) {
-              this.numElements = numElements;
-              this.primitive = primitive;
-              this.primitivesPerElement = primitivesPerElement;
-           }
-           // TODO: hashcode, equals...
-        }
-        public enum PrimitiveType {
-           FLOAT, INT
-        }
-        
-        // -------------------------------------
-        // Now, a VertexBuffer is what?
-        // It has a Type:
+         public Type (int numElements, PrimitiveType primitive, int primitivesPerElement) {
+            this.numElements = numElements;
+            this.primitive = primitive;
+            this.primitivesPerElement = primitivesPerElement;
+         }
+         public int hashCode() {
+            return Objects.hash(numElements, primitive, primitivesPerElement);
+         }
+         public boolean equals(Object o) {
+            if (!(o instanceof Type)) return false;
+            Type oType = (Type) o;
+            return (numElements == )
+            return Objects.hash(numElements, primitive, primitivesPerElement);
+         }
+      }
+      public enum PrimitiveType {
+         FLOAT, INT
+      }
+  
+      // -------------------------------------
+      // Now, a VertexBuffer is what?
+      // It has a Type:
 
-        public Type type;
-        public int[] array;
+      public Type type;
+      public int[] array;
 
-        // A vertex buffer usually has a Filler, an object which can
-        // check if the array needs to be refreshed and do so..
-        public interface Filler {
-           boolean refreshIfNeeded(int[] array);
-        }
-        public Filler filler;
-        public void refreshIfNeeded() {
-           if ((filler != null) && filler.refreshIfNeeded(array)) modified();
-        }
+      // A vertex buffer usually has a Filler, an object which can
+      // check if the array needs to be refreshed and do so..
+      public interface Filler {
+         boolean refreshIfNeeded(int[] array);
+      }
+      public Filler filler;
+      public void refreshIfNeeded() {
+        if ((filler != null) && filler.refreshIfNeeded(array)) modified();
+      }
       
          // The point is, there's a boolean attached to each VertexBuffer
          // that reveals whether it's been changed since the last time...

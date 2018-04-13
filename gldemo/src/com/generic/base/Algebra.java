@@ -178,6 +178,9 @@ public class Algebra {
       public boolean equals(Vector3 v) {
          return (x == v.x) && (y == v.y) && (z == v.z);
       }
+      public boolean equals(Object o) {
+         return (o instanceof Vector3) && equals((Vector3)o);
+      }
        
       public Vector3 plus(Vector3 v) {
          return new Vector3(x + v.x, y + v.y, z + v.z);
