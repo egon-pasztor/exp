@@ -17,62 +17,55 @@ public class GL {
       
       public static class VertexBuffer {
 
-      // --------------------------------------
-      // First, a Type class
-      // --------------------------------------
-      public static class Type {
-         public final int numElements;
-         public final PrimitiveType primitive;
-         public final int primitivesPerElement;
-         
-         public Type (int numElements, PrimitiveType primitive, int primitivesPerElement) {
-            this.numElements = numElements;
-            this.primitive = primitive;
-            this.primitivesPerElement = primitivesPerElement;
+         // --------------------------------------
+         // First, a Type class
+         // --------------------------------------
+         public static class Type {
+            public final int numElements;
+            public final PrimitiveType primitive;
+            public final int primitivesPerElement;
+            
+            public Type (int numElements, PrimitiveType primitive, int primitivesPerElement) {
+               this.numElements = numElements;
+               this.primitive = primitive;
+               this.primitivesPerElement = primitivesPerElement;
+            }
+            public int hashCode() {
+               return Objects.hash(numElements, primitive, primitivesPerElement);
+            }
+            public boolean equals(Type o) {
+               return (numElements          == o.numElements)
+                   && (primitive            == o.primitive)
+                   && (primitivesPerElement == o.primitivesPerElement);
+            }
+            public boolean equals(Object o) {
+               return (o != null) && (o instanceof Type) && equals((Type)o);
+            }
          }
-         public int hashCode() {
-            return Objects.hash(numElements, primitive, primitivesPerElement);
+         public enum PrimitiveType {
+            FLOAT, INT
          }
-         public boolean equals(Object o) {
-            if (!(o instanceof Type)) return false;
-            Type oType = (Type) o;
-            return (numElements == )
-            return Objects.hash(numElements, primitive, primitivesPerElement);
+     
+         // -------------------------------------
+         // Now, a VertexBuffer is what?
+         // It has a Type:
+   
+         public Type type;
+         public int[] array;
+   
+         // A vertex buffer usually has a Filler, an object which can
+         // check if the array needs to be refreshed and do so..
+         public interface Filler {
+            boolean refreshIfNeeded(int[] array);
          }
-      }
-      public enum PrimitiveType {
-         FLOAT, INT
-      }
-  
-      // -------------------------------------
-      // Now, a VertexBuffer is what?
-      // It has a Type:
-
-      public Type type;
-      public int[] array;
-
-      // A vertex buffer usually has a Filler, an object which can
-      // check if the array needs to be refreshed and do so..
-      public interface Filler {
-         boolean refreshIfNeeded(int[] array);
-      }
-      public Filler filler;
-      public void refreshIfNeeded() {
-        if ((filler != null) && filler.refreshIfNeeded(array)) modified();
-      }
+         public Filler filler;
+         public void refreshIfNeeded() {
+           if ((filler != null) && filler.refreshIfNeeded(array)) modified();
+         }
       
-         // The point is, there's a boolean attached to each VertexBuffer
-         // that reveals whether it's been changed since the last time...
-         // .. something looked in on it.  And that's the crux of my stuckness..
-         // I keep feeling that GL Scene should support multiple GL Renderers..
-         //    ..but maybe that's wrong.  I mean, we do eventually want a program
-         //    that computes a 3d world and tells a remote set of clients.
-         //    for example using the google-interactive api ...
-         //    in addition to the local gpu ..
-         //
-         // Hm.. we could, for example, record a version number that incremented...
-         //
-         // public boolean arrayModified;
+         // ---------------------
+         // OBSERVABLE
+         // ---------------------
         
          public interface Listener {
             public void modified();

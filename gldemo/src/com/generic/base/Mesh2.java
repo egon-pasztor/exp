@@ -1,6 +1,7 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
+import com.generic.base.GL.State.VertexBuffer.Type;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -849,13 +850,16 @@ public class Mesh2 {
          this.elementCount = elementCount;
          this.elementType = elementType;
       }
-      public boolean equals(DataLayerType other) {
-         return (elementCount == other.elementCount)
-              && (elementType == other.elementType)
-                && (layerType == other.layerType);
-      }
       public int hashCode() {
          return Objects.hash(elementCount, elementType, layerType);
+      }
+      public boolean equals(DataLayerType other) {
+         return (elementCount == other.elementCount)
+             && (elementType  == other.elementType)
+             && (layerType    == other.layerType);
+      }
+      public boolean equals(Object o) {
+         return (o != null) && (o instanceof DataLayerType) && equals((DataLayerType)o);
       }
    }   
    public static abstract class DataLayer {
@@ -899,6 +903,22 @@ public class Mesh2 {
          }         
          data.setNumElements(0);
       }
+      
+      // question:  what is the difference between this class and GL.State.VertexBuffer ??
+      //   both represent an array of integers that we should modify to support OBSERVERS.
+      //   (eg, if someone changes a datalayer, the accompanying vertexbuffer should refresh..)
+      //
+      //   but in some cases, couldn't a datalayer *be* a vertexbuffer directly?
+      //   not sure about that... 
+      //
+      //     one difference is that our length is variable, it varies with the Mesh we're a part of,
+      //     while vertexbuffer is, well, currently it's not considered "part" of a GL.State,
+      //       it's just being watched by a GL.State.   maybe that's dumb...
+      //       maybe a VertexBuffer is just as much as part of GL.State as we are a part of Mesh2.
+      //       I mean, should DataLayer be "independent", so it's possible to have the same DataLayer
+      //       be a part of multiple meshes?
+      //
+      //
    }
    public static class FloatDataLayer extends DataLayer {
       public final PrimitiveFloatArray data;
