@@ -15,6 +15,22 @@ public class GL {
          buffers = new HashSet<VertexBuffer>();
       }
       
+      // So, given a VertexBuffer, the Type is:
+      //     { primitive / #-primitives-per-element / #-elements }
+      // and the length of the array, #-elements, is part of the type and fixed.
+      //
+      // except:
+      //    seriously, this object is meant to reflect how GL.State actually works,
+      //    and a GL vertexbuffer cannot change size.   so, a rebinding is necessary.
+      //    either GL.Implementation does it, or whatever calls GL.State methods...
+      //
+      // -----------------
+      // so we have a vote towards no-resize.
+      //
+      // that means, if mesh2 size changes,
+      //   it's up to Scene to change the GL.State if a Mesh in the scene changes..
+      // 
+      
       public static class VertexBuffer {
 
          // --------------------------------------
@@ -89,7 +105,7 @@ public class GL {
       public void addVertexBuffer(VertexBuffer buffer) {
          buffers.add(buffer);
          for (Listener listener : listeners) {
-            listener.newVertexBuffer(buffer);
+            listener.vertexBufferAdded(buffer);
          }
       }
       public void deleteVertexBuffer(VertexBuffer buffer) {
@@ -100,7 +116,7 @@ public class GL {
       }
       
       public interface Listener {
-         public void newVertexBuffer(VertexBuffer buffer);
+         public void vertexBufferAdded(VertexBuffer buffer);
          public void vertexBufferDeleted(VertexBuffer buffer);
       }
       private HashSet<Listener> listeners;
@@ -111,6 +127,9 @@ public class GL {
          listeners.remove(listener);
       }
    }
+   
+   
+   
    
    public static abstract class Implementation {
       
@@ -150,7 +169,7 @@ public class GL {
          this.state = state;
          this.buffers = new HashMap<GL.State.VertexBuffer, VertexBuffer>();
          this.listener = new GL.State.Listener() {
-            public void newVertexBuffer(GL.State.VertexBuffer buffer) {
+            public void vertexBufferAdded (GL.State.VertexBuffer buffer) {
                buffers.put(buffer, Implementation.this.newVertexBuffer(buffer));
             }
             public void vertexBufferDeleted(GL.State.VertexBuffer buffer) {

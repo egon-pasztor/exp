@@ -1,7 +1,9 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
+import com.generic.base.GL.State.VertexBuffer.PrimitiveType;
 import com.generic.base.GL.State.VertexBuffer.Type;
+import com.generic.base.Mesh2.DataLayer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -651,62 +653,58 @@ public class Mesh2 {
    // MESH STORAGE
    // ==================================================================
 
-   public static class PrimitiveIntArray {
-      public PrimitiveIntArray (int elementSize) {
-         this.elementSize = elementSize;
+   public static abstract class PrimitiveArray {
+      public final int primitivesPerElement;      
+      public PrimitiveArray (int primitivesPerElement) {
+         this.primitivesPerElement = primitivesPerElement;
          this.numElements = 0;
-         array = new int[4 * elementSize];
       }
-      
-      public final int elementSize;
-      
+      protected int numElements;
       public int numElements() { return numElements;  }
-      public int[] array()     { return array;        }
       
+      public abstract void setNumElements(int newNumElements);      
+   }
+   public static class PrimitiveIntArray extends PrimitiveArray {
+      public PrimitiveIntArray (int elementSize) {
+         super(elementSize);
+         array = new int[4 * elementSize];
+      }      
+      private int[] array;
+      public int[] array() { return array; }
+      
+      // - - - - - - - - - - - - - 
       public void setNumElements(int newNumElements) {
-         int lengthNeeded = elementSize * newNumElements;
+         int lengthNeeded = primitivesPerElement * newNumElements;
          if (array.length < lengthNeeded) {
             int newLength = array.length;
             while (newLength < lengthNeeded) newLength *= 2;
             int[] newArray = new int [newLength];
-            System.arraycopy(array, 0, newArray, 0, elementSize * numElements);
+            System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
             array = newArray;
          }
          numElements = newNumElements;
       }
-      
-      // - - - - - - - - - - - - - 
-      private int[] array;
-      private int numElements;
    }
-
-   public static class PrimitiveFloatArray {
+   public static class PrimitiveFloatArray extends PrimitiveArray {
       public PrimitiveFloatArray (int elementSize) {
-         this.elementSize = elementSize;
-         this.numElements = 0;
+         super(elementSize);
          array = new float[4 * elementSize];
-      }
-      
-      public final int elementSize;
-      
-      public int numElements() { return numElements;  }
+      }      
+      private float[] array;
       public float[] array()   { return array;        }
       
+      // - - - - - - - - - - - - - 
       public void setNumElements(int newNumElements) {
-         int lengthNeeded = elementSize * newNumElements;
+         int lengthNeeded = primitivesPerElement * newNumElements;
          if (array.length < lengthNeeded) {
             int newLength = array.length;
             while (newLength < lengthNeeded) newLength *= 2;
             float[] newArray = new float [newLength];
-            System.arraycopy(array, 0, newArray, 0, elementSize * numElements);
+            System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
             array = newArray;
          }
          numElements = newNumElements;
       }
-      
-      // - - - - - - - - - - - - - 
-      private float[] array;
-      private int numElements;
    }
    
    // -----------------------------------------------------
@@ -716,25 +714,8 @@ public class Mesh2 {
       public IDManager() {
          numReservedIDs = 0;
          releasedIDs = new PrimitiveIntArray(1);
-         intArrays = new HashSet<PrimitiveIntArray>();
-         floatArrays = new HashSet<PrimitiveFloatArray>();
+         arrays = new HashSet<PrimitiveArray>();
       }
-      
-      public void addIntArray(PrimitiveIntArray intArray) {
-         intArray.setNumElements(numReservedIDs);
-         intArrays.add(intArray);
-      }
-      public void removeIntArray(PrimitiveIntArray intArray) {
-         intArrays.remove(intArray);
-      }
-      public void addFloatArray(PrimitiveFloatArray floatArray) {
-         floatArray.setNumElements(numReservedIDs);
-         floatArrays.add(floatArray);
-      }
-      public void removeFloatArray(PrimitiveFloatArray floatArray) {
-         floatArrays.remove(floatArray);
-      }
-      
       public int getNewID() {
          int numReleasedIDs = releasedIDs.numElements();
          if (numReleasedIDs > 0) {
@@ -747,16 +728,23 @@ public class Mesh2 {
             return numReservedIDs-1;
          }
       }
-      
       public void releaseID(int releasedID) {
          int numReleasedIDs = releasedIDs.numElements();
          releasedIDs.setNumElements(numReleasedIDs+1);
          releasedIDs.array()[numReleasedIDs] = releasedID;
       }
-      
       public int getNumReservedIDs() {
          return numReservedIDs;
       }
+      
+      public void addArray(PrimitiveArray array) {
+         array.setNumElements(numReservedIDs);
+         arrays.add(array);
+      }
+      public void removeArray(PrimitiveArray array) {
+         arrays.remove(array);
+      }
+      
       public void reset(int numReservedIDs) {
          this.numReservedIDs = numReservedIDs;
          updateArrayLengths();
@@ -766,19 +754,14 @@ public class Mesh2 {
          reset(0);
       }
 
-      // - - - - - - - - - - - - - 
-      
+      // - - - - - - - - - - - - -       
       private int numReservedIDs;
       private PrimitiveIntArray releasedIDs;
-      private Set<PrimitiveIntArray> intArrays;
-      private Set<PrimitiveFloatArray> floatArrays;
+      private Set<PrimitiveArray> arrays;
 
       private void updateArrayLengths() {
-         for (PrimitiveIntArray intArray : intArrays) {
-            intArray.setNumElements(numReservedIDs);
-         }
-         for (PrimitiveFloatArray floatArray : floatArrays) {
-            floatArray.setNumElements(numReservedIDs);
+         for (PrimitiveArray array : arrays) {
+            array.setNumElements(numReservedIDs);
          }
       }
    }
@@ -810,9 +793,9 @@ public class Mesh2 {
       faceIDManager = new IDManager();
       edgeIDManager = new IDManager();
       
-      vertexIDManager.addIntArray(vertexToDirectedEdge);
-      faceIDManager.addIntArray(faceToDirectedEdge);
-      edgeIDManager.addIntArray(directedEdgeData);
+      vertexIDManager.addArray(vertexToDirectedEdge);
+      faceIDManager.addArray(faceToDirectedEdge);
+      edgeIDManager.addArray(directedEdgeData);
       
       dataLayers = new HashMap<String, DataLayer>();
    }
@@ -833,9 +816,10 @@ public class Mesh2 {
    }
 
    // -------------------------------------------------------
-   // Now then, the "userdata" segment...
+   // DataLayers
    // -------------------------------------------------------
 
+   /*
    public enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE };
    public enum ElementType { INTEGER, FLOAT };
 
@@ -862,111 +846,145 @@ public class Mesh2 {
          return (o != null) && (o instanceof DataLayerType) && equals((DataLayerType)o);
       }
    }   
+   */
    public static abstract class DataLayer {
+      
+      public static class Type {
+         public enum Elements  { PER_VERTEX, PER_EDGE, PER_FACE };
+         public enum Primitive { INTEGER, FLOAT };
+
+         public final int primitivesPerElement;
+         public final Primitive primitive;
+         public final Elements elements;
+         
+         public Type (int primitivesPerElement, Primitive primitive, Elements elements) {
+            this.primitivesPerElement = primitivesPerElement;
+            this.primitive = primitive;
+            this.elements = elements;
+         }
+         public int hashCode() {
+            return Objects.hash(elements, primitive, primitivesPerElement);
+         }
+         public boolean equals(Type o) {
+            return (primitivesPerElement == o.primitivesPerElement)
+                && (primitive            == o.primitive)
+                && (elements             == o.elements);
+         }
+         public boolean equals(Object o) {
+            return (o != null) && (o instanceof Type) && equals((Type)o);
+         }
+         
+         /*
+         public static final Type ONE_FLOAT_PER_VERTEX       = new Type(1, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
+         public static final Type ONE_INTEGER_PER_VERTEX     = new Type(1, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
+         public static final Type TWO_FLOATS_PER_VERTEX      = new Type(2, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
+         public static final Type TWO_INTEGERS_PER_VERTEX    = new Type(2, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
+         public static final Type THREE_FLOATS_PER_VERTEX    = new Type(3, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
+         public static final Type THREE_INTEGERS_PER_VERTEX  = new Type(3, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
+         public static final Type SIX_FLOATS_PER_FACE        = new Type(6, Type.Primitive.FLOAT,   Type.Elements.PER_FACE);
+         public static final Type ONE_INTEGER_PER_FACE       = new Type(1, Type.Primitive.INTEGER, Type.Elements.PER_FACE);
+         public static final Type ONE_FLOAT_PER_EDGE         = new Type(1, Type.Primitive.FLOAT,   Type.Elements.PER_EDGE);
+         */
+      }
+
+      // ---------------------------------------------------------------      
       public final Mesh2 mesh;
       public final String name;
-      public final DataLayerType type;
+      public final Type type;
       
-      public DataLayer(Mesh2 mesh, String name, DataLayerType type) {
+      protected DataLayer(Mesh2 mesh, String name, Type type) {
          this.mesh = mesh;
          this.name = name;
          this.type = type;
       }
-      public abstract void disconnect();
-   }
-   public static class IntDataLayer extends DataLayer {
-      public final PrimitiveIntArray data;
+      protected abstract void disconnect();
+      // ---------------------------------------------------------------      
       
-      public IntDataLayer(Mesh2 mesh, String name, DataLayerType type) {
-         super (mesh, name, type);
-         this.data = new PrimitiveIntArray(type.elementCount);
+      public static class Integers extends DataLayer {
+         public final PrimitiveIntArray data;
          
-         if (type.layerType == LayerType.PER_VERTEX) {
-            mesh.vertexIDManager.addIntArray(data);
+         private Integers(Mesh2 mesh, String name, Type type) {
+            super (mesh, name, type);
+            this.data = new PrimitiveIntArray(type.primitivesPerElement);
+            
+            if (type.elements == Type.Elements.PER_VERTEX) {
+               mesh.vertexIDManager.addArray(data);
+            }
+            if (type.elements == Type.Elements.PER_FACE) {
+               mesh.faceIDManager.addArray(data);
+            }
+            if (type.elements == Type.Elements.PER_EDGE) {
+               mesh.edgeIDManager.addArray(data);
+            }
          }
-         if (type.layerType == LayerType.PER_FACE) {
-            mesh.faceIDManager.addIntArray(data);
-         }
-         if (type.layerType == LayerType.PER_EDGE) {
-            mesh.edgeIDManager.addIntArray(data);
+         protected void disconnect() {
+            if (type.elements == Type.Elements.PER_VERTEX) {
+               mesh.vertexIDManager.removeArray(data);
+            }
+            if (type.elements == Type.Elements.PER_FACE) {
+               mesh.faceIDManager.removeArray(data);
+            }
+            if (type.elements == Type.Elements.PER_EDGE) {
+               mesh.edgeIDManager.removeArray(data);
+            }         
+            data.setNumElements(0);
          }
       }
-      public void disconnect() {
-         if (type.layerType == LayerType.PER_VERTEX) {
-            mesh.vertexIDManager.removeIntArray(data);
-         }
-         if (type.layerType == LayerType.PER_FACE) {
-            mesh.faceIDManager.removeIntArray(data);
-         }
-         if (type.layerType == LayerType.PER_EDGE) {
-            mesh.edgeIDManager.removeIntArray(data);
-         }         
-         data.setNumElements(0);
-      }
-      
-      // question:  what is the difference between this class and GL.State.VertexBuffer ??
-      //   both represent an array of integers that we should modify to support OBSERVERS.
-      //   (eg, if someone changes a datalayer, the accompanying vertexbuffer should refresh..)
-      //
-      //   but in some cases, couldn't a datalayer *be* a vertexbuffer directly?
-      //   not sure about that... 
-      //
-      //     one difference is that our length is variable, it varies with the Mesh we're a part of,
-      //     while vertexbuffer is, well, currently it's not considered "part" of a GL.State,
-      //       it's just being watched by a GL.State.   maybe that's dumb...
-      //       maybe a VertexBuffer is just as much as part of GL.State as we are a part of Mesh2.
-      //       I mean, should DataLayer be "independent", so it's possible to have the same DataLayer
-      //       be a part of multiple meshes?
-      //
-      //
-   }
-   public static class FloatDataLayer extends DataLayer {
-      public final PrimitiveFloatArray data;
-      
-      private FloatDataLayer(Mesh2 mesh, String name, DataLayerType type) {
-         super (mesh, name, type);
-         this.data = new PrimitiveFloatArray(type.elementCount);
+      public static class Floats extends DataLayer {
+         public final PrimitiveFloatArray data;
          
-         if (type.layerType == LayerType.PER_VERTEX) {
-            mesh.vertexIDManager.addFloatArray(data);
+         private Floats(Mesh2 mesh, String name, Type type) {
+            super (mesh, name, type);
+            this.data = new PrimitiveFloatArray(type.primitivesPerElement);
+            
+            if (type.elements == Type.Elements.PER_VERTEX) {
+               mesh.vertexIDManager.addArray(data);
+            }
+            if (type.elements == Type.Elements.PER_FACE) {
+               mesh.faceIDManager.addArray(data);
+            }
+            if (type.elements == Type.Elements.PER_EDGE) {
+               mesh.edgeIDManager.addArray(data);
+            }
          }
-         if (type.layerType == LayerType.PER_FACE) {
-            mesh.faceIDManager.addFloatArray(data);
-         }
-         if (type.layerType == LayerType.PER_EDGE) {
-            mesh.edgeIDManager.addFloatArray(data);
+         protected void disconnect() {
+            if (type.elements == Type.Elements.PER_VERTEX) {
+               mesh.vertexIDManager.removeArray(data);
+            }
+            if (type.elements == Type.Elements.PER_FACE) {
+               mesh.faceIDManager.removeArray(data);
+            }
+            if (type.elements == Type.Elements.PER_EDGE) {
+               mesh.edgeIDManager.removeArray(data);
+            }
+            data.setNumElements(0);
          }
       }
-      public void disconnect() {
-         if (type.layerType == LayerType.PER_VERTEX) {
-            mesh.vertexIDManager.removeFloatArray(data);
-         }
-         if (type.layerType == LayerType.PER_FACE) {
-            mesh.faceIDManager.removeFloatArray(data);
-         }
-         if (type.layerType == LayerType.PER_EDGE) {
-            mesh.edgeIDManager.removeFloatArray(data);
-         }
-         data.setNumElements(0);
-      }
+
    }
+   
+   // So, given a Data Layer, the Type is:
+   //     { primitive / #-primitives-per-element / weahter #-elements is locked to [vertex/face/edge] }
+   // and the length of the array, #-elements, which you get by calling "data.numElements()"
+   // matches either the vertex/face/or edge length of the mesh.
+
   
-   public DataLayer newDataLayer(String name, DataLayerType type) {
+   public DataLayer createDataLayer(String name, DataLayer.Type type) {
       DataLayer layer = null;
-      if (type.elementType == ElementType.INTEGER) {
-         layer = new IntDataLayer(this, name, type);
+      if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
+         layer = new DataLayer.Integers(this, name, type);
       }
-      if (type.elementType == ElementType.FLOAT) {
-         layer = new FloatDataLayer(this, name, type);
+      if (type.primitive == DataLayer.Type.Primitive.FLOAT) {
+         layer = new DataLayer.Floats(this, name, type);
       }
       dataLayers.put(name, layer);
       return layer;
    }
-   public DataLayer getDataLayer(String name, DataLayerType type) {
+   public DataLayer dataLayer(String name, DataLayer.Type type) {
       DataLayer layer = dataLayers.get(name);
       return (layer.type.equals(type)) ? layer : null;
    }
-   public void removeDataLayer(String name) {
+   public void destroyDataLayer(String name) {
       DataLayer layer = dataLayers.get(name);
       if (layer != null) {
          layer.disconnect();
@@ -974,8 +992,27 @@ public class Mesh2 {
       }
    }
 
-      
+   
+   // ---
+   // RESOLVED:  as DataLayer is "a part of" a Mesh2,
+   //            so VertexBuffer will be "a part of" a GL.State
+   //
+   // so someone calls "createVertexBuffer" on the GL.State to create one, just like we call "createDataLayer" on Mesh2...
+   //    now what happens if mesh2 size changes?
+   //       .. adding/removing mesh faces causes changes in datalayer allocation, but it doesn't
+   //          fire changes because caller responsible for adding/removing faces must fill in data...
+   //          so it's responsible for calling a "fireChanges" method on the datalayers
+   //
+   //    the fireChanges method on the dataLayers sets a bool in the Fillers, and, yes, Fillers have
+   //          "numElements" method...
+   // 
+   //    how does that propagate to the VertexBuffer?
+   //
+   
+
    /*   
+    * This is left over from the "Cursors" object plan...
+
    public interface ElementData {
       public int size();
    }
@@ -992,8 +1029,6 @@ public class Mesh2 {
       public void set(int i, float v);
    }
    */
-
-
    
    // #############################################################################################
    // Specific Models for Testing
@@ -1068,8 +1103,8 @@ public class Mesh2 {
    }
    public static Mesh2 loadMesh(String filename) {
       Mesh2 mesh = new Mesh2();
-      FloatDataLayer positions = (FloatDataLayer) mesh.newDataLayer("positions",
-            new DataLayerType(3, ElementType.FLOAT, LayerType.PER_VERTEX));
+      DataLayer.Floats positions = (DataLayer.Floats) mesh.createDataLayer("positions",
+            new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
       
       SavedModel model = savedModelFromString(loadStringFileFromCurrentPackage(filename));
       for (Vector3 position : model.vertexPositions) {

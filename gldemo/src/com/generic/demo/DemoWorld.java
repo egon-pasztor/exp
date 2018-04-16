@@ -3,16 +3,11 @@ package com.generic.demo;
 import com.generic.base.Geometry;
 import com.generic.base.World;
 import com.generic.base.Geometry.*;
-import com.generic.base.Mesh2.DataLayerType;
-import com.generic.base.Mesh2.ElementType;
-import com.generic.base.Mesh2.FloatDataLayer;
-import com.generic.base.Mesh2.LayerType;
 import com.generic.base.Mesh;
 import com.generic.base.Mesh2;
+import com.generic.base.Mesh2.DataLayer;
 import com.generic.base.QuadCover;
 import com.generic.base.Algebra.*;
-
-import java.util.ArrayList;
 
 import com.generic.base.Shader;
 import com.generic.base.Raster.*;
@@ -181,8 +176,8 @@ public class DemoWorld extends World {
             }
             
             // Okay, get the positions vector from the mesh...
-            FloatDataLayer positions = (FloatDataLayer) mesh2.getDataLayer("positions",
-                  new DataLayerType(3, Mesh2.ElementType.FLOAT, Mesh2.LayerType.PER_VERTEX));
+            DataLayer.Floats positions = (DataLayer.Floats ) mesh2.dataLayer("positions",
+                  new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
             if (positions == null) {
                throw new RuntimeException("Failed to find 3-float-per-vertex position buffer");
             }
@@ -259,8 +254,8 @@ public class DemoWorld extends World {
             }
             
             // Okay, get the positions vector from the mesh...
-            FloatDataLayer positions = (FloatDataLayer) mesh2.getDataLayer("positions",
-                  new DataLayerType(3, Mesh2.ElementType.FLOAT, Mesh2.LayerType.PER_VERTEX));
+            DataLayer.Floats positions = (DataLayer.Floats) mesh2.dataLayer("positions",
+                  new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
             if (positions == null) {
                throw new RuntimeException("Failed to find 3-float-per-vertex position buffer");
             }
