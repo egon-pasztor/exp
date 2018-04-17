@@ -1,5 +1,8 @@
 package com.generic.base;
 
+import com.generic.base.Mesh2.PrimitiveArray;
+import com.generic.base.Mesh2.DataLayer.Type;
+
 import java.nio.IntBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -15,36 +18,22 @@ public class GL {
          buffers = new HashSet<VertexBuffer>();
       }
       
-      // So, given a VertexBuffer, the Type is:
-      //     { primitive / #-primitives-per-element / #-elements }
-      // and the length of the array, #-elements, is part of the type and fixed.
-      //
-      // except:
-      //    seriously, this object is meant to reflect how GL.State actually works,
-      //    and a GL vertexbuffer cannot change size.   so, a rebinding is necessary.
-      //    either GL.Implementation does it, or whatever calls GL.State methods...
-      //
-      // -----------------
-      // so we have a vote towards no-resize.
-      //
-      // that means, if mesh2 size changes,
-      //   it's up to Scene to change the GL.State if a Mesh in the scene changes..
-      // 
-      
+      // ------------------------------------------
+      // VertexBuffer
+      // ------------------------------------------
       public static class VertexBuffer {
 
-         // --------------------------------------
-         // First, a Type class
-         // --------------------------------------
          public static class Type {
-            public final int numElements;
-            public final PrimitiveType primitive;
-            public final int primitivesPerElement;
+            public enum Primitive { INTEGER, FLOAT };
             
-            public Type (int numElements, PrimitiveType primitive, int primitivesPerElement) {
-               this.numElements = numElements;
-               this.primitive = primitive;
+            public final int primitivesPerElement;
+            public final Primitive primitive;
+            public final int numElements;
+            
+            public Type (int primitivesPerElement, Primitive primitive, int numElements) {
                this.primitivesPerElement = primitivesPerElement;
+               this.primitive = primitive;
+               this.numElements = numElements;
             }
             public int hashCode() {
                return Objects.hash(numElements, primitive, primitivesPerElement);
@@ -58,17 +47,23 @@ public class GL {
                return (o != null) && (o instanceof Type) && equals((Type)o);
             }
          }
-         public enum PrimitiveType {
-            FLOAT, INT
-         }
      
          // -------------------------------------
          // Now, a VertexBuffer is what?
          // It has a Type:
    
-         public Type type;
+         public final GL.State parent;
+         public final Type type;
+         
+         //
          public int[] array;
    
+         private VertexBuffer(GL.State parent, Type type, PrimitiveArray data) {
+            this.parent = parent;
+            this.type = type;
+            this.data = data;
+         }
+
          // A vertex buffer usually has a Filler, an object which can
          // check if the array needs to be refreshed and do so..
          public interface Filler {
@@ -102,7 +97,8 @@ public class GL {
 
       
       
-      public void addVertexBuffer(VertexBuffer buffer) {
+      public VertexBuffer createVertexBuffer(VertexBuffer.Type type) {
+         VertexBuffer buffer = new VertexBuffer(this, type);
          buffers.add(buffer);
          for (Listener listener : listeners) {
             listener.vertexBufferAdded(buffer);
@@ -128,6 +124,17 @@ public class GL {
       }
    }
    
+   //
+   // so, if mesh2 size changes,
+   //   the mesh2 will notify the Scene.Model ...
+   //   a Scene will probably has a HashMap from Mesh2 to Scene.MeshInfo 
+   //       which will be responsible for calling createVertexBuffer on the GL.State,
+   //       and it will be responsible for creating the "Filler" classes that 
+   //        Position / Texture / Color vertexarrays
+   //     
+   //   
+   //   it's up to Scene to change the GL.State if a Mesh in the scene changes..
+   // 
    
    
    

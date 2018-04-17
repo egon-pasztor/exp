@@ -847,7 +847,7 @@ public class Mesh2 {
       }
    }   
    */
-   public static abstract class DataLayer {
+   public static class DataLayer {
       
       public static class Type {
          public enum Elements  { PER_VERTEX, PER_EDGE, PER_FACE };
@@ -891,91 +891,49 @@ public class Mesh2 {
       public final Mesh2 mesh;
       public final String name;
       public final Type type;
+      public final PrimitiveArray data;
       
-      protected DataLayer(Mesh2 mesh, String name, Type type) {
+      private DataLayer(Mesh2 mesh, String name, Type type, PrimitiveArray data) {
          this.mesh = mesh;
          this.name = name;
          this.type = type;
+         this.data = data;
       }
-      protected abstract void disconnect();
-      // ---------------------------------------------------------------      
       
-      public static class Integers extends DataLayer {
-         public final PrimitiveIntArray data;
-         
-         private Integers(Mesh2 mesh, String name, Type type) {
-            super (mesh, name, type);
-            this.data = new PrimitiveIntArray(type.primitivesPerElement);
-            
-            if (type.elements == Type.Elements.PER_VERTEX) {
-               mesh.vertexIDManager.addArray(data);
-            }
-            if (type.elements == Type.Elements.PER_FACE) {
-               mesh.faceIDManager.addArray(data);
-            }
-            if (type.elements == Type.Elements.PER_EDGE) {
-               mesh.edgeIDManager.addArray(data);
-            }
-         }
-         protected void disconnect() {
-            if (type.elements == Type.Elements.PER_VERTEX) {
-               mesh.vertexIDManager.removeArray(data);
-            }
-            if (type.elements == Type.Elements.PER_FACE) {
-               mesh.faceIDManager.removeArray(data);
-            }
-            if (type.elements == Type.Elements.PER_EDGE) {
-               mesh.edgeIDManager.removeArray(data);
-            }         
-            data.setNumElements(0);
-         }
-      }
-      public static class Floats extends DataLayer {
-         public final PrimitiveFloatArray data;
-         
-         private Floats(Mesh2 mesh, String name, Type type) {
-            super (mesh, name, type);
-            this.data = new PrimitiveFloatArray(type.primitivesPerElement);
-            
-            if (type.elements == Type.Elements.PER_VERTEX) {
-               mesh.vertexIDManager.addArray(data);
-            }
-            if (type.elements == Type.Elements.PER_FACE) {
-               mesh.faceIDManager.addArray(data);
-            }
-            if (type.elements == Type.Elements.PER_EDGE) {
-               mesh.edgeIDManager.addArray(data);
-            }
-         }
-         protected void disconnect() {
-            if (type.elements == Type.Elements.PER_VERTEX) {
-               mesh.vertexIDManager.removeArray(data);
-            }
-            if (type.elements == Type.Elements.PER_FACE) {
-               mesh.faceIDManager.removeArray(data);
-            }
-            if (type.elements == Type.Elements.PER_EDGE) {
-               mesh.edgeIDManager.removeArray(data);
-            }
-            data.setNumElements(0);
-         }
-      }
-
+      // TODO -- dataLayer needs observables, because individual VertexBuffer "Filler" objects will be
+      // listening to individual DataLayer object, presumably...
+      
    }
-   
-   // So, given a Data Layer, the Type is:
-   //     { primitive / #-primitives-per-element / weahter #-elements is locked to [vertex/face/edge] }
-   // and the length of the array, #-elements, which you get by calling "data.numElements()"
-   // matches either the vertex/face/or edge length of the mesh.
 
-  
    public DataLayer createDataLayer(String name, DataLayer.Type type) {
       DataLayer layer = null;
       if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
-         layer = new DataLayer.Integers(this, name, type);
+         PrimitiveIntArray data = new PrimitiveIntArray(type.primitivesPerElement);
+         layer = new DataLayer(this, name, type, data);
+         
+         if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
+            vertexIDManager.addArray(data);
+         }
+         if (type.elements == DataLayer.Type.Elements.PER_FACE) {
+            faceIDManager.addArray(data);
+         }
+         if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
+            edgeIDManager.addArray(data);
+         }
       }
       if (type.primitive == DataLayer.Type.Primitive.FLOAT) {
-         layer = new DataLayer.Floats(this, name, type);
+         PrimitiveFloatArray data = new PrimitiveFloatArray(type.primitivesPerElement);
+         layer = new DataLayer(this, name, type, data);
+         
+         if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
+            vertexIDManager.addArray(data);
+         }
+         if (type.elements == DataLayer.Type.Elements.PER_FACE) {
+            faceIDManager.addArray(data);
+         }
+         if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
+            edgeIDManager.addArray(data);
+         }
       }
       dataLayers.put(name, layer);
       return layer;
@@ -987,7 +945,31 @@ public class Mesh2 {
    public void destroyDataLayer(String name) {
       DataLayer layer = dataLayers.get(name);
       if (layer != null) {
-         layer.disconnect();
+         DataLayer.Type type = layer.type;
+         PrimitiveArray data = layer.data;
+         
+         if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
+            if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
+               vertexIDManager.removeArray(data);
+            }
+            if (type.elements == DataLayer.Type.Elements.PER_FACE) {
+               faceIDManager.removeArray(data);
+            }
+            if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
+               edgeIDManager.removeArray(data);
+            }
+         }
+         if (type.primitive == DataLayer.Type.Primitive.FLOAT) {
+            if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
+               vertexIDManager.removeArray(data);
+            }
+            if (type.elements == DataLayer.Type.Elements.PER_FACE) {
+               faceIDManager.removeArray(data);
+            }
+            if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
+               edgeIDManager.removeArray(data);
+            }
+         }
          dataLayers.remove(name);
       }
    }
@@ -1103,14 +1085,14 @@ public class Mesh2 {
    }
    public static Mesh2 loadMesh(String filename) {
       Mesh2 mesh = new Mesh2();
-      DataLayer.Floats positions = (DataLayer.Floats) mesh.createDataLayer("positions",
+      DataLayer positions = mesh.createDataLayer("positions",
             new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
       
       SavedModel model = savedModelFromString(loadStringFileFromCurrentPackage(filename));
       for (Vector3 position : model.vertexPositions) {
          int v = mesh.newVertexID();
          
-         float[] positionsArray = positions.data.array();
+         float[] positionsArray = ((PrimitiveFloatArray)(positions.data)).array();
          positionsArray[3*v + 0] = position.x;
          positionsArray[3*v + 1] = position.y;
          positionsArray[3*v + 2] = position.z;

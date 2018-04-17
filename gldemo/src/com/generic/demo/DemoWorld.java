@@ -6,6 +6,7 @@ import com.generic.base.Geometry.*;
 import com.generic.base.Mesh;
 import com.generic.base.Mesh2;
 import com.generic.base.Mesh2.DataLayer;
+import com.generic.base.Mesh2.PrimitiveFloatArray;
 import com.generic.base.QuadCover;
 import com.generic.base.Algebra.*;
 
@@ -176,12 +177,12 @@ public class DemoWorld extends World {
             }
             
             // Okay, get the positions vector from the mesh...
-            DataLayer.Floats positions = (DataLayer.Floats ) mesh2.dataLayer("positions",
+            DataLayer positions = mesh2.dataLayer("positions",
                   new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
             if (positions == null) {
                throw new RuntimeException("Failed to find 3-float-per-vertex position buffer");
             }
-            float[] positionsArray = positions.data.array();
+            float[] positionsArray = ((PrimitiveFloatArray)(positions.data)).array();
             System.out.format("We have %d vertices and the positions array should be 3 floats per vertex == %d floats total.\n"+
                   "The positons array contains %d floats\n",
                   mesh2.numVertices(), mesh2.numVertices()*3, positionsArray.length);
@@ -254,12 +255,12 @@ public class DemoWorld extends World {
             }
             
             // Okay, get the positions vector from the mesh...
-            DataLayer.Floats positions = (DataLayer.Floats) mesh2.dataLayer("positions",
+            DataLayer positions = mesh2.dataLayer("positions",
                   new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
             if (positions == null) {
                throw new RuntimeException("Failed to find 3-float-per-vertex position buffer");
             }
-            float[] positionsArray = positions.data.array();
+            float[] positionsArray = ((PrimitiveFloatArray)(positions.data)).array();
             System.out.format("We have %d vertices and the positions array should be 3 floats per vertex == %d floats total.\n"+
                   "The positons array contains %d floats\n",
                   mesh2.numVertices(), mesh2.numVertices()*3, positionsArray.length);
