@@ -58,10 +58,9 @@ public class GL {
          //
          public int[] array;
    
-         private VertexBuffer(GL.State parent, Type type, PrimitiveArray data) {
+         private VertexBuffer(GL.State parent, Type type) {
             this.parent = parent;
             this.type = type;
-            this.data = data;
          }
 
          // A vertex buffer usually has a Filler, an object which can
@@ -103,6 +102,7 @@ public class GL {
          for (Listener listener : listeners) {
             listener.vertexBufferAdded(buffer);
          }
+         return buffer;
       }
       public void deleteVertexBuffer(VertexBuffer buffer) {
          buffers.remove(buffer);

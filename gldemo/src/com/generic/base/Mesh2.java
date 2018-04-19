@@ -1,9 +1,6 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
-import com.generic.base.GL.State.VertexBuffer.PrimitiveType;
-import com.generic.base.GL.State.VertexBuffer.Type;
-import com.generic.base.Mesh2.DataLayer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
