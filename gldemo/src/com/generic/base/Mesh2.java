@@ -650,9 +650,9 @@ public class Mesh2 {
    // MESH STORAGE
    // ==================================================================
 
-   public static abstract class PrimitiveArray {
+   public static abstract class ResizableArray {
       public final int primitivesPerElement;      
-      public PrimitiveArray (int primitivesPerElement) {
+      protected ResizableArray (int primitivesPerElement) {
          this.primitivesPerElement = primitivesPerElement;
          this.numElements = 0;
       }
@@ -660,47 +660,50 @@ public class Mesh2 {
       public int numElements() { return numElements;  }
       
       public abstract void setNumElements(int newNumElements);      
-   }
-   public static class PrimitiveIntArray extends PrimitiveArray {
-      public PrimitiveIntArray (int elementSize) {
-         super(elementSize);
-         array = new int[4 * elementSize];
-      }      
-      private int[] array;
-      public int[] array() { return array; }
       
-      // - - - - - - - - - - - - - 
-      public void setNumElements(int newNumElements) {
-         int lengthNeeded = primitivesPerElement * newNumElements;
-         if (array.length < lengthNeeded) {
-            int newLength = array.length;
-            while (newLength < lengthNeeded) newLength *= 2;
-            int[] newArray = new int [newLength];
-            System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
-            array = newArray;
+      // -----------------------------------------------------------------
+      public static class Integers extends ResizableArray {
+         public Integers (int elementSize) {
+            super(elementSize);
+            array = new int[4 * elementSize];
+         }      
+         private int[] array;
+         public int[] array() { return array; }
+         
+         // - - - - - - - - - - - - - 
+         public void setNumElements(int newNumElements) {
+            int lengthNeeded = primitivesPerElement * newNumElements;
+            if (array.length < lengthNeeded) {
+               int newLength = array.length;
+               while (newLength < lengthNeeded) newLength *= 2;
+               int[] newArray = new int [newLength];
+               System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
+               array = newArray;
+            }
+            numElements = newNumElements;
          }
-         numElements = newNumElements;
       }
-   }
-   public static class PrimitiveFloatArray extends PrimitiveArray {
-      public PrimitiveFloatArray (int elementSize) {
-         super(elementSize);
-         array = new float[4 * elementSize];
-      }      
-      private float[] array;
-      public float[] array()   { return array;        }
-      
-      // - - - - - - - - - - - - - 
-      public void setNumElements(int newNumElements) {
-         int lengthNeeded = primitivesPerElement * newNumElements;
-         if (array.length < lengthNeeded) {
-            int newLength = array.length;
-            while (newLength < lengthNeeded) newLength *= 2;
-            float[] newArray = new float [newLength];
-            System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
-            array = newArray;
+      // -----------------------------------------------------------------
+      public static class Floats extends ResizableArray {
+         public Floats (int elementSize) {
+            super(elementSize);
+            array = new float[4 * elementSize];
+         }      
+         private float[] array;
+         public float[] array()   { return array;        }
+         
+         // - - - - - - - - - - - - - 
+         public void setNumElements(int newNumElements) {
+            int lengthNeeded = primitivesPerElement * newNumElements;
+            if (array.length < lengthNeeded) {
+               int newLength = array.length;
+               while (newLength < lengthNeeded) newLength *= 2;
+               float[] newArray = new float [newLength];
+               System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
+               array = newArray;
+            }
+            numElements = newNumElements;
          }
-         numElements = newNumElements;
       }
    }
    
@@ -710,8 +713,8 @@ public class Mesh2 {
    public static class IDManager {
       public IDManager() {
          numReservedIDs = 0;
-         releasedIDs = new PrimitiveIntArray(1);
-         arrays = new HashSet<PrimitiveArray>();
+         releasedIDs = new ResizableArray.Integers(1);
+         arrays = new HashSet<ResizableArray>();
       }
       public int getNewID() {
          int numReleasedIDs = releasedIDs.numElements();
@@ -734,11 +737,11 @@ public class Mesh2 {
          return numReservedIDs;
       }
       
-      public void addArray(PrimitiveArray array) {
+      public void addArray(ResizableArray array) {
          array.setNumElements(numReservedIDs);
          arrays.add(array);
       }
-      public void removeArray(PrimitiveArray array) {
+      public void removeArray(ResizableArray array) {
          arrays.remove(array);
       }
       
@@ -753,11 +756,11 @@ public class Mesh2 {
 
       // - - - - - - - - - - - - -       
       private int numReservedIDs;
-      private PrimitiveIntArray releasedIDs;
-      private Set<PrimitiveArray> arrays;
+      private ResizableArray.Integers releasedIDs;
+      private Set<ResizableArray> arrays;
 
       private void updateArrayLengths() {
-         for (PrimitiveArray array : arrays) {
+         for (ResizableArray array : arrays) {
             array.setNumElements(numReservedIDs);
          }
       }
@@ -766,9 +769,9 @@ public class Mesh2 {
    // -----------------------------------------------------   
    // -----------------------------------------------------
    
-   private final PrimitiveIntArray vertexToDirectedEdge;
-   private final PrimitiveIntArray faceToDirectedEdge;
-   private final PrimitiveIntArray directedEdgeData;
+   private final ResizableArray.Integers vertexToDirectedEdge;
+   private final ResizableArray.Integers faceToDirectedEdge;
+   private final ResizableArray.Integers directedEdgeData;
    
    private final IDManager vertexIDManager;
    private final IDManager faceIDManager;
@@ -782,9 +785,9 @@ public class Mesh2 {
    
    
    public Mesh2() {
-      vertexToDirectedEdge = new PrimitiveIntArray(1);
-      faceToDirectedEdge = new PrimitiveIntArray(1);
-      directedEdgeData = new PrimitiveIntArray(8);
+      vertexToDirectedEdge = new ResizableArray.Integers(1);
+      faceToDirectedEdge = new ResizableArray.Integers(1);
+      directedEdgeData = new ResizableArray.Integers(8);
       
       vertexIDManager = new IDManager();
       faceIDManager = new IDManager();
@@ -888,9 +891,9 @@ public class Mesh2 {
       public final Mesh2 mesh;
       public final String name;
       public final Type type;
-      public final PrimitiveArray data;
+      public final ResizableArray data;
       
-      private DataLayer(Mesh2 mesh, String name, Type type, PrimitiveArray data) {
+      private DataLayer(Mesh2 mesh, String name, Type type, ResizableArray data) {
          this.mesh = mesh;
          this.name = name;
          this.type = type;
@@ -905,7 +908,7 @@ public class Mesh2 {
    public DataLayer createDataLayer(String name, DataLayer.Type type) {
       DataLayer layer = null;
       if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
-         PrimitiveIntArray data = new PrimitiveIntArray(type.primitivesPerElement);
+         ResizableArray.Integers data = new ResizableArray.Integers(type.primitivesPerElement);
          layer = new DataLayer(this, name, type, data);
          
          if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
@@ -919,7 +922,7 @@ public class Mesh2 {
          }
       }
       if (type.primitive == DataLayer.Type.Primitive.FLOAT) {
-         PrimitiveFloatArray data = new PrimitiveFloatArray(type.primitivesPerElement);
+         ResizableArray.Floats data = new ResizableArray.Floats(type.primitivesPerElement);
          layer = new DataLayer(this, name, type, data);
          
          if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
@@ -943,7 +946,7 @@ public class Mesh2 {
       DataLayer layer = dataLayers.get(name);
       if (layer != null) {
          DataLayer.Type type = layer.type;
-         PrimitiveArray data = layer.data;
+         ResizableArray data = layer.data;
          
          if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
             if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
@@ -1089,7 +1092,7 @@ public class Mesh2 {
       for (Vector3 position : model.vertexPositions) {
          int v = mesh.newVertexID();
          
-         float[] positionsArray = ((PrimitiveFloatArray)(positions.data)).array();
+         float[] positionsArray = ((ResizableArray.Floats)(positions.data)).array();
          positionsArray[3*v + 0] = position.x;
          positionsArray[3*v + 1] = position.y;
          positionsArray[3*v + 2] = position.z;

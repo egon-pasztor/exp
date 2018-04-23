@@ -1,8 +1,5 @@
 package com.generic.base;
 
-import com.generic.base.Mesh2.PrimitiveArray;
-import com.generic.base.Mesh2.DataLayer.Type;
-
 import java.nio.IntBuffer;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,92 +7,108 @@ import java.util.Objects;
 import java.util.Set;
 
 public class GL {
+   
+   // ------------------------------------------
+   // VertexBuffer
+   // ------------------------------------------
+   public static abstract class VertexBuffer {
 
+      public static class Type {
+         public enum Primitive { INTEGER, FLOAT };
+         
+         public final int primitivesPerElement;
+         public final Primitive primitive;
+         public final int numElements;
+         
+         public Type (int primitivesPerElement, Primitive primitive, int numElements) {
+            this.primitivesPerElement = primitivesPerElement;
+            this.primitive = primitive;
+            this.numElements = numElements;
+         }
+         public int hashCode() {
+            return Objects.hash(numElements, primitive, primitivesPerElement);
+         }
+         public boolean equals(Type o) {
+            return (numElements          == o.numElements)
+                && (primitive            == o.primitive)
+                && (primitivesPerElement == o.primitivesPerElement);
+         }
+         public boolean equals(Object o) {
+            return (o != null) && (o instanceof Type) && equals((Type)o);
+         }
+      }
+  
+      // -------------------------------------
+      // A VertexBuffer has a type...
+      // -------------------------------------
+
+      public final Type type;
+
+      protected VertexBuffer(Type type) {
+         this.type = type;
+      }
+
+      // ---------------------
+      // LISTENERS
+      // ---------------------
+     
+      public interface Listener {
+         public void modified();
+      }
+      private HashSet<Listener> listeners;
+      public void addListener(Listener listener) {
+         listeners.add(listener);
+      }
+      public void removeListener(Listener listener) {
+         listeners.remove(listener);
+      }
+      public void notifyListeners() {
+         for (Listener listener : listeners) {
+            listener.modified();
+         }
+      }
+
+      // -----------------------------------------------------------------
+      // Creating int[] and float[] VertexBuffers
+      // -----------------------------------------------------------------
+      public static VertexBuffer create(Type type) {
+         return (type.primitive == Type.Primitive.INTEGER) 
+              ? new VertexBuffer.Integers(type.primitivesPerElement, type.numElements)
+              : new VertexBuffer.Floats(type.primitivesPerElement, type.numElements);
+      }
+      // -----------------------------------------------------------------
+      public static class Integers extends VertexBuffer {
+         public Integers (int primitivesPerElement, int numElements) {
+            super(new Type(primitivesPerElement, Type.Primitive.INTEGER, numElements));
+            array = new int[primitivesPerElement * numElements];
+         }      
+         public final int[] array;
+      }
+      // -----------------------------------------------------------------
+      public static class Floats extends VertexBuffer {
+         public Floats (int primitivesPerElement, int numElements) {
+            super(new Type(primitivesPerElement, Type.Primitive.FLOAT, numElements));
+            array = new float[primitivesPerElement * numElements];
+         }      
+         public final float[] array;
+      }
+   }
+   
+   
+   
+   
+   
+   /*
+   // ------------------------------------------
+   // State
+   // ------------------------------------------
    public static class State {
       private final HashSet<VertexBuffer> buffers;
       
       public State() {
          buffers = new HashSet<VertexBuffer>();
       }
-      
-      // ------------------------------------------
-      // VertexBuffer
-      // ------------------------------------------
-      public static class VertexBuffer {
-
-         public static class Type {
-            public enum Primitive { INTEGER, FLOAT };
-            
-            public final int primitivesPerElement;
-            public final Primitive primitive;
-            public final int numElements;
-            
-            public Type (int primitivesPerElement, Primitive primitive, int numElements) {
-               this.primitivesPerElement = primitivesPerElement;
-               this.primitive = primitive;
-               this.numElements = numElements;
-            }
-            public int hashCode() {
-               return Objects.hash(numElements, primitive, primitivesPerElement);
-            }
-            public boolean equals(Type o) {
-               return (numElements          == o.numElements)
-                   && (primitive            == o.primitive)
-                   && (primitivesPerElement == o.primitivesPerElement);
-            }
-            public boolean equals(Object o) {
-               return (o != null) && (o instanceof Type) && equals((Type)o);
-            }
-         }
-     
-         // -------------------------------------
-         // Now, a VertexBuffer is what?
-         // It has a Type:
-   
-         public final GL.State parent;
-         public final Type type;
-         
-         //
-         public int[] array;
-   
-         private VertexBuffer(GL.State parent, Type type) {
-            this.parent = parent;
-            this.type = type;
-         }
-
-         // A vertex buffer usually has a Filler, an object which can
-         // check if the array needs to be refreshed and do so..
-         public interface Filler {
-            boolean refreshIfNeeded(int[] array);
-         }
-         public Filler filler;
-         public void refreshIfNeeded() {
-           if ((filler != null) && filler.refreshIfNeeded(array)) modified();
-         }
-      
-         // ---------------------
-         // OBSERVABLE
-         // ---------------------
-        
-         public interface Listener {
-            public void modified();
-         }
-         private HashSet<Listener> listeners;
-         public void addListener(Listener listener) {
-            listeners.add(listener);
-         }
-         public void removeListener(Listener listener) {
-            listeners.remove(listener);
-         }
-         public void modified() {
-            for (Listener listener : listeners) {
-               listener.modified();
-            }
-         }
-      }
-
-      
-      
+  
       public VertexBuffer createVertexBuffer(VertexBuffer.Type type) {
          VertexBuffer buffer = new VertexBuffer(this, type);
          buffers.add(buffer);
@@ -137,24 +150,23 @@ public class GL {
    // 
    
    
-   
-   public static abstract class Implementation {
+   public static abstract class Renderer {
       
       private final State state;
       private final State.Listener listener;
-      private final HashMap<GL.State.VertexBuffer, VertexBuffer> buffers;
+      private final HashMap<GL.VertexBuffer, VertexBuffer> buffers;
       
       
       public static class VertexBuffer {
-         private GL.State.VertexBuffer state;
-         private GL.State.VertexBuffer.Listener listener;
+         private GL.VertexBuffer state;
+         private GL.VertexBuffer.Listener listener;
          private boolean modified, deleted;
          
-         VertexBuffer(GL.State.VertexBuffer state) {
+         VertexBuffer(GL.VertexBuffer state) {
             this.state = state;
             this.modified = true;
             this.deleted = false;
-            this.listener = new GL.State.VertexBuffer.Listener() {
+            this.listener = new GL.VertexBuffer.Listener() {
                public void modified() {
                   modified = true;
                }
@@ -168,18 +180,18 @@ public class GL {
             deleted = true;
          }
       }
-      private VertexBuffer newVertexBuffer(GL.State.VertexBuffer buffer) {
+      private VertexBuffer newVertexBuffer(GL.VertexBuffer buffer) {
          return new VertexBuffer(buffer);
       }
             
-      public Implementation(State state) {
+      public Renderer(State state) {
          this.state = state;
-         this.buffers = new HashMap<GL.State.VertexBuffer, VertexBuffer>();
+         this.buffers = new HashMap<GL.VertexBuffer, VertexBuffer>();
          this.listener = new GL.State.Listener() {
-            public void vertexBufferAdded (GL.State.VertexBuffer buffer) {
-               buffers.put(buffer, Implementation.this.newVertexBuffer(buffer));
+            public void vertexBufferAdded (GL.VertexBuffer buffer) {
+               buffers.put(buffer, Renderer.this.newVertexBuffer(buffer));
             }
-            public void vertexBufferDeleted(GL.State.VertexBuffer buffer) {
+            public void vertexBufferDeleted(GL.VertexBuffer buffer) {
                buffers.get(buffer).disconnect();
             }
          };
@@ -187,6 +199,11 @@ public class GL {
          
       }
       
+      
+      
+   }
+   */
+   public static class Renderer {
       
       
    }

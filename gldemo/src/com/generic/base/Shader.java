@@ -277,7 +277,7 @@ public class Shader {
    // -----------------------------
    
    public static abstract class ManagedBuffer {
-      public final Variable.VertexBuffer.Type type;
+      public final Variable.VertexBuffer.Type type; 
       
       public ManagedBuffer(Variable.VertexBuffer.Type type) {
          this.type = type;
