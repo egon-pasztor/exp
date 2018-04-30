@@ -3,8 +3,6 @@ package com.generic.base;
 import com.generic.base.Algebra.Matrix4x4;
 import com.generic.base.Algebra.Vector2;
 import com.generic.base.Algebra.Vector3;
-import com.generic.base.Raster.FloatImage;
-import com.generic.base.Raster.Image;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -380,7 +378,7 @@ public class Shader {
    // -----------------------------
    
    public static class ManagedTexture {
-      public ManagedTexture(Variable.Sampler.Type type, Image image) {
+      public ManagedTexture(Variable.Sampler.Type type, Image.Integers image) {
          this.type = type;
          this.image = image;
       }
@@ -396,7 +394,7 @@ public class Shader {
       }
       
       public Variable.Sampler.Type type;
-      public Image image;
+      public Image.Integers image;
       public ByteBuffer byteBuffer;
       public IntBuffer intBuffer;
       
@@ -406,7 +404,7 @@ public class Shader {
    }
 
    public static class ManagedFloatTexture {
-      public ManagedFloatTexture(Variable.Sampler.Type type, FloatImage image) {
+      public ManagedFloatTexture(Variable.Sampler.Type type, Image.Floats image) {
          this.type = type;
          this.image = image;
       }
@@ -422,7 +420,7 @@ public class Shader {
       }
       
       public Variable.Sampler.Type type;
-      public FloatImage image;
+      public Image.Floats image;
       public ByteBuffer byteBuffer;
       public FloatBuffer floatBuffer;
       

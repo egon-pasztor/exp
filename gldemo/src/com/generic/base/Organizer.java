@@ -7,8 +7,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
-import com.generic.base.Raster.*;
-
 // as if.
 
 public class Organizer {
@@ -220,7 +218,7 @@ public class Organizer {
    // 
    public static class DisplayList {
       
-      public void setColor(ColorARGB a) {}
+      public void setColor(Color.ARGB a) {}
       public void moveTo(Vector2 point) {}
       public void lineTo(Vector2 point) {}
       public void curveTo(Vector2 point) {}

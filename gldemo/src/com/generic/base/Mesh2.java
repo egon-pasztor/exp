@@ -874,7 +874,6 @@ public class Mesh2 {
             return (o != null) && (o instanceof Type) && equals((Type)o);
          }
          
-         /*
          public static final Type ONE_FLOAT_PER_VERTEX       = new Type(1, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
          public static final Type ONE_INTEGER_PER_VERTEX     = new Type(1, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
          public static final Type TWO_FLOATS_PER_VERTEX      = new Type(2, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
@@ -884,7 +883,6 @@ public class Mesh2 {
          public static final Type SIX_FLOATS_PER_FACE        = new Type(6, Type.Primitive.FLOAT,   Type.Elements.PER_FACE);
          public static final Type ONE_INTEGER_PER_FACE       = new Type(1, Type.Primitive.INTEGER, Type.Elements.PER_FACE);
          public static final Type ONE_FLOAT_PER_EDGE         = new Type(1, Type.Primitive.FLOAT,   Type.Elements.PER_EDGE);
-         */
       }
 
       // ---------------------------------------------------------------      
@@ -900,9 +898,25 @@ public class Mesh2 {
          this.data = data;
       }
       
-      // TODO -- dataLayer needs observables, because individual VertexBuffer "Filler" objects will be
-      // listening to individual DataLayer object, presumably...
-      
+      // ---------------------
+      // LISTENERS
+      // ---------------------
+     
+      public interface Listener {
+         public void modified();
+      }
+      private HashSet<Listener> listeners;
+      public void addListener(Listener listener) {
+         listeners.add(listener);
+      }
+      public void removeListener(Listener listener) {
+         listeners.remove(listener);
+      }
+      public void notifyListeners() {
+         for (Listener listener : listeners) {
+            listener.modified();
+         }
+      }
    }
 
    public DataLayer createDataLayer(String name, DataLayer.Type type) {

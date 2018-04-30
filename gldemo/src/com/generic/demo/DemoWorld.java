@@ -1,6 +1,7 @@
 package com.generic.demo;
 
 import com.generic.base.Geometry;
+import com.generic.base.Image;
 import com.generic.base.World;
 import com.generic.base.Geometry.*;
 import com.generic.base.Mesh;
@@ -11,8 +12,6 @@ import com.generic.base.QuadCover;
 import com.generic.base.Algebra.*;
 
 import com.generic.base.Shader;
-import com.generic.base.Raster.*;
-import com.generic.base.Shader.Variable;
 
 
 public class DemoWorld extends World {
@@ -28,7 +27,7 @@ public class DemoWorld extends World {
    public Vector2 selectedUVPointIfAny;
    public Mesh.Triangle selectedTriangleIfAny;
 
-   public DemoWorld(Image leaImage, Image teapotImage, Mesh bunny) {
+   public DemoWorld(Image.Integers leaImage, Image.Integers teapotImage, Mesh bunny) {
       System.out.format("Starting InitDemoWorld\n");
       
       // ----------------------------------------------------------------------------------
@@ -107,7 +106,9 @@ public class DemoWorld extends World {
       QuadCover.run("BUNNY", bunnyModel, 2.2f);
       
       Shader.Instance bunnyInstance = new Shader.Instance(Shader.FACE_COLOR_SHADER);
-      Shader.ManagedFloatTexture bunny_mesh_info = new Shader.ManagedFloatTexture(Shader.Variable.Sampler.Type.TEXTURE_FLOAT, Geometry.createMeshInfoImage(bunnyModel));      
+      Shader.ManagedFloatTexture bunny_mesh_info = new Shader.ManagedFloatTexture(
+            Shader.Variable.Sampler.Type.TEXTURE_FLOAT, 
+            Geometry.createMeshInfoImage(bunnyModel));      
       bunnyInstance.bind(Shader.MESH_INFO, new Shader.Variable.Sampler.Binding2(bunny_mesh_info));
       
       m = new ShadedTrianglesModel(bunnyInstance, bunnyModel);
@@ -369,10 +370,10 @@ public class DemoWorld extends World {
       };
  
       Shader.Instance secondBunnyInstance = new Shader.Instance(Shader.FLAT_SHADER);
-      secondBunnyInstance.bind(Shader.POSITION_ARRAY,  new Variable.VertexBuffer.Binding(positionProducer));
-      secondBunnyInstance.bind(Shader.COLOR_ARRAY,     new Variable.VertexBuffer.Binding(colorProducer));
-      secondBunnyInstance.bind(Shader.NORMAL_ARRAY,    new Variable.VertexBuffer.Binding(normalProducer));
-      secondBunnyInstance.bind(Shader.BARY_COORDS,     new Variable.VertexBuffer.Binding(baryProducer));         
+      secondBunnyInstance.bind(Shader.POSITION_ARRAY,  new Shader.Variable.VertexBuffer.Binding(positionProducer));
+      secondBunnyInstance.bind(Shader.COLOR_ARRAY,     new Shader.Variable.VertexBuffer.Binding(colorProducer));
+      secondBunnyInstance.bind(Shader.NORMAL_ARRAY,    new Shader.Variable.VertexBuffer.Binding(normalProducer));
+      secondBunnyInstance.bind(Shader.BARY_COORDS,     new Shader.Variable.VertexBuffer.Binding(baryProducer));         
       m = new ShadedTrianglesModel(secondBunnyInstance, mesh2.numFaces());
       root.children.add(m);
       m.translate(Vector3.Y.times(-17.0f));

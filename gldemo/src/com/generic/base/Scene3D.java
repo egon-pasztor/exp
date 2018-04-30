@@ -6,29 +6,17 @@ import com.generic.base.Algebra.Vector3;
 
 import java.util.ArrayList;
 
-public class Graphics3D {
-   
-   public static class Scene {
-      
-      public void render(GL.Renderer gl) {
-         // ...
-         // seriously?
-         // this would.... do what?
-      }
-      
-      // -----------------------
-      // Scene has to keep track of ... all the vertexbuffers being used ...
-      // 
-      
-      
-      
-      
-      public void setRootModel(Model rootModel) {
-         this.rootModel = rootModel;
-      }
-      
-      private Model rootModel;
+public class Scene3D {
+
+   public Scene3D() {
+      root = new GroupModel();
    }
+   
+   public Model root() {
+      return root;
+   }
+   
+   private final Model root;
    
    // ----------------------------------------------------
    // Model contains a Matrix4x4 modelToWorld transform
@@ -63,11 +51,21 @@ public class Graphics3D {
    // ----------------------------------------------------
    // CompoundModel holds a list of submodels
    // ----------------------------------------------------
-   public static class CompoundModel extends Model {
-      public CompoundModel() { 
+   public static class GroupModel extends Model {
+      public GroupModel() { 
          children = new ArrayList<Model>();
       }
-      public final ArrayList<Model> children;
+      public int numChildren() {
+         return children.size();
+      }
+      public Model child(int i) {
+         return children.get(i);
+      }
+      public Iterable<Model> children() {
+         return null; // TODO
+      }
+      
+      private final ArrayList<Model> children;
    }
    
    // ----------------------------------------------------
@@ -78,6 +76,21 @@ public class Graphics3D {
          this.mesh = mesh;
       }
       public final Mesh2 mesh;
+      
+      
+      // -- so basically, the shading style is:
+      //      Basic 
+      //         3x  (uniform bgColor) or 
+      //             (per-face bgColor) or
+      //             (bg-Color comes from Texturemap)
+      //         2x  optionally, borderColor applied or not?
+      //         2x  optionally, normals interpolated?
+      //        
+      //      GridShading
+      //      PerlinNoiseExperiment
+      //      FractalExperiment
+      //
+      
       
       // methods to set rendering style?
       // we want to support styles:
@@ -109,12 +122,11 @@ public class Graphics3D {
       //          uniforms:
       //              modelToView-(mat4x4)
       //              viewToClip-(mat4x4)
-      //              meshColor-(vec3)
-      //              borderColor-(vec3)
       //          vertex-buffers:
       //              positions  (3-vec3's per triangle)
-      //              baryCoords (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
       //              normals    (3-vec3's per triangle)
+      //              colorInfo  (3-uvec4's per triangle) <-- each uvec4 provides
+      //                             1 full int for "face color"
       //
       //  3 texture-shading
       //      minimal SHADER needs:

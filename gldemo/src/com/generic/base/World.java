@@ -2,8 +2,6 @@ package com.generic.base;
 
 import com.generic.base.Geometry.*;
 import com.generic.base.Algebra.*;
-import com.generic.base.Raster;
-import com.generic.base.Raster.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -152,6 +150,11 @@ public class World {
       return buffers;
    }
    private void addBuffers(Model m, HashSet<Shader.ManagedBuffer> buffers) {
+      
+      // Okay.. this 
+      
+      
+      
       if (m instanceof CompoundModel) {
          for (Model child : ((CompoundModel) m).children) {
             addBuffers(child, buffers);

@@ -3,7 +3,6 @@ package com.generic.base;
 import com.generic.base.Mesh;
 import com.generic.base.Algebra.*;
 import com.generic.base.Shader;
-import com.generic.base.Raster.*;
 import com.generic.base.Shader.Variable;
 
 import java.util.ArrayList;
@@ -199,13 +198,13 @@ public class Geometry {
             int pPos = 0;
             int col = 0;
             for (Mesh.Triangle t : mesh.triangles) {
-               ColorARGB color = 
-                  (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
-                  (col==1) ? new ColorARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
-                  (col==2) ? new ColorARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
-                             new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               Color.ARGB color = 
+                  (col==0) ? new Color.ARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
+                  (col==1) ? new Color.ARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
+                  (col==2) ? new Color.ARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
+                             new Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
                
-               color = new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               color = new Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
                
                col = (col+1)%4;
                pPos = copyColor(array, pPos, color);
@@ -213,7 +212,7 @@ public class Geometry {
                pPos = copyColor(array, pPos, color);
             }
          }
-         private int copyColor(float[] arr, int base, ColorARGB c) {
+         private int copyColor(float[] arr, int base, Color.ARGB c) {
              arr[base+0] = ((float)(c.r&0xff))/255.0f;
              arr[base+1] = ((float)(c.g&0xff))/255.0f;
              arr[base+2] = ((float)(c.b&0xff))/255.0f;
@@ -765,8 +764,8 @@ public class Geometry {
       };
    }
    */
-   public static FloatImage createMeshInfoImage(MeshModel model) {
-      FloatImage result = new FloatImage("meshInfo", 9, model.mesh.triangles.size());
+   public static Image.Floats createMeshInfoImage(MeshModel model) {
+      Image.Floats result = new Image.Floats(9, model.mesh.triangles.size());
       
       int row = 0;
       for (Mesh.Triangle tb : model.mesh.triangles) {

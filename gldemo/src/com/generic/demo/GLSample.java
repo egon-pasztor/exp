@@ -36,8 +36,7 @@ import com.generic.base.Algebra.*;
 import com.generic.base.Algebra;
 
 import com.generic.base.Geometry.*;
-import com.generic.base.Raster.ColorARGB;
-import com.generic.base.Raster.Image;
+import com.generic.base.Image;
 import com.generic.base.World.*;
 
 import com.jogamp.opengl.GL;
@@ -89,8 +88,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       // Create "Demo World" object...
       
-      Image leaImage = imageFromResource("lea.png");
-      Image teapotImage = imageFromResource("teapot.png");
+      Image.Integers leaImage = imageFromResource("lea.png");
+      Image.Integers teapotImage = imageFromResource("teapot.png");
       Mesh bunny = loadBunny();
       demoWorld = new DemoWorld(leaImage, teapotImage, bunny);
       intersectionIn3d = false;
@@ -841,6 +840,12 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          scaling = scaling.nextLarger();
       }
       
+      private Color fromBaseColor (com.generic.base.Color.ARGB color) {
+         float rf = ((float)((int)color.r & 0xff))/255.0f;
+         float gf = ((float)((int)color.g & 0xff))/255.0f;
+         float bf = ((float)((int)color.b & 0xff))/255.0f;
+         return new Color(rf,gf,bf);
+      }
       public void paint(java.awt.Image image) {
          needsUpdate = false;
          
@@ -858,12 +863,13 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                TextureCoordProvider t = (TextureCoordProvider) tc;
                Triangle2 texCoords = t.getTextureCoords();
                
-               ColorARGB color = (col==0) ? new ColorARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
-                                 (col==1) ? new ColorARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
-                                 (col==2) ? new ColorARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
-                                            new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               com.generic.base.Color.ARGB color = 
+                     (col==0) ? new com.generic.base.Color.ARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
+                     (col==1) ? new com.generic.base.Color.ARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
+                     (col==2) ? new com.generic.base.Color.ARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
+                                new com.generic.base.Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
                                  
-                                 color = new ColorARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               color = new com.generic.base.Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
                                  
                col = (col+1)%4;
    
@@ -879,7 +885,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                int p2x = xToHPixel(p2.x);
                int p2y = yToVPixel(p2.y);
                
-               g.setColor(color.color());
+               g.setColor(fromBaseColor(color));
                g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
                
                g.setColor(Color.BLACK);
@@ -907,18 +913,18 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // Loading from RESOURCEs:
    // -------------------------------------------------------------------
 
-   public static Image imageFromResource(String name) {
+   public static Image.Integers imageFromResource(String name) {
       System.out.format("Trying to load image named [%s]\n", name);
       BufferedImage im;
       try {
-          im = ImageIO.read(Image.class.getResource(name));
+          im = ImageIO.read(Image.Integers.class.getResource(name));
       } catch (IOException e) {
           System.out.format("FAILED - Trying to load image named [%s]\n", name);
           e.printStackTrace();
           return null;
       }
 
-      Image res = new Image(name, im.getWidth(), im.getHeight());
+      Image.Integers res = new Image.Integers(im.getWidth(), im.getHeight());
       for (int row = 0; row < res.height; row++) {
          for (int col = 0; col < res.width; col++) {
             int val = im.getRGB(col, row);

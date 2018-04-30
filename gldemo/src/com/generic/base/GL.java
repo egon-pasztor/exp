@@ -6,31 +6,28 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-public class GL {
+public interface GL {
    
    // ------------------------------------------
    // VertexBuffer
    // ------------------------------------------
-   public static abstract class VertexBuffer {
+   public static interface VertexBuffer {
 
       public static class Type {
          public enum Primitive { INTEGER, FLOAT };
          
          public final int primitivesPerElement;
          public final Primitive primitive;
-         public final int numElements;
          
-         public Type (int primitivesPerElement, Primitive primitive, int numElements) {
+         public Type (int primitivesPerElement, Primitive primitive) {
             this.primitivesPerElement = primitivesPerElement;
             this.primitive = primitive;
-            this.numElements = numElements;
          }
          public int hashCode() {
-            return Objects.hash(numElements, primitive, primitivesPerElement);
+            return Objects.hash(primitive, primitivesPerElement);
          }
          public boolean equals(Type o) {
-            return (numElements          == o.numElements)
-                && (primitive            == o.primitive)
+            return (primitive            == o.primitive)
                 && (primitivesPerElement == o.primitivesPerElement);
          }
          public boolean equals(Object o) {
@@ -42,44 +39,42 @@ public class GL {
       // A VertexBuffer has a type...
       // -------------------------------------
 
-      public final Type type;
+      Type type();
+      int numElements();
+      boolean destroyed();
+      
+      void update  (int[] data);
+      void update  (float[] data);
+      void destroy ();
+   }
+
+   public VertexBuffer initVertexBuffer (int intsPerElement,   int[]   data);
+   public VertexBuffer initVertexBuffer (int floatsPerElement, float[] data);
+   
+   
+   
+   
+   
+   
+   /*
 
       protected VertexBuffer(Type type) {
          this.type = type;
       }
 
-      // ---------------------
-      // LISTENERS
-      // ---------------------
-     
-      public interface Listener {
-         public void modified();
-      }
-      private HashSet<Listener> listeners;
-      public void addListener(Listener listener) {
-         listeners.add(listener);
-      }
-      public void removeListener(Listener listener) {
-         listeners.remove(listener);
-      }
-      public void notifyListeners() {
-         for (Listener listener : listeners) {
-            listener.modified();
-         }
-      }
 
       // -----------------------------------------------------------------
       // Creating int[] and float[] VertexBuffers
       // -----------------------------------------------------------------
-      public static VertexBuffer create(Type type) {
+      public static VertexBuffer create(Type type, int numElements) {
          return (type.primitive == Type.Primitive.INTEGER) 
-              ? new VertexBuffer.Integers(type.primitivesPerElement, type.numElements)
-              : new VertexBuffer.Floats(type.primitivesPerElement, type.numElements);
+              ? new VertexBuffer.Integers(type.primitivesPerElement, numElements)
+              : new VertexBuffer.Floats(type.primitivesPerElement, numElements);
       }
       // -----------------------------------------------------------------
       public static class Integers extends VertexBuffer {
          public Integers (int primitivesPerElement, int numElements) {
-            super(new Type(primitivesPerElement, Type.Primitive.INTEGER, numElements));
+            super(new Type(primitivesPerElement, Type.Primitive.INTEGER));
             array = new int[primitivesPerElement * numElements];
          }      
          public final int[] array;
@@ -87,7 +82,7 @@ public class GL {
       // -----------------------------------------------------------------
       public static class Floats extends VertexBuffer {
          public Floats (int primitivesPerElement, int numElements) {
-            super(new Type(primitivesPerElement, Type.Primitive.FLOAT, numElements));
+            super(new Type(primitivesPerElement, Type.Primitive.FLOAT));
             array = new float[primitivesPerElement * numElements];
          }      
          public final float[] array;
@@ -96,6 +91,8 @@ public class GL {
    
    
    
+   
+   */
    
    
    /*
@@ -203,8 +200,4 @@ public class GL {
       
    }
    */
-   public static class Renderer {
-      
-      
-   }
 }
