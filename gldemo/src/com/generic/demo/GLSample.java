@@ -28,6 +28,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 
 import com.generic.base.Camera;
+import com.generic.base.Data;
 import com.generic.base.Shader;
 import com.generic.base.Geometry;
 import com.generic.base.Mesh;
@@ -88,8 +89,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       // Create "Demo World" object...
       
-      Image.Integers leaImage = imageFromResource("lea.png");
-      Image.Integers teapotImage = imageFromResource("teapot.png");
+      Image leaImage = imageFromResource("lea.png");
+      Image teapotImage = imageFromResource("teapot.png");
       Mesh bunny = loadBunny();
       demoWorld = new DemoWorld(leaImage, teapotImage, bunny);
       intersectionIn3d = false;
@@ -840,11 +841,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
          scaling = scaling.nextLarger();
       }
       
-      private Color fromBaseColor (com.generic.base.Color.ARGB color) {
-         float rf = ((float)((int)color.r & 0xff))/255.0f;
-         float gf = ((float)((int)color.g & 0xff))/255.0f;
-         float bf = ((float)((int)color.b & 0xff))/255.0f;
-         return new Color(rf,gf,bf);
+      private Color fromBaseColor (com.generic.base.Color.RGB.Floats color) {
+         return new Color(color.r, color.g, color.b);
       }
       public void paint(java.awt.Image image) {
          needsUpdate = false;
@@ -863,13 +861,13 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                TextureCoordProvider t = (TextureCoordProvider) tc;
                Triangle2 texCoords = t.getTextureCoords();
                
-               com.generic.base.Color.ARGB color = 
-                     (col==0) ? new com.generic.base.Color.ARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
-                     (col==1) ? new com.generic.base.Color.ARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
-                     (col==2) ? new com.generic.base.Color.ARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
-                                new com.generic.base.Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
-                                 
-               color = new com.generic.base.Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               com.generic.base.Color color = 
+                     (col==0) ? new com.generic.base.Color.RGB.Bytes((byte)0xb0, (byte)0xff, (byte)0x80) :
+                     (col==1) ? new com.generic.base.Color.RGB.Bytes((byte)0xc0, (byte)0xd0, (byte)0xb0) :
+                     (col==2) ? new com.generic.base.Color.RGB.Bytes((byte)0x80, (byte)0xf0, (byte)0xd0) :
+                                new com.generic.base.Color.RGB.Bytes((byte)0x90, (byte)0xf0, (byte)0xa0);
+
+               color = new com.generic.base.Color.RGB.Bytes((byte)0x90, (byte)0xf0, (byte)0xa0);
                                  
                col = (col+1)%4;
    
@@ -885,7 +883,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                int p2x = xToHPixel(p2.x);
                int p2y = yToVPixel(p2.y);
                
-               g.setColor(fromBaseColor(color));
+               g.setColor(fromBaseColor(color.rgbFloats()));
                g.fillPolygon(new int[] {p0x, p1x, p2x}, new int[] {p0y, p1y, p2y}, 3);
                
                g.setColor(Color.BLACK);
@@ -913,22 +911,24 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // Loading from RESOURCEs:
    // -------------------------------------------------------------------
 
-   public static Image.Integers imageFromResource(String name) {
+   public static Image imageFromResource(String name) {
       System.out.format("Trying to load image named [%s]\n", name);
       BufferedImage im;
       try {
-          im = ImageIO.read(Image.Integers.class.getResource(name));
+          im = ImageIO.read(Image.class.getResource(name));
       } catch (IOException e) {
           System.out.format("FAILED - Trying to load image named [%s]\n", name);
           e.printStackTrace();
           return null;
       }
 
-      Image.Integers res = new Image.Integers(im.getWidth(), im.getHeight());
+      Image res = new Image(im.getWidth(), im.getHeight(), Data.Array.Type.ONE_INTEGER);
+      
+      int[] pixels = ((Data.Array.Integers)(res.data)).array();
       for (int row = 0; row < res.height; row++) {
          for (int col = 0; col < res.width; col++) {
             int val = im.getRGB(col, row);
-            res.pixels[col+row*res.width] = val;
+            pixels[col+row*res.width] = val;
             if ((row == 0) && (col == 0)) {
                System.out.format("At (0,0) we got 0x%8x\n", val);
             }
@@ -943,7 +943,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       try {
          String line = reader.readLine();
          // get text from file, line per line
-         while(line != null){
+         while(line != null) {
             strBuilder.append(line + "\n");
             line = reader.readLine();  
          }

@@ -218,7 +218,7 @@ public class Organizer {
    // 
    public static class DisplayList {
       
-      public void setColor(Color.ARGB a) {}
+      public void setColor(Color.RGB a) {}   // Should setcolor support "alpha?"
       public void moveTo(Vector2 point) {}
       public void lineTo(Vector2 point) {}
       public void curveTo(Vector2 point) {}

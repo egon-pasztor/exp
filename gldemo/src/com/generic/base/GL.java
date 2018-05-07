@@ -11,47 +11,45 @@ public interface GL {
    // ------------------------------------------
    // VertexBuffer
    // ------------------------------------------
-   public static interface VertexBuffer {
+   public interface VertexBuffer {
 
-      public static class Type {
-         public enum Primitive { INTEGER, FLOAT };
-         
-         public final int primitivesPerElement;
-         public final Primitive primitive;
-         
-         public Type (int primitivesPerElement, Primitive primitive) {
-            this.primitivesPerElement = primitivesPerElement;
-            this.primitive = primitive;
-         }
-         public int hashCode() {
-            return Objects.hash(primitive, primitivesPerElement);
-         }
-         public boolean equals(Type o) {
-            return (primitive            == o.primitive)
-                && (primitivesPerElement == o.primitivesPerElement);
-         }
-         public boolean equals(Object o) {
-            return (o != null) && (o instanceof Type) && equals((Type)o);
-         }
-      }
-  
-      // -------------------------------------
-      // A VertexBuffer has a type...
-      // -------------------------------------
-
-      Type type();
-      int numElements();
-      boolean destroyed();
+      Data.Array.Type type();
+      int numElements();      
+      void update (Data.Array data);
       
-      void update  (int[] data);
-      void update  (float[] data);
-      void destroy ();
+      void disconnect   ();
+      boolean connected ();
    }
+   public VertexBuffer initVertexBuffer (Data.Array data);
+   
+   // ------------------------------------------
+   // Sampler
+   // ------------------------------------------
+   public interface Sampler {
 
-   public VertexBuffer initVertexBuffer (int intsPerElement,   int[]   data);
-   public VertexBuffer initVertexBuffer (int floatsPerElement, float[] data);
+      Data.Array.Type type();
+      int width();
+      int height();
+      
+      void update (Image image);
+      
+      void disconnect   ();
+      boolean connected ();
+   }
+   public Sampler initSampler (Image image);
+
+
+   // ------------------------------------------------------------------------------
+   // Likewise for samplers... then..
+   // ------------------------------------------------------------------------------
    
    
+   public static interface Shader {
+      public enum Type { INTEGER, FLOAT };
+      
+   }
+   
+   public Shader initShader (Shader.Type type);
    
    
    

@@ -198,24 +198,25 @@ public class Geometry {
             int pPos = 0;
             int col = 0;
             for (Mesh.Triangle t : mesh.triangles) {
-               Color.ARGB color = 
-                  (col==0) ? new Color.ARGB((byte)0x00, (byte)0xb0, (byte)0xff, (byte)0x80) :
-                  (col==1) ? new Color.ARGB((byte)0x00, (byte)0xc0, (byte)0xd0, (byte)0xb0) :
-                  (col==2) ? new Color.ARGB((byte)0x00, (byte)0x80, (byte)0xf0, (byte)0xd0) :
-                             new Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               Color.RGB.Bytes color = 
+                  (col==0) ? Color.rgbBytes((byte)0xb0, (byte)0xff, (byte)0x80) :
+                  (col==1) ? Color.rgbBytes((byte)0xc0, (byte)0xd0, (byte)0xb0) :
+                  (col==2) ? Color.rgbBytes((byte)0x80, (byte)0xf0, (byte)0xd0) :
+                             Color.rgbBytes((byte)0x90, (byte)0xf0, (byte)0xa0);
                
-               color = new Color.ARGB((byte)0x00, (byte)0x90, (byte)0xf0, (byte)0xa0);
+               color = Color.rgbBytes((byte)0x90, (byte)0xf0, (byte)0xa0);
+               Color.RGB.Floats colorf = color.rgbFloats(); 
                
                col = (col+1)%4;
-               pPos = copyColor(array, pPos, color);
-               pPos = copyColor(array, pPos, color);
-               pPos = copyColor(array, pPos, color);
+               pPos = copyColor(array, pPos, colorf);
+               pPos = copyColor(array, pPos, colorf);
+               pPos = copyColor(array, pPos, colorf);
             }
          }
-         private int copyColor(float[] arr, int base, Color.ARGB c) {
-             arr[base+0] = ((float)(c.r&0xff))/255.0f;
-             arr[base+1] = ((float)(c.g&0xff))/255.0f;
-             arr[base+2] = ((float)(c.b&0xff))/255.0f;
+         private int copyColor(float[] arr, int base, Color.RGB.Floats c) {
+             arr[base+0] = c.r;
+             arr[base+1] = c.g;
+             arr[base+2] = c.b;
              return base+3;
          }
       };
@@ -764,8 +765,9 @@ public class Geometry {
       };
    }
    */
-   public static Image.Floats createMeshInfoImage(MeshModel model) {
-      Image.Floats result = new Image.Floats(9, model.mesh.triangles.size());
+   public static Image createMeshInfoImage(MeshModel model) {
+      Image result = new Image(9, model.mesh.triangles.size(), Data.Array.Type.ONE_FLOAT);
+      float[] pixels = ((Data.Array.Floats)(result.data)).array();
       
       int row = 0;
       for (Mesh.Triangle tb : model.mesh.triangles) {
@@ -804,15 +806,15 @@ public class Geometry {
             result.set(7, row, (row%2==0) ? 2.0f : 0.0f);
             result.set(8, row, (row%2==0) ? 2.0f : 0.0f);
  */
-            result.set(0, row, (float)A);
-            result.set(1, row, (float)B);
-            result.set(2, row, (float)C);
-            result.set(3, row, (float)D);
-            result.set(4, row, (float)E);
-            result.set(5, row, (float)F);
-            result.set(6, row, (float)G);
-            result.set(7, row, (float)H);
-            result.set(8, row, (float)I);
+            pixels[9 * row + 0]= (float)A;
+            pixels[9 * row + 1]= (float)B;
+            pixels[9 * row + 2]= (float)C;
+            pixels[9 * row + 3]= (float)D;
+            pixels[9 * row + 4]= (float)E;
+            pixels[9 * row + 5]= (float)F;
+            pixels[9 * row + 6]= (float)G;
+            pixels[9 * row + 7]= (float)H;
+            pixels[9 * row + 8]= (float)I;
          }
          
          row++;

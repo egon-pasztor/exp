@@ -2,16 +2,20 @@ package com.generic.base;
 
 import java.util.HashSet;
 
-public abstract class Image {
+public class Image {
 
    public final int width;
    public final int height;
+   public final Data.Array data;
    
-   protected Image (int width, int height) {
+   public Image (int width, int height, Data.Array.Type type) {
       this.width = width;
       this.height = height;
+      this.data = Data.Array.create(type);
+      data.setNumElements(width * height);
    }
-      
+   
+   /*
    // -------------------------------------------------------------------
    // Image with one Integer per pixel
    // -------------------------------------------------------------------
@@ -75,6 +79,7 @@ public abstract class Image {
          }
       }
    }
+   */
    
    // ---------------------
    // LISTENERS

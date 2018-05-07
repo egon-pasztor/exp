@@ -650,62 +650,6 @@ public class Mesh2 {
    // MESH STORAGE
    // ==================================================================
 
-   public static abstract class ResizableArray {
-      public final int primitivesPerElement;      
-      protected ResizableArray (int primitivesPerElement) {
-         this.primitivesPerElement = primitivesPerElement;
-         this.numElements = 0;
-      }
-      protected int numElements;
-      public int numElements() { return numElements;  }
-      
-      public abstract void setNumElements(int newNumElements);      
-      
-      // -----------------------------------------------------------------
-      public static class Integers extends ResizableArray {
-         public Integers (int elementSize) {
-            super(elementSize);
-            array = new int[4 * elementSize];
-         }      
-         private int[] array;
-         public int[] array() { return array; }
-         
-         // - - - - - - - - - - - - - 
-         public void setNumElements(int newNumElements) {
-            int lengthNeeded = primitivesPerElement * newNumElements;
-            if (array.length < lengthNeeded) {
-               int newLength = array.length;
-               while (newLength < lengthNeeded) newLength *= 2;
-               int[] newArray = new int [newLength];
-               System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
-               array = newArray;
-            }
-            numElements = newNumElements;
-         }
-      }
-      // -----------------------------------------------------------------
-      public static class Floats extends ResizableArray {
-         public Floats (int elementSize) {
-            super(elementSize);
-            array = new float[4 * elementSize];
-         }      
-         private float[] array;
-         public float[] array()   { return array;        }
-         
-         // - - - - - - - - - - - - - 
-         public void setNumElements(int newNumElements) {
-            int lengthNeeded = primitivesPerElement * newNumElements;
-            if (array.length < lengthNeeded) {
-               int newLength = array.length;
-               while (newLength < lengthNeeded) newLength *= 2;
-               float[] newArray = new float [newLength];
-               System.arraycopy(array, 0, newArray, 0, primitivesPerElement * numElements);
-               array = newArray;
-            }
-            numElements = newNumElements;
-         }
-      }
-   }
    
    // -----------------------------------------------------
    // -----------------------------------------------------
@@ -713,8 +657,8 @@ public class Mesh2 {
    public static class IDManager {
       public IDManager() {
          numReservedIDs = 0;
-         releasedIDs = new ResizableArray.Integers(1);
-         arrays = new HashSet<ResizableArray>();
+         releasedIDs = new Data.Array.Integers(1);
+         arrays = new HashSet<Data.Array>();
       }
       public int getNewID() {
          int numReleasedIDs = releasedIDs.numElements();
@@ -737,11 +681,11 @@ public class Mesh2 {
          return numReservedIDs;
       }
       
-      public void addArray(ResizableArray array) {
+      public void addArray(Data.Array array) {
          array.setNumElements(numReservedIDs);
          arrays.add(array);
       }
-      public void removeArray(ResizableArray array) {
+      public void removeArray(Data.Array array) {
          arrays.remove(array);
       }
       
@@ -756,11 +700,11 @@ public class Mesh2 {
 
       // - - - - - - - - - - - - -       
       private int numReservedIDs;
-      private ResizableArray.Integers releasedIDs;
-      private Set<ResizableArray> arrays;
+      private Data.Array.Integers releasedIDs;
+      private Set<Data.Array> arrays;
 
       private void updateArrayLengths() {
-         for (ResizableArray array : arrays) {
+         for (Data.Array array : arrays) {
             array.setNumElements(numReservedIDs);
          }
       }
@@ -769,9 +713,9 @@ public class Mesh2 {
    // -----------------------------------------------------   
    // -----------------------------------------------------
    
-   private final ResizableArray.Integers vertexToDirectedEdge;
-   private final ResizableArray.Integers faceToDirectedEdge;
-   private final ResizableArray.Integers directedEdgeData;
+   private final Data.Array.Integers vertexToDirectedEdge;
+   private final Data.Array.Integers faceToDirectedEdge;
+   private final Data.Array.Integers directedEdgeData;
    
    private final IDManager vertexIDManager;
    private final IDManager faceIDManager;
@@ -785,9 +729,9 @@ public class Mesh2 {
    
    
    public Mesh2() {
-      vertexToDirectedEdge = new ResizableArray.Integers(1);
-      faceToDirectedEdge = new ResizableArray.Integers(1);
-      directedEdgeData = new ResizableArray.Integers(8);
+      vertexToDirectedEdge = new Data.Array.Integers(1);
+      faceToDirectedEdge = new Data.Array.Integers(1);
+      directedEdgeData = new Data.Array.Integers(8);
       
       vertexIDManager = new IDManager();
       faceIDManager = new IDManager();
@@ -816,82 +760,56 @@ public class Mesh2 {
    }
 
    // -------------------------------------------------------
-   // DataLayers
+   // "DataLayers"
    // -------------------------------------------------------
-
-   /*
-   public enum LayerType   { PER_VERTEX, PER_EDGE, PER_FACE };
-   public enum ElementType { INTEGER, FLOAT };
-
-   public static class DataLayerType {
-      public final int elementCount;
-      public final ElementType elementType;
-      public final LayerType layerType;
-      
-      public DataLayerType(
-            int elementCount, ElementType elementType, LayerType layerType) {
-         this.layerType = layerType;
-         this.elementCount = elementCount;
-         this.elementType = elementType;
-      }
-      public int hashCode() {
-         return Objects.hash(elementCount, elementType, layerType);
-      }
-      public boolean equals(DataLayerType other) {
-         return (elementCount == other.elementCount)
-             && (elementType  == other.elementType)
-             && (layerType    == other.layerType);
-      }
-      public boolean equals(Object o) {
-         return (o != null) && (o instanceof DataLayerType) && equals((DataLayerType)o);
-      }
-   }   
-   */
    public static class DataLayer {
       
+      public enum Elements  { PER_VERTEX, PER_EDGE, PER_FACE };
+      
+      // --------------------------------
+      // Type
+      // --------------------------------
       public static class Type {
-         public enum Elements  { PER_VERTEX, PER_EDGE, PER_FACE };
-         public enum Primitive { INTEGER, FLOAT };
 
-         public final int primitivesPerElement;
-         public final Primitive primitive;
          public final Elements elements;
+         public final Data.Array.Type data;
          
-         public Type (int primitivesPerElement, Primitive primitive, Elements elements) {
-            this.primitivesPerElement = primitivesPerElement;
-            this.primitive = primitive;
+         public static Type of (int primitivesPerElement, Data.Array.Primitive primitive, Elements elements) {
+            return new Type(Data.Array.Type.of(primitivesPerElement, primitive), elements);
+         }
+         public Type (Data.Array.Type data, Elements elements) {
+            this.data = data;
             this.elements = elements;
          }
          public int hashCode() {
-            return Objects.hash(elements, primitive, primitivesPerElement);
+            return Objects.hash(data, elements);
          }
          public boolean equals(Type o) {
-            return (primitivesPerElement == o.primitivesPerElement)
-                && (primitive            == o.primitive)
-                && (elements             == o.elements);
+            return (data     == o.data)
+                && (elements == o.elements);
          }
          public boolean equals(Object o) {
             return (o != null) && (o instanceof Type) && equals((Type)o);
          }
          
-         public static final Type ONE_FLOAT_PER_VERTEX       = new Type(1, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
-         public static final Type ONE_INTEGER_PER_VERTEX     = new Type(1, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
-         public static final Type TWO_FLOATS_PER_VERTEX      = new Type(2, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
-         public static final Type TWO_INTEGERS_PER_VERTEX    = new Type(2, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
-         public static final Type THREE_FLOATS_PER_VERTEX    = new Type(3, Type.Primitive.FLOAT,   Type.Elements.PER_VERTEX);
-         public static final Type THREE_INTEGERS_PER_VERTEX  = new Type(3, Type.Primitive.INTEGER, Type.Elements.PER_VERTEX);
-         public static final Type SIX_FLOATS_PER_FACE        = new Type(6, Type.Primitive.FLOAT,   Type.Elements.PER_FACE);
-         public static final Type ONE_INTEGER_PER_FACE       = new Type(1, Type.Primitive.INTEGER, Type.Elements.PER_FACE);
-         public static final Type ONE_FLOAT_PER_EDGE         = new Type(1, Type.Primitive.FLOAT,   Type.Elements.PER_EDGE);
+         public static final Type ONE_FLOAT_PER_VERTEX    = Type.of(1, Data.Array.Primitive.FLOATS, Elements.PER_VERTEX);
+         public static final Type TWO_FLOATS_PER_VERTEX   = Type.of(2, Data.Array.Primitive.FLOATS, Elements.PER_VERTEX);
+         public static final Type THREE_FLOATS_PER_VERTEX = Type.of(3, Data.Array.Primitive.FLOATS, Elements.PER_VERTEX);
+         
+         public static final Type ONE_FLOAT_PER_EDGE      = Type.of(1, Data.Array.Primitive.FLOATS, Elements.PER_EDGE);
+         
+         public static final Type ONE_INTEGER_PER_FACE    = Type.of(1, Data.Array.Primitive.INTEGERS, Elements.PER_FACE);
+         public static final Type FOUR_INTEGERS_PER_FACE  = Type.of(4, Data.Array.Primitive.INTEGERS, Elements.PER_FACE);
+         public static final Type SIX_FLOATS_PER_FACE     = Type.of(6, Data.Array.Primitive.FLOATS, Elements.PER_FACE);
       }
 
       // ---------------------------------------------------------------      
       public final Mesh2 mesh;
       public final String name;
       public final Type type;
-      public final ResizableArray data;
+      public final Data.Array data;
       
-      private DataLayer(Mesh2 mesh, String name, Type type, ResizableArray data) {
+      private DataLayer(Mesh2 mesh, String name, Type type, Data.Array data) {
          this.mesh = mesh;
          this.name = name;
          this.type = type;
@@ -920,35 +838,19 @@ public class Mesh2 {
    }
 
    public DataLayer createDataLayer(String name, DataLayer.Type type) {
-      DataLayer layer = null;
-      if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
-         ResizableArray.Integers data = new ResizableArray.Integers(type.primitivesPerElement);
-         layer = new DataLayer(this, name, type, data);
-         
-         if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
-            vertexIDManager.addArray(data);
-         }
-         if (type.elements == DataLayer.Type.Elements.PER_FACE) {
-            faceIDManager.addArray(data);
-         }
-         if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
-            edgeIDManager.addArray(data);
-         }
+      Data.Array data = Data.Array.create(type.data);
+      
+      DataLayer layer = new DataLayer(this, name, type, data);
+      if (type.elements == DataLayer.Elements.PER_VERTEX) {
+         vertexIDManager.addArray(data);
       }
-      if (type.primitive == DataLayer.Type.Primitive.FLOAT) {
-         ResizableArray.Floats data = new ResizableArray.Floats(type.primitivesPerElement);
-         layer = new DataLayer(this, name, type, data);
-         
-         if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
-            vertexIDManager.addArray(data);
-         }
-         if (type.elements == DataLayer.Type.Elements.PER_FACE) {
-            faceIDManager.addArray(data);
-         }
-         if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
-            edgeIDManager.addArray(data);
-         }
+      if (type.elements == DataLayer.Elements.PER_FACE) {
+         faceIDManager.addArray(data);
       }
+      if (type.elements == DataLayer.Elements.PER_EDGE) {
+         edgeIDManager.addArray(data);
+      }
+      
       dataLayers.put(name, layer);
       return layer;
    }
@@ -960,29 +862,16 @@ public class Mesh2 {
       DataLayer layer = dataLayers.get(name);
       if (layer != null) {
          DataLayer.Type type = layer.type;
-         ResizableArray data = layer.data;
-         
-         if (type.primitive == DataLayer.Type.Primitive.INTEGER) {
-            if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
-               vertexIDManager.removeArray(data);
-            }
-            if (type.elements == DataLayer.Type.Elements.PER_FACE) {
-               faceIDManager.removeArray(data);
-            }
-            if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
-               edgeIDManager.removeArray(data);
-            }
+         Data.Array data = layer.data;
+
+         if (type.elements == DataLayer.Elements.PER_VERTEX) {
+            vertexIDManager.removeArray(data);
          }
-         if (type.primitive == DataLayer.Type.Primitive.FLOAT) {
-            if (type.elements == DataLayer.Type.Elements.PER_VERTEX) {
-               vertexIDManager.removeArray(data);
-            }
-            if (type.elements == DataLayer.Type.Elements.PER_FACE) {
-               faceIDManager.removeArray(data);
-            }
-            if (type.elements == DataLayer.Type.Elements.PER_EDGE) {
-               edgeIDManager.removeArray(data);
-            }
+         if (type.elements == DataLayer.Elements.PER_FACE) {
+            faceIDManager.removeArray(data);
+         }
+         if (type.elements == DataLayer.Elements.PER_EDGE) {
+            edgeIDManager.removeArray(data);
          }
          dataLayers.remove(name);
       }
@@ -992,6 +881,7 @@ public class Mesh2 {
    // ---
    // RESOLVED:  as DataLayer is "a part of" a Mesh2,
    //            so VertexBuffer will be "a part of" a GL.State
+   //                   (leter thinking:  sure, but VertexBuffer doesn't actually allow access to the data.)
    //
    // so someone calls "createVertexBuffer" on the GL.State to create one, just like we call "createDataLayer" on Mesh2...
    //    now what happens if mesh2 size changes?
@@ -1099,14 +989,13 @@ public class Mesh2 {
    }
    public static Mesh2 loadMesh(String filename) {
       Mesh2 mesh = new Mesh2();
-      DataLayer positions = mesh.createDataLayer("positions",
-            new DataLayer.Type(3, DataLayer.Type.Primitive.FLOAT, DataLayer.Type.Elements.PER_VERTEX));
+      DataLayer positions = mesh.createDataLayer("positions", DataLayer.Type.THREE_FLOATS_PER_VERTEX);
       
       SavedModel model = savedModelFromString(loadStringFileFromCurrentPackage(filename));
       for (Vector3 position : model.vertexPositions) {
          int v = mesh.newVertexID();
          
-         float[] positionsArray = ((ResizableArray.Floats)(positions.data)).array();
+         float[] positionsArray = ((Data.Array.Floats)(positions.data)).array();
          positionsArray[3*v + 0] = position.x;
          positionsArray[3*v + 1] = position.y;
          positionsArray[3*v + 2] = position.z;

@@ -378,7 +378,7 @@ public class Shader {
    // -----------------------------
    
    public static class ManagedTexture {
-      public ManagedTexture(Variable.Sampler.Type type, Image.Integers image) {
+      public ManagedTexture(Variable.Sampler.Type type, Image image) {
          this.type = type;
          this.image = image;
       }
@@ -386,15 +386,17 @@ public class Shader {
       // Buffer Updates-----------------------
       
       public void setup() {
-         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(image.pixels.length * 4);
+         int[] pixels = ((Data.Array.Integers)(image.data)).array();
+         
+         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(pixels.length * 4);
          byteBuffer.order(ByteOrder.nativeOrder());
          intBuffer = byteBuffer.asIntBuffer();
-         intBuffer.put(image.pixels);
+         intBuffer.put(pixels);
          intBuffer.position(0);
       }
       
       public Variable.Sampler.Type type;
-      public Image.Integers image;
+      public Image image;
       public ByteBuffer byteBuffer;
       public IntBuffer intBuffer;
       
@@ -404,7 +406,7 @@ public class Shader {
    }
 
    public static class ManagedFloatTexture {
-      public ManagedFloatTexture(Variable.Sampler.Type type, Image.Floats image) {
+      public ManagedFloatTexture(Variable.Sampler.Type type, Image image) {
          this.type = type;
          this.image = image;
       }
@@ -412,15 +414,17 @@ public class Shader {
       // Buffer Updates-----------------------
       
       public void setup() {
-         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(image.pixels.length * 4);
+         float[] pixels = ((Data.Array.Floats)(image.data)).array();
+         
+         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(pixels.length * 4);
          byteBuffer.order(ByteOrder.nativeOrder());
          floatBuffer = byteBuffer.asFloatBuffer();
-         floatBuffer.put(image.pixels);
+         floatBuffer.put(pixels);
          floatBuffer.position(0);
       }
       
       public Variable.Sampler.Type type;
-      public Image.Floats image;
+      public Image image;
       public ByteBuffer byteBuffer;
       public FloatBuffer floatBuffer;
       
