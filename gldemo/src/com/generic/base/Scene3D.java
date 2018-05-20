@@ -77,6 +77,8 @@ public class Scene3D {
       }
       public final Mesh2 mesh;
       
+      // we've been thinking we should allow any Model to be "annotated"
+      // with any Object->Object key/value pair...
       
       // -- so basically, the shading style is:
       //      Basic 

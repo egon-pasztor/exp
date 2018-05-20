@@ -1,10 +1,6 @@
 package com.generic.base;
 
-import java.nio.IntBuffer;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
+import com.generic.base.Shader.Variable.Uniform;
 
 public interface GL {
    
@@ -14,11 +10,11 @@ public interface GL {
    public interface VertexBuffer {
 
       Data.Array.Type type();
-      int numElements();      
+      int numElements();
       void update (Data.Array data);
       
-      void disconnect   ();
-      boolean connected ();
+      void disconnect ();
+      boolean isConnected ();
    }
    public VertexBuffer initVertexBuffer (Data.Array data);
    
@@ -29,12 +25,11 @@ public interface GL {
 
       Data.Array.Type type();
       int width();
-      int height();
-      
+      int height();      
       void update (Image image);
       
-      void disconnect   ();
-      boolean connected ();
+      void disconnect ();
+      boolean isConnected ();
    }
    public Sampler initSampler (Image image);
 
@@ -44,12 +39,25 @@ public interface GL {
    // ------------------------------------------------------------------------------
    
    
-   public static interface Shader {
-      public enum Type { INTEGER, FLOAT };
+   public interface Shader {
+      
+      public static class Parameter {
+         public enum Type { Uniform, VertexBuffer, Sampler };
+         
+         public final String name;
+         public final Type type;
+         public final Data.Array.Type elements;
+         public Parameter (String name, Type type, Data.Array.Type elements) {
+            this.name = name;
+            this.type = type;
+            this.elements = elements;            
+         }         
+      }
+      
       
    }
    
-   public Shader initShader (Shader.Type type);
+   //public Shader initShader (Shader.Type type);
    
    
    
