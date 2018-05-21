@@ -42,10 +42,13 @@ public class Data {
          public static final Type THREE_INTEGERS = Type.of(3, Primitive.INTEGERS);
          public static final Type FOUR_INTEGERS  = Type.of(4, Primitive.INTEGERS);
          
-         public static final Type ONE_FLOAT    = Type.of(1, Primitive.FLOATS);
-         public static final Type TWO_FLOATS   = Type.of(2, Primitive.FLOATS);
-         public static final Type THREE_FLOATS = Type.of(3, Primitive.FLOATS);
-         public static final Type FOUR_FLOATS  = Type.of(4, Primitive.FLOATS);
+         public static final Type ONE_FLOAT      = Type.of(1, Primitive.FLOATS);
+         public static final Type TWO_FLOATS     = Type.of(2, Primitive.FLOATS);
+         public static final Type THREE_FLOATS   = Type.of(3, Primitive.FLOATS);
+         public static final Type FOUR_FLOATS    = Type.of(4, Primitive.FLOATS);         
+         public static final Type SIX_FLOATS     = Type.of(6, Primitive.FLOATS);
+         public static final Type NINE_FLOATS    = Type.of(9, Primitive.FLOATS);
+         public static final Type SIXTEEN_FLOATS = Type.of(16, Primitive.FLOATS);
 
          public static final Type THREE_BYTES = Type.of(3, Primitive.BYTES);
       }

@@ -19,7 +19,7 @@ public class Image {
    // Color images
    // -------------------------------------------------------------------   
    public abstract static class RGB extends Image {
-      
+
       public RGB (int width, int height, Data.Array.Type type) {
          super (width, height, type);
       }
@@ -52,14 +52,30 @@ public class Image {
          public Bytes (int width, int height) {
             super (width, height, Data.Array.Type.THREE_BYTES);
          }
+         public byte[] array() {
+            return ((Data.Array.Bytes) data).array();
+         }
          
+         public Cursor newCursor() {
+            return new Cursor(this);
+         }
+         public Painter newPainter(Color color) {
+            return new Image.Painter() {
+               private Color.RGB.Bytes rgb = color.rgbBytes();
+               private Cursor cursor = newCursor();
+               
+               public void paint(int x, int y) {
+                  cursor.setPosition(x, y).setColor(rgb);
+               }
+            };
+         }
          private static class Cursor implements Image.RGB.Cursor {
-            public final byte[] arr;
-            public int width;
-            public int loc;
+            private final byte[] arr;
+            private int width;
+            private int loc;
             
             public Cursor(Image.RGB.Bytes image) {
-               arr = ((Data.Array.Bytes) image.data).array();
+               arr = image.array();
                width = image.width;
                loc = 0;
             }
@@ -77,19 +93,6 @@ public class Image {
                arr[loc] = rgb.b;
             }
          }
-         public Cursor newCursor() {
-            return new Cursor(this);
-         }
-         public Painter newPainter(Color color) {
-            return new Image.Painter() {
-               private Color.RGB.Bytes rgb = color.rgbBytes();
-               private Cursor cursor = newCursor();
-               
-               public void paint(int x, int y) {
-                  cursor.setPosition(x, y).setColor(rgb);
-               }
-            };
-         }
       }
       
       // -------------------------------------------------------------------
@@ -100,14 +103,17 @@ public class Image {
          public Integers (int width, int height) {
             super (width, height, Data.Array.Type.ONE_INTEGER);
          }
+         public int[] array() {
+            return ((Data.Array.Integers) data).array();
+         }
 
          private static class Cursor implements Image.RGB.Cursor {
-            public final int[] arr;
-            public int width;
-            public int loc;
+            private final int[] arr;
+            private int width;
+            private int loc;
             
             public Cursor(Image.RGB.Integers image) {
-               arr = ((Data.Array.Integers) image.data).array();
+               arr = image.array();
                width = image.width;
                loc = 0;
             }
@@ -149,26 +155,71 @@ public class Image {
       public Grayscale (int width, int height, Data.Array.Type type) {
          super (width, height, type);
       }
-      public abstract float get (int x, int y);
-      public abstract void  set (int x, int y, float value);
+      public float get (int x, int y) {
+         return newCursor().setPosition(x, y).getValue();
+      }
+      public void set (int x, int y, float value) {
+         newCursor().setPosition(x, y).setValue(value);
+      }      
+      public void drawLine (int x0, int y0, int x1, int y1, float value) {
+         Image.drawLine(x0, y0, x1, y1, newPainter(value));
+      }
+      public void fillRect (int left, int top, int width, int height, float value) {
+         Image.fillRect(left, top, width, height, newPainter(value));
+      }
+      
+      public interface Cursor {
+         Cursor setPosition(int x, int y);
+         float getValue();
+         void setValue(float val);
+      }
+      public abstract Cursor newCursor();      
+      public abstract Painter newPainter(float value);
       
       // -------------------------------------------------------------------
       // 1 float per pixel
       // -------------------------------------------------------------------
-      public static class Floats extends Image.Grayscale{
+      public static class Floats extends Image.Grayscale {
 
          public Floats (int width, int height) {
             super (width, height, Data.Array.Type.ONE_FLOAT);
          }
-         public float get (int x, int y) {
-            int     loc = (x * width + y) * 3;
-            float[] arr = ((Data.Array.Floats) data).array();
-            return arr[loc];
+         public float[] array() {
+            return ((Data.Array.Floats) data).array();
          }
-         public void set (int x, int y, float value) {
-            int     loc = (x * width + y) * 3;
-            float[] arr = ((Data.Array.Floats) data).array();
-            arr[loc] = value;
+
+         private static class Cursor implements Image.Grayscale.Cursor {
+            private final float[] arr;
+            private int width;
+            private int loc;
+            
+            public Cursor(Image.Grayscale.Floats image) {
+               arr = image.array();
+               width = image.width;
+               loc = 0;
+            }
+            public Cursor setPosition(int x, int y) {
+               loc = (y * width + x);
+               return this;
+            }
+            public float getValue() {
+               return arr[loc];
+            }
+            public void setValue(float val) {
+               arr[loc] = val;
+            }
+         }
+         public Cursor newCursor() {
+            return new Cursor(this);
+         }
+         public Painter newPainter(float value) {
+            return new Image.Painter() {
+               private Cursor cursor = newCursor();
+               
+               public void paint(int x, int y) {
+                  cursor.setPosition(x, y).setValue(value);
+               }
+            };
          }
       }
    }
@@ -221,8 +272,8 @@ public class Image {
             painter.paint(x,y);
             if (x == x1) break;
             
-            // each step moves "y" to the next pixel,
-            // but only some steps move "x" to the next pixel:
+            // each step moves "x" to the next pixel,
+            // but only some steps move "y" to the next pixel:
             x += sx;
             if (decy >= 0) { decy -= ax; y += sy; }
             decy += ay;

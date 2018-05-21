@@ -2,6 +2,9 @@ package com.generic.base;
 
 public interface GL {
    
+   void setViewport (int width, int height);
+   void clear (Color color);
+   
    // ------------------------------------------
    // VertexBuffer
    // ------------------------------------------
@@ -44,7 +47,19 @@ public interface GL {
             this.name = name;
             this.type = type;
             this.elements = elements;            
-         }         
+         }
+         
+         public static Parameter MODEL_TO_VIEW = new Parameter("viewMatrix", Type.Uniform, Data.Array.Type.SIXTEEN_FLOATS);
+         public static Parameter VIEW_TO_CLIP  = new Parameter("projMatrix", Type.Uniform, Data.Array.Type.SIXTEEN_FLOATS);
+         
+         public static Parameter FACE_COLOR    = new Parameter("faceColor",   Type.Uniform, Data.Array.Type.THREE_FLOATS);
+         public static Parameter BORDER_COLOR  = new Parameter("borderColor", Type.Uniform, Data.Array.Type.THREE_FLOATS);
+         
+         public static Parameter POSITIONS  = new Parameter("positions",  Type.VertexBuffer, Data.Array.Type.NINE_FLOATS);
+         public static Parameter NORMALS    = new Parameter("normals",    Type.VertexBuffer, Data.Array.Type.NINE_FLOATS);
+         public static Parameter BARYCOORDS = new Parameter("baryCoords", Type.VertexBuffer, Data.Array.Type.NINE_FLOATS);
+         public static Parameter TEXCOORDS  = new Parameter("texCoords",  Type.VertexBuffer, Data.Array.Type.SIX_FLOATS);
+         
       }
   
       int numParameters();
@@ -54,160 +69,134 @@ public interface GL {
       boolean isDestroyed();
    }
    
+   void shadeTriangles (int numTriangles, Shader shader,
+                        Object... parameterValues);
+   
+   // ---------------------------------------------------------------
+   // Smooth Shader (no borders)
+   // ---------------------------------------------------------------   
+   // The Shader returned will have parameters:
+   //
+   //      1. MODEL_TO_VIEW
+   //      2. VIEW_TO_CLIP
+   //      3. FACE_COLOR
+   //      5. POSITIONS
+   //      6. NORMALS
+   //
+   Shader newSmoothShader ();
+
+   // ---------------------------------------------------------------
+   // Flat Shader With Borders
+   // ---------------------------------------------------------------   
+   // The Shader returned will have parameters:
+   //      1. MODEL_TO_VIEW
+   //      2. VIEW_TO_CLIP
+   //      3. FACE_COLOR
+   //      4. BORDER_COLOR
+   //      5. POSITIONS
+   //      6. NORMALS
+   //      7. BARYCOORDS
+   //
+   Shader newFlatShaderWithBorders ();
    
    
+   // -- so basically, the shading style is:
+   //      Basic 
+   //         3x  (uniform bgColor) or 
+   //             (per-face bgColor) or
+   //             (bg-Color comes from Texturemap)
+   //         2x  optionally, borderColor applied or not?
+   //         2x  optionally, normals interpolated?
+   //        
+   //      GridShading
+   //      PerlinNoiseExperiment
+   //      FractalExperiment
    //
    
    
-    
-   
-   //public Shader initShader (Shader.Type type);
-   
-   
-   
-   
-   /*
-
-      protected VertexBuffer(Type type) {
-         this.type = type;
-      }
-
-
-      // -----------------------------------------------------------------
-      // Creating int[] and float[] VertexBuffers
-      // -----------------------------------------------------------------
-      public static VertexBuffer create(Type type, int numElements) {
-         return (type.primitive == Type.Primitive.INTEGER) 
-              ? new VertexBuffer.Integers(type.primitivesPerElement, numElements)
-              : new VertexBuffer.Floats(type.primitivesPerElement, numElements);
-      }
-      // -----------------------------------------------------------------
-      public static class Integers extends VertexBuffer {
-         public Integers (int primitivesPerElement, int numElements) {
-            super(new Type(primitivesPerElement, Type.Primitive.INTEGER));
-            array = new int[primitivesPerElement * numElements];
-         }      
-         public final int[] array;
-      }
-      // -----------------------------------------------------------------
-      public static class Floats extends VertexBuffer {
-         public Floats (int primitivesPerElement, int numElements) {
-            super(new Type(primitivesPerElement, Type.Primitive.FLOAT));
-            array = new float[primitivesPerElement * numElements];
-         }      
-         public final float[] array;
-      }
-   }
-   
-   
-   
-   
-   */
-   
-   
-   /*
-   // ------------------------------------------
-   // State
-   // ------------------------------------------
-   public static class State {
-      private final HashSet<VertexBuffer> buffers;
-      
-      public State() {
-         buffers = new HashSet<VertexBuffer>();
-      }
-  
-      public VertexBuffer createVertexBuffer(VertexBuffer.Type type) {
-         VertexBuffer buffer = new VertexBuffer(this, type);
-         buffers.add(buffer);
-         for (Listener listener : listeners) {
-            listener.vertexBufferAdded(buffer);
-         }
-         return buffer;
-      }
-      public void deleteVertexBuffer(VertexBuffer buffer) {
-         buffers.remove(buffer);
-         for (Listener listener : listeners) {
-            listener.vertexBufferDeleted(buffer);
-         }
-      }
-      
-      public interface Listener {
-         public void vertexBufferAdded(VertexBuffer buffer);
-         public void vertexBufferDeleted(VertexBuffer buffer);
-      }
-      private HashSet<Listener> listeners;
-      public void addListener(Listener listener) {
-         listeners.add(listener);
-      }
-      public void removeListener(Listener listener) {
-         listeners.remove(listener);
-      }
-   }
-   
-   //
-   // so, if mesh2 size changes,
-   //   the mesh2 will notify the Scene.Model ...
-   //   a Scene will probably has a HashMap from Mesh2 to Scene.MeshInfo 
-   //       which will be responsible for calling createVertexBuffer on the GL.State,
-   //       and it will be responsible for creating the "Filler" classes that 
-   //        Position / Texture / Color vertexarrays
-   //     
-   //   
-   //   it's up to Scene to change the GL.State if a Mesh in the scene changes..
+   // methods to set rendering style?
+   // we want to support styles:
    // 
+   //  1 flat shading:
+   //      minimal SHADER needs:
+   //          uniforms:
+   //              modelToView-(mat4x4)
+   //              viewToClip-(mat4x4)
+   //              meshColor-(vec3)
+   //          vertex-buffers:
+   //              positions (3-vec3's per triangle)
+   //              normals   (3-vec3's per triangle)
+   //
+   //  2 flat-shading with borders
+   //      minimal SHADER needs:
+   //          uniforms:
+   //              modelToView-(mat4x4)
+   //              viewToClip-(mat4x4)
+   //              meshColor-(vec3)
+   //              borderColor-(vec3)
+   //          vertex-buffers:
+   //              positions  (3-vec3's per triangle)
+   //              baryCoords (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
+   //              normals    (3-vec3's per triangle)
+   //
+   //  2 per-face / per-edge / per-vertex colors
+   //      minimal SHADER needs:
+   //          uniforms:
+   //              modelToView-(mat4x4)
+   //              viewToClip-(mat4x4)
+   //          vertex-buffers:
+   //              positions  (3-vec3's per triangle)
+   //              normals    (3-vec3's per triangle)
+   //              colorInfo  (3-uvec4's per triangle) <-- each uvec4 provides
+   //                             1 full int for "face color"
+   //
+   //  3 texture-shading
+   //      minimal SHADER needs:
+   //          uniforms:
+   //              modelToView-(mat4x4)
+   //              viewToClip-(mat4x4)
+   //          vertex-buffers:
+   //              positions  (3-vec3's per triangle)
+   //              normals    (3-vec3's per triangle)
+   //              texCoords  (3-vec2's per triangle)
+   //          texture-maps:
+   //              texture
+   //
+   //  4 texture-shading with borders
+   //      minimal SHADER needs:
+   //          uniforms:
+   //              modelToView-(mat4x4)
+   //              viewToClip-(mat4x4)
+   //              borderColor-(vec3)
+   //          vertex-buffers:
+   //              positions  (3-vec3's per triangle)
+   //              baryCoords (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
+   //              normals    (3-vec3's per triangle)
+   //              texCoords  (3-vec2's per triangle)
+   //          texture-maps:
+   //              texture
+   //
+   //   -- (NOTE: the above shaders *interpolate* texCoords and normal across each pixel,
+   //               so the pixel shader knows its texCoords and normal, but nothing about the full triangle.
+   //             below, grid-shading provides each pixel with v0,v1,v2 in both 3d and uv space,
+   //               so it can figure out its own normal and texCoords)
+   //
+   //  5 grid-shading
+   //      minimal SHADER needs:
+   //          uniforms:
+   //              modelToView-(mat4x4)
+   //              viewToClip-(mat4x4)
+   //          vertex-buffers:
+   //              positions    (3-vec3's per triangle)
+   //              baryCoords   (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
+   //
+   //              v0_positions (3-vec3's per triangle)
+   //              v1_positions (3-vec3's per triangle)
+   //              v2_positions (3-vec3's per triangle)
+   //              v0_texCoords (3-vec2's per triangle)
+   //              v1_texCoords (3-vec2's per triangle)
+   //              v2_texCoords (3-vec2's per triangle)
    
+      
    
-   public static abstract class Renderer {
-      
-      private final State state;
-      private final State.Listener listener;
-      private final HashMap<GL.VertexBuffer, VertexBuffer> buffers;
-      
-      
-      public static class VertexBuffer {
-         private GL.VertexBuffer state;
-         private GL.VertexBuffer.Listener listener;
-         private boolean modified, deleted;
-         
-         VertexBuffer(GL.VertexBuffer state) {
-            this.state = state;
-            this.modified = true;
-            this.deleted = false;
-            this.listener = new GL.VertexBuffer.Listener() {
-               public void modified() {
-                  modified = true;
-               }
-            };
-            state.addListener(listener);
-         }
-         public void disconnect() {
-            state.removeListener(listener);
-            state = null;
-            listener = null;
-            deleted = true;
-         }
-      }
-      private VertexBuffer newVertexBuffer(GL.VertexBuffer buffer) {
-         return new VertexBuffer(buffer);
-      }
-            
-      public Renderer(State state) {
-         this.state = state;
-         this.buffers = new HashMap<GL.VertexBuffer, VertexBuffer>();
-         this.listener = new GL.State.Listener() {
-            public void vertexBufferAdded (GL.VertexBuffer buffer) {
-               buffers.put(buffer, Renderer.this.newVertexBuffer(buffer));
-            }
-            public void vertexBufferDeleted(GL.VertexBuffer buffer) {
-               buffers.get(buffer).disconnect();
-            }
-         };
-         state.addListener(listener);
-         
-      }
-      
-      
-      
-   }
-   */
 }
