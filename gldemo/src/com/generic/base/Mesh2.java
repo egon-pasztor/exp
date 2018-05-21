@@ -150,7 +150,7 @@ public class Mesh2 {
       // Must have at least 3 vertices
       if (numVertices < 3) {
          throw new RuntimeException(String.format(
-            "Cannat add face with only %d vertices", numVertices));
+            "Cannot add face with only %d vertices", numVertices));
       }
       
       // We'll use these arrays to temporarily store edge indices
@@ -814,6 +814,34 @@ public class Mesh2 {
          this.name = name;
          this.type = type;
          this.data = data;
+         
+         if (type.elements == DataLayer.Elements.PER_VERTEX) {
+            mesh.vertexIDManager.addArray(data);
+         }
+         if (type.elements == DataLayer.Elements.PER_FACE) {
+            mesh.faceIDManager.addArray(data);
+         }
+         if (type.elements == DataLayer.Elements.PER_EDGE) {
+            mesh.edgeIDManager.addArray(data);
+         }
+         
+         mesh.dataLayers.put(name, this);
+      }
+      
+      public void destroy() {
+         if (mesh.dataLayers.get(name) == this) {
+            mesh.dataLayers.remove(name);
+
+            if (type.elements == DataLayer.Elements.PER_VERTEX) {
+               mesh.vertexIDManager.removeArray(data);
+            }
+            if (type.elements == DataLayer.Elements.PER_FACE) {
+               mesh.faceIDManager.removeArray(data);
+            }
+            if (type.elements == DataLayer.Elements.PER_EDGE) {
+               mesh.edgeIDManager.removeArray(data);
+            }
+         }
       }
       
       // ---------------------
@@ -837,46 +865,17 @@ public class Mesh2 {
       }
    }
 
-   public DataLayer createDataLayer(String name, DataLayer.Type type) {
-      Data.Array data = Data.Array.create(type.data);
-      
-      DataLayer layer = new DataLayer(this, name, type, data);
-      if (type.elements == DataLayer.Elements.PER_VERTEX) {
-         vertexIDManager.addArray(data);
+   public DataLayer newDataLayer(String name, DataLayer.Type type) {
+      if (dataLayers.get(name) != null) {
+         throw new RuntimeException(String.format(
+               "DataLayer called \"%s\" already exists", name));
       }
-      if (type.elements == DataLayer.Elements.PER_FACE) {
-         faceIDManager.addArray(data);
-      }
-      if (type.elements == DataLayer.Elements.PER_EDGE) {
-         edgeIDManager.addArray(data);
-      }
-      
-      dataLayers.put(name, layer);
-      return layer;
+      return new DataLayer(this, name, type, Data.Array.create(type.data));
    }
    public DataLayer dataLayer(String name, DataLayer.Type type) {
       DataLayer layer = dataLayers.get(name);
       return (layer.type.equals(type)) ? layer : null;
    }
-   public void destroyDataLayer(String name) {
-      DataLayer layer = dataLayers.get(name);
-      if (layer != null) {
-         DataLayer.Type type = layer.type;
-         Data.Array data = layer.data;
-
-         if (type.elements == DataLayer.Elements.PER_VERTEX) {
-            vertexIDManager.removeArray(data);
-         }
-         if (type.elements == DataLayer.Elements.PER_FACE) {
-            faceIDManager.removeArray(data);
-         }
-         if (type.elements == DataLayer.Elements.PER_EDGE) {
-            edgeIDManager.removeArray(data);
-         }
-         dataLayers.remove(name);
-      }
-   }
-
    
    // ---
    // RESOLVED:  as DataLayer is "a part of" a Mesh2,
@@ -989,7 +988,7 @@ public class Mesh2 {
    }
    public static Mesh2 loadMesh(String filename) {
       Mesh2 mesh = new Mesh2();
-      DataLayer positions = mesh.createDataLayer("positions", DataLayer.Type.THREE_FLOATS_PER_VERTEX);
+      DataLayer positions = mesh.newDataLayer("positions", DataLayer.Type.THREE_FLOATS_PER_VERTEX);
       
       SavedModel model = savedModelFromString(loadStringFileFromCurrentPackage(filename));
       for (Vector3 position : model.vertexPositions) {

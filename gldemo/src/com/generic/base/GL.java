@@ -1,44 +1,37 @@
 package com.generic.base;
 
-import com.generic.base.Shader.Variable.Uniform;
-
 public interface GL {
    
    // ------------------------------------------
    // VertexBuffer
    // ------------------------------------------
    public interface VertexBuffer {
-
       Data.Array.Type type();
       int numElements();
-      void update (Data.Array data);
       
-      void disconnect ();
-      boolean isConnected ();
+      void update(Data.Array data);
+      void destroy();
+      boolean isDestroyed();
    }
-   public VertexBuffer initVertexBuffer (Data.Array data);
+   VertexBuffer newVertexBuffer (Data.Array data);
    
    // ------------------------------------------
    // Sampler
    // ------------------------------------------
    public interface Sampler {
-
       Data.Array.Type type();
       int width();
-      int height();      
-      void update (Image image);
+      int height();
       
-      void disconnect ();
-      boolean isConnected ();
+      void update(Image image);
+      void destroy();
+      boolean isDestroyed();
    }
-   public Sampler initSampler (Image image);
-
+   Sampler newSampler (Image image);
 
    // ------------------------------------------------------------------------------
-   // Likewise for samplers... then..
+   // Shader
    // ------------------------------------------------------------------------------
-   
-   
    public interface Shader {
       
       public static class Parameter {
@@ -53,9 +46,20 @@ public interface GL {
             this.elements = elements;            
          }         
       }
+  
+      int numParameters();
+      Parameter parameter(int i);
       
-      
+      void destroy();
+      boolean isDestroyed();
    }
+   
+   
+   
+   //
+   
+   
+    
    
    //public Shader initShader (Shader.Type type);
    

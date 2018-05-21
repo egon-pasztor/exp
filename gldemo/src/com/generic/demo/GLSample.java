@@ -23,7 +23,6 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 
@@ -860,7 +859,6 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             for (Mesh.Triangle tc : meshModel.mesh.triangles) {
                TextureCoordProvider t = (TextureCoordProvider) tc;
                Triangle2 texCoords = t.getTextureCoords();
-               
                com.generic.base.Color color = 
                      (col==0) ? new com.generic.base.Color.RGB.Bytes((byte)0xb0, (byte)0xff, (byte)0x80) :
                      (col==1) ? new com.generic.base.Color.RGB.Bytes((byte)0xc0, (byte)0xd0, (byte)0xb0) :
