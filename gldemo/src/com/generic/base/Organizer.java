@@ -414,7 +414,7 @@ public class Organizer {
       
       All U's and D's are arranged into triads:
        
-          2 U's and a D  -- "proton"     .8 femtometers == .8 "millionth of a billionth of a meter" == .8 * 10^-15 m
+          2 U's and a D  -- "proton"   .8 femtometers == .8 "millionth of a billionth of a meter" == .8 * 10^-15 m
           2 D's and a U  -- "neutron"
           
       These are around scale -15.   

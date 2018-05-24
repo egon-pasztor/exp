@@ -1,5 +1,7 @@
 package com.generic.base;
 
+import com.generic.base.Algebra.Matrix4x4;
+
 public interface GL {
    
    void setViewport (int width, int height);
@@ -14,7 +16,6 @@ public interface GL {
       
       void update(Data.Array data);
       void destroy();
-      boolean isDestroyed();
    }
    VertexBuffer newVertexBuffer (Data.Array data);
    
@@ -28,7 +29,6 @@ public interface GL {
       
       void update(Image image);
       void destroy();
-      boolean isDestroyed();
    }
    Sampler newSampler (Image image);
 
@@ -66,7 +66,6 @@ public interface GL {
       Parameter parameter(int i);
       
       void destroy();
-      boolean isDestroyed();
    }
    
    void shadeTriangles (int numTriangles, Shader shader,
@@ -83,7 +82,18 @@ public interface GL {
    //      5. POSITIONS
    //      6. NORMALS
    //
-   Shader newSmoothShader ();
+   
+   public interface SmoothShader extends Shader {
+
+      void shadeTriangles(int numTriangles,
+                          Matrix4x4 modelToView,
+                          Matrix4x4 viewToClip,
+                          Color faceColor,
+                          VertexBuffer positions,
+                          VertexBuffer normals);
+
+   }   
+   SmoothShader newSmoothShader ();
 
    // ---------------------------------------------------------------
    // Flat Shader With Borders
@@ -97,7 +107,21 @@ public interface GL {
    //      6. NORMALS
    //      7. BARYCOORDS
    //
-   Shader newFlatShaderWithBorders ();
+   public interface FlatShaderWithBorders extends Shader {
+
+      void shadeTriangles(int numTriangles,
+                          Matrix4x4 modelToView,
+                          Matrix4x4 viewToClip,
+                          Color faceColor,
+                          Color borderColor,
+                          VertexBuffer positions,
+                          VertexBuffer normals,
+                          VertexBuffer baryCoords);
+
+   }   
+   FlatShaderWithBorders newFlatShaderWithBorders ();
+
+   
    
    
    // -- so basically, the shading style is:

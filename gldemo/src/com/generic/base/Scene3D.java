@@ -45,7 +45,16 @@ public class Scene3D {
       }
       
       private Matrix4x4 modelToWorld;
-
+      
+      // -------------------------------
+      
+      protected void disconnect() {
+         scene = null;
+      }
+      protected void connect(Scene3D scene) {
+         this.scene = scene;
+      }
+      protected Scene3D scene;
 
       // ----------------------------------------------------
       // Group holds a list of submodels
@@ -68,6 +77,13 @@ public class Scene3D {
          }
          
          private final HashSet<Model> children;
+         
+         protected void disconnect() {
+            scene = null;
+         }
+         protected void connect(Scene3D scene) {
+            this.scene = scene;
+         }
       }
       
       // ----------------------------------------------------
@@ -79,29 +95,143 @@ public class Scene3D {
          }
          public final Mesh2 mesh;
          
-         // we've been thinking we should allow any Model to be "annotated"
-         // with any Object->Object key/value pair...
+         // -------------------------------------------------
+         // How about a separate type of "Style" object
+         // for each shader?
+         // -------------------------------------------------
          
-         private HashMap<Object,Object> annotations;
+         public interface Style {}
+         private Style style;
+         public void setStyle(Style style) {
+            this.style = style;
+         }
+         public Style getStyle() {
+            return style;
+         }
          
-         public Object getAnnotation(Object key) {
-            return annotations.get(key);
+         public static class FlatShadingBorderStyle implements Style {
+            public final Color faceColor;
+            public final Color borderColor;
+            
+            public FlatShadingBorderStyle (Color faceColor, Color borderColor) {
+               this.faceColor = faceColor;
+               this.borderColor = borderColor;
+            }
          }
-         public void setAnnotation(Object key, Object value) {
-            annotations.put(key, value);
+         public static class SmoothShadingStyle implements Style {
+            public final Color faceColor;
+            
+            public SmoothShadingStyle (Color faceColor) {
+               this.faceColor = faceColor;
+            }
          }
-         public void removeAnnotation(Object key) {
-            annotations.remove(key);
+                  
+         // -------------------------------------------------
+         // Or would we rather just expose a set of simple methods like this?
+         // -------------------------------------------------
+         
+         private Color faceColor;
+         public void setFaceColor(Color faceColor) {
+            this.faceColor = faceColor;
+         }
+         public Color getFaceColor() { 
+            return faceColor; 
+         }
+         
+         private Image textureMap;
+         public void setTextureMap(Image textureMap) {
+            this.textureMap = textureMap;
+         }
+         public Image getTextureMap() {
+            return textureMap;
+         }
+         
+         private Color borderColor;
+         public void setBorderColor(Color borderColor) {
+            this.borderColor = borderColor;
+         }
+         public Color getBorderColor() { 
+            return borderColor; 
+         }
+         
+         private boolean borderVisible;
+         public void setBorderVisible(boolean borderVisible) {
+            this.borderVisible = borderVisible;
+         }
+         public boolean getBorderVisible() { 
+            return borderVisible; 
+         }
+         
+         private boolean smoothShading;
+         public void setSmoothShading(boolean smoothShading) {
+            this.smoothShading = smoothShading;
+         }
+         public boolean getSmoothShading() { 
+            return smoothShading; 
          }
       }
-      
-
    }
    
    // ---------------------------------------------------------------
+   // Unlike GL (with its one-level set of VertexBuffers & Samplers)
+   // or Mesh2 (with its one-level set of DataLayers)..
+   //
+   // the Scene3D.Models are a full-fledged hierarchy ..
+   //    user can and should be able to construct Groups
+   //       (filled with sub Groups and MeshInstances)
+   //       before adding the Group to the root Group..
+   //       then later the user should be able to detach, and re-attach,
+   //       to represent adding or removing items from the scene...
+   //
+   // another Hierarchy we're likely to have is
+   //    the GUI.Window hierarchy.  those two should be similar, perhaps..
+   //
+   //
    // ---------------------------------------------------------------
    
+   public static class VertexBufferManager {
+      public final Mesh2.DataLayer sourceData;
+      
+      VertexBufferManager(Mesh2.DataLayer sourceData) {
+         this.sourceData = sourceData;
+      }      
+   }
    
+   private HashSet<VertexBufferManager> vertexBufferManagers;
+   
+   
+   public void render(GL gl) {
+      
+      // 1 for each vertexbuffer that our models will need,
+      //   reconstruct the vertexbuffer-data if needed,
+      //   and create/update the GL.VertexBuffer object if needed.
+      
+      // ----------------------------------------------------
+      // we could iterate over all models.
+      //    so each MeshInstance produces some VertexBufferBuilders..
+      // 
+      // except we'd like the VertexBufferBuilders to stick around,
+      //    so we don't have to rebuild them for next frame..
+      // 
+      // so there's going to be a set of vertex-buffer-managers.
+      //    (eg, the ones that stuck around from last frame),
+      //    so iterating over all models
+      //    (if we do that)
+      //    would only be to locate any *new* VertexBUfferBuilder objects..
+      //    that have appeared since last frame...
+      // ----------------------------------------------------
+      
+      // 2 for each sampler that our models will need,
+      //   reconstruct the sampler-data if needed
+      //   and create/update the GL.Sampler object if needed.
+      //
+      // 3 for each shader that our models need,
+      //   alloc the shader...
+      //
+      // 4 then for each model,
+      //   call the appropriate Shader.invoke functions...
+      // 
+   }
    
    
 }
