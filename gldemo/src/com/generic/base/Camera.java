@@ -7,10 +7,10 @@ import com.generic.base.Algebra.Vector2;
 public class Camera {
 
    public Camera(int windowWidth, int windowHeight,
-                  Vector3 lookAtPoint,
-                  Vector3 cameraPosition,
-                  Vector3 cameraUpVector,
-                  float verticalFovInDegrees) {
+                 Vector3 lookAtPoint,
+                 Vector3 cameraPosition,
+                 Vector3 cameraUpVector,
+                 float verticalFovInDegrees) {
 
       // A Camera provides a method to project from points
       // in a 3D "world space" to points on a 2D window.

@@ -1,6 +1,13 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Matrix4x4;
+import com.generic.base.Algebra.Vector2;
+import com.generic.base.Algebra.Vector3;
+import com.generic.base.Algebra.Vector4;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public interface GL {
    
@@ -35,7 +42,8 @@ public interface GL {
    // ------------------------------------------------------------------------------
    // Shader
    // ------------------------------------------------------------------------------
-   public interface Shader {
+
+   public abstract class Shader {
       
       public static class Parameter {
          public enum Type { Uniform, VertexBuffer, Sampler };
@@ -59,69 +67,57 @@ public interface GL {
          public static Parameter NORMALS    = new Parameter("normals",    Type.VertexBuffer, Data.Array.Type.NINE_FLOATS);
          public static Parameter BARYCOORDS = new Parameter("baryCoords", Type.VertexBuffer, Data.Array.Type.NINE_FLOATS);
          public static Parameter TEXCOORDS  = new Parameter("texCoords",  Type.VertexBuffer, Data.Array.Type.SIX_FLOATS);
-         
       }
-  
-      int numParameters();
-      Parameter parameter(int i);
       
-      void destroy();
+      public final List<Parameter> parameters;
+      public Shader(Parameter... parameters) {
+         this.parameters = Collections.unmodifiableList(Arrays.asList(parameters));
+      }
+      
+      abstract void shadeTriangles(int numTriangles);
+      abstract void destroy();
    }
    
-   void shadeTriangles (int numTriangles, Shader shader,
-                        Object... parameterValues);
+   void setMatrix  (Shader.Parameter parameter, Matrix4x4 m);
+   void setVector4 (Shader.Parameter parameter, Vector4 m);
+   void setVector3 (Shader.Parameter parameter, Vector3 m);
+   void setVector2 (Shader.Parameter parameter, Vector2 m);
+   void setFloat   (Shader.Parameter parameter, float f);
+   void setInteger (Shader.Parameter parameter, int i);
+   
+   void setVertexBuffer (Shader.Parameter parameter, VertexBuffer b);
+   void setSampler      (Shader.Parameter parameter, Sampler s);
+   
    
    // ---------------------------------------------------------------
    // Smooth Shader (no borders)
    // ---------------------------------------------------------------   
-   // The Shader returned will have parameters:
-   //
-   //      1. MODEL_TO_VIEW
-   //      2. VIEW_TO_CLIP
-   //      3. FACE_COLOR
-   //      5. POSITIONS
-   //      6. NORMALS
-   //
-   
-   public interface SmoothShader extends Shader {
-
-      void shadeTriangles(int numTriangles,
-                          Matrix4x4 modelToView,
-                          Matrix4x4 viewToClip,
-                          Color faceColor,
-                          VertexBuffer positions,
-                          VertexBuffer normals);
-
-   }   
+   public abstract class SmoothShader extends Shader {
+      public SmoothShader() {
+         super(Parameter.MODEL_TO_VIEW,
+               Parameter.VIEW_TO_CLIP,
+               Parameter.FACE_COLOR,
+               Parameter.POSITIONS,
+               Parameter.NORMALS);
+      }
+   }
    SmoothShader newSmoothShader ();
 
    // ---------------------------------------------------------------
    // Flat Shader With Borders
    // ---------------------------------------------------------------   
-   // The Shader returned will have parameters:
-   //      1. MODEL_TO_VIEW
-   //      2. VIEW_TO_CLIP
-   //      3. FACE_COLOR
-   //      4. BORDER_COLOR
-   //      5. POSITIONS
-   //      6. NORMALS
-   //      7. BARYCOORDS
-   //
-   public interface FlatShaderWithBorders extends Shader {
-
-      void shadeTriangles(int numTriangles,
-                          Matrix4x4 modelToView,
-                          Matrix4x4 viewToClip,
-                          Color faceColor,
-                          Color borderColor,
-                          VertexBuffer positions,
-                          VertexBuffer normals,
-                          VertexBuffer baryCoords);
-
-   }   
-   FlatShaderWithBorders newFlatShaderWithBorders ();
-
-   
+   public abstract class FlatBorderedShader extends Shader {
+      public FlatBorderedShader() {
+         super(Parameter.MODEL_TO_VIEW,
+               Parameter.VIEW_TO_CLIP,
+               Parameter.FACE_COLOR,
+               Parameter.BORDER_COLOR,
+               Parameter.POSITIONS,
+               Parameter.NORMALS,
+               Parameter.BARYCOORDS);
+      }
+   }
+   FlatBorderedShader newFlatBorderedShader (float borderThinkness);
    
    
    // -- so basically, the shading style is:

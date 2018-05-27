@@ -2,6 +2,7 @@ package com.generic.base;
 
 import com.generic.base.Algebra.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -79,10 +80,16 @@ public class Scene3D {
          private final HashSet<Model> children;
          
          protected void disconnect() {
-            scene = null;
+            super.disconnect();
+            for (Model child : children) {
+               child.disconnect();
+            }
          }
          protected void connect(Scene3D scene) {
-            this.scene = scene;
+            for (Model child : children) {
+               child.connect(scene);
+            }
+            super.connect(scene);
          }
       }
       
@@ -109,23 +116,23 @@ public class Scene3D {
             return style;
          }
          
-         public static class FlatShadingBorderStyle implements Style {
+         public static class FlatBorderedStyle implements Style {
             public final Color faceColor;
             public final Color borderColor;
             
-            public FlatShadingBorderStyle (Color faceColor, Color borderColor) {
+            public FlatBorderedStyle (Color faceColor, Color borderColor) {
                this.faceColor = faceColor;
                this.borderColor = borderColor;
             }
          }
-         public static class SmoothShadingStyle implements Style {
+         public static class SmoothStyle implements Style {
             public final Color faceColor;
             
-            public SmoothShadingStyle (Color faceColor) {
+            public SmoothStyle (Color faceColor) {
                this.faceColor = faceColor;
             }
          }
-                  
+          /*        
          // -------------------------------------------------
          // Or would we rather just expose a set of simple methods like this?
          // -------------------------------------------------
@@ -169,6 +176,7 @@ public class Scene3D {
          public boolean getSmoothShading() { 
             return smoothShading; 
          }
+         */
       }
    }
    
@@ -189,6 +197,9 @@ public class Scene3D {
    //
    // ---------------------------------------------------------------
    
+   
+   
+   // -----------------------------------------
    public static class VertexBufferManager {
       public final Mesh2.DataLayer sourceData;
       
@@ -196,8 +207,80 @@ public class Scene3D {
          this.sourceData = sourceData;
       }      
    }
-   
    private HashSet<VertexBufferManager> vertexBufferManagers;
+   
+   private interface VertexBufferProvider {
+      public GL.VertexBuffer getVertexBuffer(GL gl);
+      public void clearVertexBuffer(GL gl);
+   }
+   private HashSet<VertexBufferProvider> providers;
+
+   
+   // -----------------------------------------
+   // okay.. prime example of vertex-buffer-manager:
+   //   POSITION buffer generation.
+   
+   public static class PositionBuffer {
+      private final Mesh2.DataLayer dataLayer;
+      private final Mesh2.DataLayer.Listener listener;
+      
+      public PositionBuffer(Mesh2.DataLayer dataLayer) {
+         this.dataLayer = dataLayer;
+         dataLayer.addListener(new Mesh2.DataLayer.Listener() {
+            @Override
+            public void modified() {
+            }
+         });
+      }
+      private final Data.Array.Floats buffer;
+      
+      
+      
+      
+      
+      
+   }
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   private static class ExecutionPlan {
+      public interface Step {
+         void execute(GL gl);
+      }
+      private ArrayList<Step> steps;
+      
+      public void addStep(Step step) {
+         steps.add(step);
+      }
+      public void execute(GL gl) {
+         for (Step step : steps) {
+            step.execute(gl);
+         }
+      }
+   }
+  
+   
+   public void process (ExecutionPlan planToBuild, Model model) {
+      if (model instanceof Model.Group) {
+         Model.Group group = (Model.Group) model;
+         for (Model child : group.children()) {
+            process (planToBuild, child);
+         }
+         return;
+      }
+      
+      Model.MeshInstance meshModel = (Model.MeshInstance) model;
+   }
+   
    
    
    public void render(GL gl) {
