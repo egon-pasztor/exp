@@ -48,15 +48,23 @@ public class Scene3D {
       private Matrix4x4 modelToWorld;
       
       // -------------------------------
+      // so "getTransformation" transforms this model into the space of its parent,
+      // but if this model is not the root, we would have to "walk up the tree"
+      // in order to compute the transformation between this model and the root..
+      // (What we actually care about in rendering is the transformation between
+      // this model and the camera)
+      // -------------------------------
       
       protected void disconnect() {
          scene = null;
       }
-      protected void connect(Scene3D scene) {
+      protected void connect(Scene3D scene, Model parent) {
          this.scene = scene;
+         this.parent = parent;
       }
       protected Scene3D scene;
-
+      protected Model parent;
+      
       // ----------------------------------------------------
       // Group holds a list of submodels
       // ----------------------------------------------------
@@ -85,11 +93,11 @@ public class Scene3D {
                child.disconnect();
             }
          }
-         protected void connect(Scene3D scene) {
+         protected void connect(Scene3D scene, Model parent) {
             for (Model child : children) {
-               child.connect(scene);
+               child.connect(scene, this);
             }
-            super.connect(scene);
+            super.connect(scene, parent);
          }
       }
       
@@ -101,6 +109,14 @@ public class Scene3D {
             this.mesh = mesh;
          }
          public final Mesh2 mesh;
+         
+         private String positionLayerName;
+         public void setPositionLayerName(String positionLayerName) {
+            this.positionLayerName = positionLayerName;
+         }
+         public String getPositionLayerName() {
+            return positionLayerName;
+         }
          
          // -------------------------------------------------
          // How about a separate type of "Style" object
@@ -117,22 +133,20 @@ public class Scene3D {
          }
          
          public static class FlatBorderedStyle implements Style {
-            public final Color faceColor;
-            public final Color borderColor;
-            
-            public FlatBorderedStyle (Color faceColor, Color borderColor) {
-               this.faceColor = faceColor;
-               this.borderColor = borderColor;
+            public Color faceColor;
+            public Color borderColor;
+            public final float borderThickness;
+            public FlatBorderedStyle (float borderThickness) {
+               this.borderThickness = borderThickness;
             }
          }
          public static class SmoothStyle implements Style {
-            public final Color faceColor;
-            
-            public SmoothStyle (Color faceColor) {
-               this.faceColor = faceColor;
-            }
+            public Color faceColor;            
+            public SmoothStyle () {}
          }
-          /*        
+         
+         
+         /*        
          // -------------------------------------------------
          // Or would we rather just expose a set of simple methods like this?
          // -------------------------------------------------
@@ -198,58 +212,66 @@ public class Scene3D {
    // ---------------------------------------------------------------
    
    
-   
-   // -----------------------------------------
-   public static class VertexBufferManager {
-      public final Mesh2.DataLayer sourceData;
-      
-      VertexBufferManager(Mesh2.DataLayer sourceData) {
-         this.sourceData = sourceData;
-      }      
-   }
-   private HashSet<VertexBufferManager> vertexBufferManagers;
-   
-   private interface VertexBufferProvider {
-      public GL.VertexBuffer getVertexBuffer(GL gl);
-      public void clearVertexBuffer(GL gl);
-   }
-   private HashSet<VertexBufferProvider> providers;
-
-   
    // -----------------------------------------
    // okay.. prime example of vertex-buffer-manager:
    //   POSITION buffer generation.
-   
+   // -----------------------------------------
    public static class PositionBuffer {
+      
       private final Mesh2.DataLayer dataLayer;
       private final Mesh2.DataLayer.Listener listener;
       
       public PositionBuffer(Mesh2.DataLayer dataLayer) {
-         this.dataLayer = dataLayer;
-         dataLayer.addListener(new Mesh2.DataLayer.Listener() {
+         this.dataLayer = dataLayer;         
+         this.rebuildNeeded = true;
+         // NOTES: 1.  annoying we have to keep <listener> just so we can delete it..
+         listener = new Mesh2.DataLayer.Listener() {
             @Override
             public void modified() {
+               rebuildNeeded = true;
             }
-         });
+         };
+         dataLayer.addListener(listener);
       }
-      private final Data.Array.Floats buffer;
+      public void destroy() {
+         dataLayer.removeListener(listener);
+      }      
+      private boolean rebuildNeeded;
+      private Data.Array.Floats positions;
       
+      // -------------------------------------------------
+      // we're assuming PositionBuffer will need this "referenceCount" thing..
+      // -------------------------------------------------
+      public interface Reference {
+         public void setVertexBuffer(GL.VertexBuffer buffer);
+      }
+      private ArrayList<Reference> references;
+      public void clearReferences() {
+         references.clear();
+      }
+      public void addReference(Reference ref) {
+         references.add(ref);
+      }
       
-      
-      
-      
-      
+      // -------------------------------------------------      
+      private HashMap<GL, GL.VertexBuffer> buffers;      
    }
 
+   private HashMap<Mesh2.DataLayer, PositionBuffer> positionBuffers;
    
+   public PositionBuffer getOrCreatePositionBuffer(Mesh2.DataLayer dataLayer) {
+      PositionBuffer result = null;
+      if (positionBuffers.containsKey(dataLayer)) {
+         result = positionBuffers.get(dataLayer);
+      } else {
+         result = new PositionBuffer(dataLayer);
+         positionBuffers.put(dataLayer, result);
+      }
+      return result;
+   }
    
-   
-   
-   
-   
-   
-   
-   
+
+   // okay.. again...
    
    
    private static class ExecutionPlan {
@@ -267,52 +289,91 @@ public class Scene3D {
          }
       }
    }
-  
    
-   public void process (ExecutionPlan planToBuild, Model model) {
+   public void traverse (Model model, 
+                         Matrix4x4 projMatrix, 
+                         Matrix4x4 viewMatrix, 
+                         ExecutionPlan accumulator) {
+      
+      viewMatrix = Matrix4x4.product(viewMatrix, model.getTransformation());
+      
       if (model instanceof Model.Group) {
          Model.Group group = (Model.Group) model;
          for (Model child : group.children()) {
-            process (planToBuild, child);
+            traverse (child, projMatrix, viewMatrix, accumulator);
          }
          return;
       }
       
       Model.MeshInstance meshModel = (Model.MeshInstance) model;
+      
+      // -----------------------------------
+      // locate position-vector-generator
+      // -----------------------------------
+      // While some models might not need Position in the future,
+      // right now every model needs Position.  It's based on a DataLayer:
+      
+      { Mesh2.DataLayer dataLayer = meshModel.mesh.dataLayer(
+            meshModel.getPositionLayerName(), 
+            Mesh2.DataLayer.Type.THREE_FLOATS_PER_VERTEX);
+      
+        if (dataLayer == null) {
+           // Mesh doesn't have the requested position-layer
+           return;
+        }
+        
+        // Okay the Mesh DOES have the position-layer,
+        // this will either lookup the PositionBuffer object, or else create it.
+        PositionBuffer positionBuffer =
+              getOrCreatePositionBuffer(dataLayer);
+        
+      }
+      
+      // ------------------------------------------      
+      // Now then... What shader is this model using?
+      // ------------------------------------------
+      if (meshModel.style instanceof Model.MeshInstance.SmoothStyle) {
+         // And this model is using SmoothStyle.
+         
+         
+      }
+      if (meshModel.style instanceof Model.MeshInstance.FlatBorderedStyle) {
+         // And this model is using FlatBorderedStyle.
+         
+         
+      }
+      
    }
    
    
-   
-   public void render(GL gl) {
+   public void render(Camera camera, GL gl) {
       
-      // 1 for each vertexbuffer that our models will need,
-      //   reconstruct the vertexbuffer-data if needed,
-      //   and create/update the GL.VertexBuffer object if needed.
+      // 1. Set all "gl resources" reference-count to zero.
+      //    TODO: this will require clearing All VertexBuffers,
+      //                                 and All Shaders,
+      //                                 and All Samplers...
+      //    but for now we're doing this with *just* "position" VertexBuffers:
+      for (PositionBuffer positionBuffer : positionBuffers.values()) {
+         positionBuffer.clearReferences();
+      }
       
-      // ----------------------------------------------------
-      // we could iterate over all models.
-      //    so each MeshInstance produces some VertexBufferBuilders..
-      // 
-      // except we'd like the VertexBufferBuilders to stick around,
-      //    so we don't have to rebuild them for next frame..
-      // 
-      // so there's going to be a set of vertex-buffer-managers.
-      //    (eg, the ones that stuck around from last frame),
-      //    so iterating over all models
-      //    (if we do that)
-      //    would only be to locate any *new* VertexBUfferBuilder objects..
-      //    that have appeared since last frame...
-      // ----------------------------------------------------
+      // 2. Traverse models in a process that prepares an execution-plan,
+      //    but also calls getOrCreate for all needed "gl resources".
+      ExecutionPlan plan = new ExecutionPlan();
+      traverse (root, camera.cameraToClipSpace, camera.worldToCameraSpace, plan);
       
-      // 2 for each sampler that our models will need,
-      //   reconstruct the sampler-data if needed
-      //   and create/update the GL.Sampler object if needed.
+      // 3. All "gl-resources" whose reference count is STILL zero should
+      //    be destroyed.
       //
-      // 3 for each shader that our models need,
-      //   alloc the shader...
+      // 4. All "gl-resources" remaining should (rebuild if needed)
+      //    allocate gl-specific object.
+      
+      // 5. "Sort" execution-plan steps by shader, perhaps..
+      //    and secondly by position ..??
       //
-      // 4 then for each model,
-      //   call the appropriate Shader.invoke functions...
+      // 6. "Execute" the execution-plan's steps..
+      //    Each step will need access to some "gl-resources"..
+      //
       // 
    }
    

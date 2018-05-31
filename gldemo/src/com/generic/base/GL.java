@@ -39,10 +39,46 @@ public interface GL {
    }
    Sampler newSampler (Image image);
 
-   // ------------------------------------------------------------------------------
-   // Shader
-   // ------------------------------------------------------------------------------
+   // ==============================================================================
+   // Shaders
+   // ==============================================================================
+   
+   public interface Shader {
+      void shadeTriangles(int numTriangles);
+      void destroy();
+   }
+   
+   // ---------------------------------------------------------------
+   // Smooth Shader (no borders)
+   // ---------------------------------------------------------------   
+   public interface SmoothShader extends Shader {
+      public void setModelToView (Matrix4x4 transformation);
+      public void setViewToClip  (Matrix4x4 transformation);
+      public void setFaceColor   (Color faceColor);
+      
+      public void setPositions (VertexBuffer buffer);
+      public void setNormals   (VertexBuffer buffer);
+   }
+   SmoothShader newSmoothShader ();
 
+   // ---------------------------------------------------------------
+   // Flat Shader With Borders
+   // ---------------------------------------------------------------   
+   public interface FlatBorderedShader extends Shader {
+      public void setModelToView (Matrix4x4 transformation);
+      public void setViewToClip  (Matrix4x4 transformation);
+      public void setFaceColor   (Color faceColor);
+      public void setBorderColor (Color faceColor);
+      
+      public void setPositions  (VertexBuffer buffer);
+      public void setNormals    (VertexBuffer buffer);
+      public void setBaryCoords (VertexBuffer buffer);
+   }
+   FlatBorderedShader newFlatBorderedShader (float borderThickness);
+   
+   
+   
+/*
    public abstract class Shader {
       
       public static class Parameter {
@@ -119,7 +155,7 @@ public interface GL {
    }
    FlatBorderedShader newFlatBorderedShader (float borderThinkness);
    
-   
+   */
    // -- so basically, the shading style is:
    //      Basic 
    //         3x  (uniform bgColor) or 
