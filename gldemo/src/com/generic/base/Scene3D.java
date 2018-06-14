@@ -106,16 +106,16 @@ public class Scene3D {
          private final HashSet<Model> children;
          
          protected void disconnect() {
-            super.disconnect();
             for (Model child : children) {
                child.disconnect();
             }
+            super.disconnect();
          }
          protected void connect(Scene3D scene, Model parent) {
+            super.connect(scene, parent);
             for (Model child : children) {
                child.connect(scene, this);
             }
-            super.connect(scene, parent);
          }
       }
       
@@ -143,12 +143,45 @@ public class Scene3D {
          
          public interface Style {}
          private Style style;
+         private MeshInstanceRenderer renderer;
+         
          public void setStyle(Style style) {
-            this.style = style;
+            if (this.style != style) {
+               if (renderer != null) {
+                  renderer.disconnect();
+                  renderer = null;
+               }
+               this.style = style;
+               if (renderer != null) {
+                  renderer.disconnect();
+                  renderer = null;
+               }
+            }
          }
          public Style getStyle() {
             return style;
          }
+         protected void disconnect() {
+            if (renderer != null) {
+               renderer.disconnect();
+               renderer = null;
+            }
+            super.disconnect();
+         }
+         protected void connect(Scene3D scene, Model parent) {
+            super.connect(scene, parent);
+            if (renderer != null) {
+               renderer.disconnect();
+               renderer = null;
+            }
+         }
+         
+         private MeshInstanceRenderer newRendererForStyle(Style style) {
+            if (style instanceof FlatBorderedStyle) {
+               
+            }
+         }
+         
          
          public static class FlatBorderedStyle implements Style {
             public Color faceColor;
@@ -207,8 +240,8 @@ public class Scene3D {
          super(scene);
       }
       public abstract GL.Shader getResource();
-      public abstract void clear();
-      public abstract void update(GL gl);
+      public abstract void clearGL  ();
+      public abstract void updateGL (GL gl);
    }
 
    // - - - - - - - - - - - - - - - -
@@ -263,8 +296,8 @@ public class Scene3D {
       }
       protected GL.FlatBorderedShader shader;
       public GL.FlatBorderedShader getResource() { return shader; }      
-      public void clear() { shader = null; }      
-      public void update(GL gl) {
+      public void clearGL  () { shader = null; }      
+      public void updateGL (GL gl) {
          shader = gl.newFlatBorderedShader(borderThickness);
       }
    }
@@ -300,13 +333,15 @@ public class Scene3D {
          this.layer = layer;
          this.layerChangeNotifier = new Mesh2.DataLayer.Listener() {
             public void modified() {
-               
+               bufferDataNeedsRecomputing = true;
             }
          };
-         this.layer.addListener(layerChangeNotifier);
-         this.bufferData = new Data.Array.Floats(floatsPerVertex);
+         layer.addListener(layerChangeNotifier);
+         bufferData = new Data.Array.Floats(floatsPerVertex);
          bufferDataNeedsRecomputing = true;
          resourceNeedsUpdate = true;
+         
+         vertexBuffer = null;
       }
       
       private final Mesh2.DataLayer layer;
@@ -330,67 +365,11 @@ public class Scene3D {
 
 
    // - - - - - - - - - - - - - - - -
-   // 1. BaryCoordsProvider
-   // - - - - - - - - - - - - - - - -
-   /*
-   public static class BaryCoordsProvider extends VertexBufferProvider {
-      protected BaryCoordsProvider(Scene3D scene) {
-         super(scene);
-         // how does BaryCoordsProvider get notified as to what size to be?
-         // the size must be ... the max of all the ... requested sizes.
-         //
-         // so, each MeshInstance that's connected...
-         //    has a particular Mesh it's presumably watching.
-         //    When it connects, if its Style requires a BaryCoords,
-         //      the Renderer should call getBaryCoordsProvider and
-         //      add itself as a Reference.  
-         //    
-      }
-      
-      // ????
-
-      protected GL.VertexBuffer resource;
-      public GL.VertexBuffer getResource() { return resource; }
-      
-      public void clear() {
-         // ????
-      }
-      public void update(GL gl) {
-         // ????
-      }
-   }
-   public BaryCoordsProvider getBaryCoordsProvider() {
-      BaryCoordsProvider result = baryCoordsProvider;
-      if (result == null) {
-         result = new BaryCoordsProvider(this);
-      }
-      return result;
-   }
-   BaryCoordsProvider baryCoordsProvider = null;
-   */
-   
-   // - - - - - - - - - - - - - - - -
    // 2. DataLayer processing..
    // - - - - - - - - - - - - - - - -
-   public static abstract class DataLayerTransformer extends VertexBufferProvider {
-      protected DataLayerTransformer(Scene3D scene, Mesh2.DataLayer layer) {
-         super(scene);
-         // register listener on DataLayer...
-         // the listener should ensure that DataLayer changes (including size changes)
-         //    will eventually ... set a needs_update flag ...
-         //    which causes the next call to "update" to rebuild the buffer.
-      }
-      
-      // ????
-
-      protected GL.VertexBuffer resource;
-      public GL.VertexBuffer getResource() { return resource; }
-      
-      public void clear() {
-         // ????
-      }
-      public void update(GL gl) {
-         // ????
+   public static class DataLayerTransformer extends VertexBufferProvider {
+      public DataLayerTransformer(Scene3D scene, Mesh2.DataLayer layer) {
+         super(scene, layer, 4);
       }
    }
    
@@ -406,14 +385,25 @@ public class Scene3D {
    // So... perhaps each MeshInstance will have a ShaderInvocator
    // -----------------------------------------------   
    
-   public interface ShaderInvoker {
-      void invoke();
+   private abstract static class MeshInstanceRenderer {
+      protected final Scene3D scene;
+      protected final Model.MeshInstance model;
+      
+      protected MeshInstanceRenderer(Scene3D scene, Model.MeshInstance model) {
+         this.scene = scene;
+         this.model = model;
+      }      
+      public abstract void render();
+      public abstract void disconnect();      
    }
    
-   public static class FlatBorderedShaderInvoker implements ShaderInvoker {
-      private GL.FlatBorderedShader shader;
-      private int numTriangles;
+   public static class FlatBorderedRenderer extends MeshInstanceRenderer {
+      FlatBorderedRenderer(Scene3D scene, Model.MeshInstance model) {
+         super(scene, model);
+      }
       
+      private GL.FlatBorderedShader shader;
+      private int numTriangles;      
       private Matrix4x4 modelToView;
       private Matrix4x4 viewToClip;
       private Color faceColor;
@@ -422,7 +412,7 @@ public class Scene3D {
       private GL.VertexBuffer normals;
       private GL.VertexBuffer baryCoords;
       
-      public void invoke() {
+      public void render() {
          shader.setModelToView(modelToView);
          shader.setViewToClip(viewToClip);
          shader.setFaceColor(faceColor);
@@ -432,9 +422,14 @@ public class Scene3D {
          shader.setBaryCoords(baryCoords);
          shader.shadeTriangles(numTriangles);
       }
+      public void disconnect() {}
    }
    
-   public static class SmoothShaderInvoker implements ShaderInvoker {
+   public static class SmoothRenderer extends MeshInstanceRenderer {
+      SmoothRenderer(Scene3D scene, Model.MeshInstance model) {
+         super(scene, model);
+      }
+      
       private GL.SmoothShader shader;
       private int numTriangles;
       
@@ -444,7 +439,7 @@ public class Scene3D {
       private GL.VertexBuffer positions;
       private GL.VertexBuffer normals;
       
-      public void invoke() {
+      public void render() {
          shader.setModelToView(modelToView);
          shader.setViewToClip(viewToClip);
          shader.setFaceColor(faceColor);
@@ -452,8 +447,8 @@ public class Scene3D {
          shader.setNormals(normals);
          shader.shadeTriangles(numTriangles);
       }
+      public void disconnect() {}
    }
-   
    
    
    // -----------------------------------------
