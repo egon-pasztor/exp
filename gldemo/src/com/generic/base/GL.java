@@ -14,38 +14,39 @@ public interface GL {
    void setViewport (int width, int height);
    void clear (Color color);
    
+   // ==============================================================================
+   // Resources
+   // ==============================================================================
+   public interface Resource {
+      void destroy();
+   }
+   
    // ------------------------------------------
    // VertexBuffer
    // ------------------------------------------
-   public interface VertexBuffer {
+   public interface VertexBuffer extends Resource {
       Data.Array.Type type();
       int numElements();
-      
       void update(Data.Array data);
-      void destroy();
    }
    VertexBuffer newVertexBuffer (Data.Array data);
    
    // ------------------------------------------
    // Sampler
    // ------------------------------------------
-   public interface Sampler {
+   public interface Sampler extends Resource {
       Data.Array.Type type();
       int width();
       int height();
-      
       void update(Image image);
-      void destroy();
    }
    Sampler newSampler (Image image);
 
    // ==============================================================================
    // Shaders
-   // ==============================================================================
-   
-   public interface Shader {
+   // ==============================================================================   
+   public interface Shader extends Resource {
       void shadeTriangles(int numTriangles);
-      void destroy();
    }
    
    // ---------------------------------------------------------------

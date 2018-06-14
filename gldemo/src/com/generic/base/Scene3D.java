@@ -10,6 +10,7 @@ public class Scene3D {
 
    public Scene3D() {
       root = new Model.Group();
+      root.connect(this, null);
    }
    
    public Model root() {
@@ -62,6 +63,9 @@ public class Scene3D {
          this.scene = scene;
          this.parent = parent;
       }
+      public boolean connected() {
+         return scene != null;
+      }
       protected Scene3D scene;
       protected Model parent;
       
@@ -79,9 +83,23 @@ public class Scene3D {
             return children;
          }
          public void addChild(Model child) {
+            if (child.parent != null) {
+               throw new RuntimeException(
+                  "Attempt to add child that's already connected.");
+            }
             children.add(child);
+            if (connected()) {
+               child.connect(scene, this);
+            }
          }
          public void removeChild(Model child) {
+            if (child.parent != this) {
+               throw new RuntimeException(
+                     "Attempt to remove child that's not connected.");
+            }
+            if (connected()) {
+               child.disconnect();
+            }
             children.remove(child);
          }
          
@@ -144,72 +162,298 @@ public class Scene3D {
             public Color faceColor;            
             public SmoothStyle () {}
          }
-         
-         
-         /*        
-         // -------------------------------------------------
-         // Or would we rather just expose a set of simple methods like this?
-         // -------------------------------------------------
-         
-         private Color faceColor;
-         public void setFaceColor(Color faceColor) {
-            this.faceColor = faceColor;
-         }
-         public Color getFaceColor() { 
-            return faceColor; 
-         }
-         
-         private Image textureMap;
-         public void setTextureMap(Image textureMap) {
-            this.textureMap = textureMap;
-         }
-         public Image getTextureMap() {
-            return textureMap;
-         }
-         
-         private Color borderColor;
-         public void setBorderColor(Color borderColor) {
-            this.borderColor = borderColor;
-         }
-         public Color getBorderColor() { 
-            return borderColor; 
-         }
-         
-         private boolean borderVisible;
-         public void setBorderVisible(boolean borderVisible) {
-            this.borderVisible = borderVisible;
-         }
-         public boolean getBorderVisible() { 
-            return borderVisible; 
-         }
-         
-         private boolean smoothShading;
-         public void setSmoothShading(boolean smoothShading) {
-            this.smoothShading = smoothShading;
-         }
-         public boolean getSmoothShading() { 
-            return smoothShading; 
-         }
-         */
       }
    }
    
-   // ---------------------------------------------------------------
-   // Unlike GL (with its one-level set of VertexBuffers & Samplers)
-   // or Mesh2 (with its one-level set of DataLayers)..
-   //
-   // the Scene3D.Models are a full-fledged hierarchy ..
-   //    user can and should be able to construct Groups
-   //       (filled with sub Groups and MeshInstances)
-   //       before adding the Group to the root Group..
-   //       then later the user should be able to detach, and re-attach,
-   //       to represent adding or removing items from the scene...
-   //
-   // another Hierarchy we're likely to have is
-   //    the GUI.Window hierarchy.  those two should be similar, perhaps..
-   //
-   //
-   // ---------------------------------------------------------------
+   
+   // ##############################################################
+   // ResourceProvider
+   // ##############################################################
+   
+   private static abstract class ResourceProvider {      
+      protected ResourceProvider(Scene3D scene) {
+         this.scene = scene;
+         this.references = new HashSet<Object>();
+         scene.providers.add(this);
+      }
+      
+      public final Scene3D scene;
+      private final HashSet<Object> references;
+      
+      public void addReference(Object object) {
+         references.add(object);
+      }
+      public void removeReference(Object object) {
+         references.remove(object);
+      }
+      public void destroy() {
+         GL.Resource resource = getResource();
+         if (resource != null) resource.destroy();
+         scene.providers.remove(this);
+      }
+      
+      public abstract GL.Resource getResource();
+      public abstract void clearGL  ();
+      public abstract void updateGL (GL gl);
+   }
+   private HashSet<ResourceProvider> providers = new HashSet<ResourceProvider>();
+   
+
+   // -----------------------------------------------
+   // Shader Providers
+   // -----------------------------------------------
+   private static abstract class ShaderProvider extends ResourceProvider {      
+      protected ShaderProvider(Scene3D scene) {
+         super(scene);
+      }
+      public abstract GL.Shader getResource();
+      public abstract void clear();
+      public abstract void update(GL gl);
+   }
+
+   // - - - - - - - - - - - - - - - -
+   // 1. SmoothShaderProvider
+   // - - - - - - - - - - - - - - - -
+   private static class SmoothShaderProvider extends ShaderProvider {
+      protected SmoothShaderProvider(Scene3D scene) {
+         super(scene);
+         scene.smoothShaderProvider = this;
+      }
+      public void destroy() {
+         scene.smoothShaderProvider = null;
+         super.destroy();
+      }
+      protected GL.SmoothShader shader;
+      public GL.SmoothShader getResource() { return shader; }      
+      public void clearGL () { 
+         if (shader != null) {
+            shader.destroy();  //??
+         }
+         shader = null;
+      }
+      public void updateGL (GL gl) {
+         if (shader == null) {
+            shader = gl.newSmoothShader();
+         }
+      }
+   }
+   private SmoothShaderProvider getSmoothShaderProvider() {
+      SmoothShaderProvider result = smoothShaderProvider;
+      if (result == null) {
+         result = new SmoothShaderProvider(this);
+      }
+      return result;
+   }
+   private SmoothShaderProvider smoothShaderProvider = null;   
+   
+   // - - - - - - - - - - - - - - - -
+   // 2. FlatBorderedShaderProvider
+   // - - - - - - - - - - - - - - - -
+   private static class FlatBorderedShaderProvider extends ShaderProvider {
+      protected FlatBorderedShaderProvider(Scene3D scene, float borderThickness) {
+         super(scene);
+         this.borderThickness = borderThickness; 
+         scene.flatBorderedShaderProviders.put(borderThickness, this);
+      }
+      private final float borderThickness;
+      
+      public void destroy() {
+         scene.flatBorderedShaderProviders.remove(borderThickness);
+         super.destroy();
+      }
+      protected GL.FlatBorderedShader shader;
+      public GL.FlatBorderedShader getResource() { return shader; }      
+      public void clear() { shader = null; }      
+      public void update(GL gl) {
+         shader = gl.newFlatBorderedShader(borderThickness);
+      }
+   }
+   private FlatBorderedShaderProvider getFlatBorderedShaderProvider(float borderThickness) {
+      FlatBorderedShaderProvider result = flatBorderedShaderProviders.get(borderThickness);
+      if (result == null) {
+         result = new FlatBorderedShaderProvider(this, borderThickness);
+      }
+      return result;
+   }   
+   private HashMap<Float, FlatBorderedShaderProvider> flatBorderedShaderProviders
+     = new HashMap<Float, FlatBorderedShaderProvider>();
+   
+   
+   // -----------------------------------------------   
+   // VertexBuffer Providers
+   // -----------------------------------------------
+   public static abstract class VertexBufferProvider extends ResourceProvider {
+      public static class Key {
+         public final Mesh2.DataLayer layer;
+         public final Class<? extends VertexBufferProvider> providerClass;
+         
+         public Key (Mesh2.DataLayer layer,
+                     Class<? extends VertexBufferProvider> providerClass) {
+            this.layer = layer;
+            this.providerClass = providerClass;
+         }
+      }
+      
+      
+      protected VertexBufferProvider(Scene3D scene, Mesh2.DataLayer layer, int floatsPerVertex) {
+         super(scene);
+         this.layer = layer;
+         this.layerChangeNotifier = new Mesh2.DataLayer.Listener() {
+            public void modified() {
+               
+            }
+         };
+         this.layer.addListener(layerChangeNotifier);
+         this.bufferData = new Data.Array.Floats(floatsPerVertex);
+         bufferDataNeedsRecomputing = true;
+         resourceNeedsUpdate = true;
+      }
+      
+      private final Mesh2.DataLayer layer;
+      private final Mesh2.DataLayer.Listener layerChangeNotifier;
+      
+      protected final Data.Array.Floats bufferData;
+      private boolean bufferDataNeedsRecomputing;
+      private boolean resourceNeedsUpdate;      
+
+      public void destroy() {
+         // 
+         super.destroy();
+      }
+      
+      protected GL.VertexBuffer vertexBuffer;
+      public GL.VertexBuffer getResource() { return vertexBuffer; }
+      
+      public void clearGL () {}
+      public void updateGL (GL gl) {}
+   }
+
+
+   // - - - - - - - - - - - - - - - -
+   // 1. BaryCoordsProvider
+   // - - - - - - - - - - - - - - - -
+   /*
+   public static class BaryCoordsProvider extends VertexBufferProvider {
+      protected BaryCoordsProvider(Scene3D scene) {
+         super(scene);
+         // how does BaryCoordsProvider get notified as to what size to be?
+         // the size must be ... the max of all the ... requested sizes.
+         //
+         // so, each MeshInstance that's connected...
+         //    has a particular Mesh it's presumably watching.
+         //    When it connects, if its Style requires a BaryCoords,
+         //      the Renderer should call getBaryCoordsProvider and
+         //      add itself as a Reference.  
+         //    
+      }
+      
+      // ????
+
+      protected GL.VertexBuffer resource;
+      public GL.VertexBuffer getResource() { return resource; }
+      
+      public void clear() {
+         // ????
+      }
+      public void update(GL gl) {
+         // ????
+      }
+   }
+   public BaryCoordsProvider getBaryCoordsProvider() {
+      BaryCoordsProvider result = baryCoordsProvider;
+      if (result == null) {
+         result = new BaryCoordsProvider(this);
+      }
+      return result;
+   }
+   BaryCoordsProvider baryCoordsProvider = null;
+   */
+   
+   // - - - - - - - - - - - - - - - -
+   // 2. DataLayer processing..
+   // - - - - - - - - - - - - - - - -
+   public static abstract class DataLayerTransformer extends VertexBufferProvider {
+      protected DataLayerTransformer(Scene3D scene, Mesh2.DataLayer layer) {
+         super(scene);
+         // register listener on DataLayer...
+         // the listener should ensure that DataLayer changes (including size changes)
+         //    will eventually ... set a needs_update flag ...
+         //    which causes the next call to "update" to rebuild the buffer.
+      }
+      
+      // ????
+
+      protected GL.VertexBuffer resource;
+      public GL.VertexBuffer getResource() { return resource; }
+      
+      public void clear() {
+         // ????
+      }
+      public void update(GL gl) {
+         // ????
+      }
+   }
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   // -----------------------------------------------   
+   // So... perhaps each MeshInstance will have a ShaderInvocator
+   // -----------------------------------------------   
+   
+   public interface ShaderInvoker {
+      void invoke();
+   }
+   
+   public static class FlatBorderedShaderInvoker implements ShaderInvoker {
+      private GL.FlatBorderedShader shader;
+      private int numTriangles;
+      
+      private Matrix4x4 modelToView;
+      private Matrix4x4 viewToClip;
+      private Color faceColor;
+      private Color borderColor;
+      private GL.VertexBuffer positions;
+      private GL.VertexBuffer normals;
+      private GL.VertexBuffer baryCoords;
+      
+      public void invoke() {
+         shader.setModelToView(modelToView);
+         shader.setViewToClip(viewToClip);
+         shader.setFaceColor(faceColor);
+         shader.setBorderColor(borderColor);
+         shader.setPositions(positions);
+         shader.setNormals(normals);
+         shader.setBaryCoords(baryCoords);
+         shader.shadeTriangles(numTriangles);
+      }
+   }
+   
+   public static class SmoothShaderInvoker implements ShaderInvoker {
+      private GL.SmoothShader shader;
+      private int numTriangles;
+      
+      private Matrix4x4 modelToView;
+      private Matrix4x4 viewToClip;
+      private Color faceColor;
+      private GL.VertexBuffer positions;
+      private GL.VertexBuffer normals;
+      
+      public void invoke() {
+         shader.setModelToView(modelToView);
+         shader.setViewToClip(viewToClip);
+         shader.setFaceColor(faceColor);
+         shader.setPositions(positions);
+         shader.setNormals(normals);
+         shader.shadeTriangles(numTriangles);
+      }
+   }
+   
    
    
    // -----------------------------------------
