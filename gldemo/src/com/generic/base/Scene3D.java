@@ -1,10 +1,12 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.*;
+import com.generic.base.Data.Array.Type;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Objects;
 
 public class Scene3D {
 
@@ -137,51 +139,10 @@ public class Scene3D {
          }
          
          // -------------------------------------------------
-         // How about a separate type of "Style" object
-         // for each shader?
+         // Style
          // -------------------------------------------------
          
          public interface Style {}
-         private Style style;
-         private MeshInstanceRenderer renderer;
-         
-         public void setStyle(Style style) {
-            if (this.style != style) {
-               if (renderer != null) {
-                  renderer.disconnect();
-                  renderer = null;
-               }
-               this.style = style;
-               if (renderer != null) {
-                  renderer.disconnect();
-                  renderer = null;
-               }
-            }
-         }
-         public Style getStyle() {
-            return style;
-         }
-         protected void disconnect() {
-            if (renderer != null) {
-               renderer.disconnect();
-               renderer = null;
-            }
-            super.disconnect();
-         }
-         protected void connect(Scene3D scene, Model parent) {
-            super.connect(scene, parent);
-            if (renderer != null) {
-               renderer.disconnect();
-               renderer = null;
-            }
-         }
-         
-         private MeshInstanceRenderer newRendererForStyle(Style style) {
-            if (style instanceof FlatBorderedStyle) {
-               
-            }
-         }
-         
          
          public static class FlatBorderedStyle implements Style {
             public Color faceColor;
@@ -195,9 +156,50 @@ public class Scene3D {
             public Color faceColor;            
             public SmoothStyle () {}
          }
+         
+         // -------------------------------------------------
+         private Style style;
+         private MeshInstanceRenderer renderer;
+         
+         public Style getStyle() {
+            return style;
+         }
+         public void setStyle(Style style) {
+            if (this.style != style) {
+               if (connected()) {
+                  disconnectRenderer();
+               }
+               this.style = style;
+               if (connected()) {
+                  connectRencderer();
+               }
+            }
+         }
+         
+         protected void disconnect() {
+            disconnectRenderer();
+            super.disconnect();
+         }
+         protected void connect(Scene3D scene, Model parent) {
+            super.connect(scene, parent);
+            connectRencderer();
+         }
+         private void disconnectRenderer() {
+            if (renderer != null) {
+               renderer.disconnect();
+               renderer = null;
+            }
+         }
+         private void connectRencderer() {
+            if (style instanceof FlatBorderedStyle) {
+               renderer = new FlatBorderedRenderer(scene, this);
+            }
+            if (style instanceof SmoothStyle) {
+               renderer = new SmoothRenderer(scene, this);
+            }
+         }
       }
    }
-   
    
    // ##############################################################
    // ResourceProvider
@@ -207,7 +209,7 @@ public class Scene3D {
       protected ResourceProvider(Scene3D scene) {
          this.scene = scene;
          this.references = new HashSet<Object>();
-         scene.providers.add(this);
+         scene.resourceProviders.add(this);
       }
       
       public final Scene3D scene;
@@ -222,14 +224,14 @@ public class Scene3D {
       public void destroy() {
          GL.Resource resource = getResource();
          if (resource != null) resource.destroy();
-         scene.providers.remove(this);
+         scene.resourceProviders.remove(this);
       }
       
       public abstract GL.Resource getResource();
       public abstract void clearGL  ();
       public abstract void updateGL (GL gl);
    }
-   private HashSet<ResourceProvider> providers = new HashSet<ResourceProvider>();
+   private HashSet<ResourceProvider> resourceProviders = new HashSet<ResourceProvider>();
    
 
    // -----------------------------------------------
@@ -248,23 +250,32 @@ public class Scene3D {
    // 1. SmoothShaderProvider
    // - - - - - - - - - - - - - - - -
    private static class SmoothShaderProvider extends ShaderProvider {
+      // ----------------------------------      
+      protected GL.SmoothShader shader;
+      public GL.SmoothShader getResource() { return shader; }
+      // ----------------------------------      
+
       protected SmoothShaderProvider(Scene3D scene) {
+         // Constructor is called to connect us to the scene,
+         // and initialize the resource to NULL
          super(scene);
          scene.smoothShaderProvider = this;
+         shader = null;
       }
       public void destroy() {
+         // Destroy is called when we need to disconnect.
+         // (super.destroy calls destroy on the resource, if non-null)
          scene.smoothShaderProvider = null;
          super.destroy();
       }
-      protected GL.SmoothShader shader;
-      public GL.SmoothShader getResource() { return shader; }      
-      public void clearGL () { 
-         if (shader != null) {
-            shader.destroy();  //??
-         }
+      public void clearGL () {
+         // ClearGL is called when GL has LOST all its resources,
+         // so we need to forget them on our end...
          shader = null;
       }
       public void updateGL (GL gl) {
+         // UpdateGL is called when we need to make sure our
+         // resource is ready for use
          if (shader == null) {
             shader = gl.newSmoothShader();
          }
@@ -283,22 +294,37 @@ public class Scene3D {
    // 2. FlatBorderedShaderProvider
    // - - - - - - - - - - - - - - - -
    private static class FlatBorderedShaderProvider extends ShaderProvider {
+      // ----------------------------------      
+      private final float borderThickness;
+      protected GL.FlatBorderedShader shader;
+      public GL.FlatBorderedShader getResource() { return shader; }      
+      // ----------------------------------      
+      
       protected FlatBorderedShaderProvider(Scene3D scene, float borderThickness) {
+         // Constructor is called to connect us to the scene,
+         // and initialize the resource to NULL
          super(scene);
          this.borderThickness = borderThickness; 
          scene.flatBorderedShaderProviders.put(borderThickness, this);
+         shader = null;
       }
-      private final float borderThickness;
-      
       public void destroy() {
+         // Destroy is called when we need to disconnect.
+         // (super.destroy calls destroy on the resource, if non-null)
          scene.flatBorderedShaderProviders.remove(borderThickness);
          super.destroy();
       }
-      protected GL.FlatBorderedShader shader;
-      public GL.FlatBorderedShader getResource() { return shader; }      
-      public void clearGL  () { shader = null; }      
+      public void clearGL () {
+         // ClearGL is called when GL has LOST all its resources,
+         // so we need to forget them on our end...         
+         shader = null; 
+      }
       public void updateGL (GL gl) {
-         shader = gl.newFlatBorderedShader(borderThickness);
+         // UpdateGL is called when we need to make sure our
+         // resource is ready for use
+         if (shader == null) {
+           shader = gl.newFlatBorderedShader(borderThickness);
+         }
       }
    }
    private FlatBorderedShaderProvider getFlatBorderedShaderProvider(float borderThickness) {
@@ -316,6 +342,10 @@ public class Scene3D {
    // VertexBuffer Providers
    // -----------------------------------------------
    public static abstract class VertexBufferProvider extends ResourceProvider {
+      
+      // ----------------------------------
+      // KEY
+      // ----------------------------------
       public static class Key {
          public final Mesh2.DataLayer layer;
          public final Class<? extends VertexBufferProvider> providerClass;
@@ -325,12 +355,35 @@ public class Scene3D {
             this.layer = layer;
             this.providerClass = providerClass;
          }
+         public int hashCode() {
+            return Objects.hash(layer, providerClass);
+         }
+         public boolean equals(Key o) {
+            return (layer == o.layer)
+                && (providerClass == o.providerClass);
+         }
+         public boolean equals(Object o) {
+            return (o != null) && (o instanceof Key) && equals((Key)o);
+         }
       }
       
+      // ----------------------------------
+      private final Key key;
+      private final Mesh2.DataLayer.Listener layerChangeNotifier;
+      
+      protected final Data.Array.Floats bufferData;
+      private boolean bufferDataNeedsRecomputing;
+      private boolean resourceNeedsUpdate;      
+
+      protected GL.VertexBuffer vertexBuffer;
+      public GL.VertexBuffer getResource() { return vertexBuffer; }
+      // ----------------------------------      
       
       protected VertexBufferProvider(Scene3D scene, Mesh2.DataLayer layer, int floatsPerVertex) {
+         // Constructor is called to connect us to the scene,
+         // and initialize the resource to NULL
          super(scene);
-         this.layer = layer;
+         this.key = new Key(layer, getClass());
          this.layerChangeNotifier = new Mesh2.DataLayer.Listener() {
             public void modified() {
                bufferDataNeedsRecomputing = true;
@@ -339,30 +392,44 @@ public class Scene3D {
          layer.addListener(layerChangeNotifier);
          bufferData = new Data.Array.Floats(floatsPerVertex);
          bufferDataNeedsRecomputing = true;
-         resourceNeedsUpdate = true;
          
+         scene.vertexBufferProviders.put(key, this);
          vertexBuffer = null;
-      }
-      
-      private final Mesh2.DataLayer layer;
-      private final Mesh2.DataLayer.Listener layerChangeNotifier;
-      
-      protected final Data.Array.Floats bufferData;
-      private boolean bufferDataNeedsRecomputing;
-      private boolean resourceNeedsUpdate;      
-
+      }      
       public void destroy() {
-         // 
+         // Destroy is called when we need to disconnect.
+         // (super.destroy calls destroy on the resource, if non-null)
+         key.layer.removeListener(layerChangeNotifier);
+         scene.vertexBufferProviders.remove(key);         
          super.destroy();
       }
+      public void clearGL () {
+         // ClearGL is called when GL has LOST all its resources,
+         // so we need to forget them on our end...
+         vertexBuffer = null;         
+      }
+      public void updateGL (GL gl) {
+         // UpdateGL is called when we need to make sure our
+         // resource is ready for use.
+         
+         if (bufferDataNeedsRecomputing) {
+            rebuildBufferData();
+            bufferDataNeedsRecomputing = false;
+            
+            if (vertexBuffer != null) {
+               vertexBuffer.update(bufferData);
+            }
+         }
+         if (vertexBuffer == null) {
+           vertexBuffer = gl.newVertexBuffer(bufferData);
+         }
+      }
       
-      protected GL.VertexBuffer vertexBuffer;
-      public GL.VertexBuffer getResource() { return vertexBuffer; }
-      
-      public void clearGL () {}
-      public void updateGL (GL gl) {}
+      public abstract void rebuildBufferData();
    }
 
+   private HashMap<VertexBufferProvider.Key, VertexBufferProvider> vertexBufferProviders
+     = new HashMap<VertexBufferProvider.Key, VertexBufferProvider>();
 
    // - - - - - - - - - - - - - - - -
    // 2. DataLayer processing..
@@ -373,6 +440,18 @@ public class Scene3D {
       }
    }
    
+
+   public PositionBuffer getOrCreatePositionBuffer(Mesh2.DataLayer dataLayer) {
+      PositionBuffer result = null;
+      if (positionBuffers.containsKey(dataLayer)) {
+         result = positionBuffers.get(dataLayer);
+      } else {
+         result = new PositionBuffer(dataLayer);
+         positionBuffers.put(dataLayer, result);
+      }
+      return result;
+   }
+   private HashMap<Mesh2.DataLayer, PositionBuffer> positionBuffers;
    
    
    
@@ -382,9 +461,8 @@ public class Scene3D {
    
    
    // -----------------------------------------------   
-   // So... perhaps each MeshInstance will have a ShaderInvocator
-   // -----------------------------------------------   
-   
+   // Each MeshInstance connected to this Scene has a MeshInstanceRenderer 
+   // -----------------------------------------------      
    private abstract static class MeshInstanceRenderer {
       protected final Scene3D scene;
       protected final Model.MeshInstance model;
@@ -392,10 +470,13 @@ public class Scene3D {
       protected MeshInstanceRenderer(Scene3D scene, Model.MeshInstance model) {
          this.scene = scene;
          this.model = model;
+         scene.renderers.add(this);
       }      
       public abstract void render();
       public abstract void disconnect();      
    }
+   private HashSet<MeshInstanceRenderer> renderers = new HashSet<MeshInstanceRenderer>();
+   
    
    public static class FlatBorderedRenderer extends MeshInstanceRenderer {
       FlatBorderedRenderer(Scene3D scene, Model.MeshInstance model) {
@@ -451,67 +532,10 @@ public class Scene3D {
    }
    
    
-   // -----------------------------------------
-   // okay.. prime example of vertex-buffer-manager:
-   //   POSITION buffer generation.
-   // -----------------------------------------
-   public static class PositionBuffer {
-      
-      private final Mesh2.DataLayer dataLayer;
-      private final Mesh2.DataLayer.Listener listener;
-      
-      public PositionBuffer(Mesh2.DataLayer dataLayer) {
-         this.dataLayer = dataLayer;         
-         this.rebuildNeeded = true;
-         // NOTES: 1.  annoying we have to keep <listener> just so we can delete it..
-         listener = new Mesh2.DataLayer.Listener() {
-            @Override
-            public void modified() {
-               rebuildNeeded = true;
-            }
-         };
-         dataLayer.addListener(listener);
-      }
-      public void destroy() {
-         dataLayer.removeListener(listener);
-      }      
-      private boolean rebuildNeeded;
-      private Data.Array.Floats positions;
-      
-      // -------------------------------------------------
-      // we're assuming PositionBuffer will need this "referenceCount" thing..
-      // -------------------------------------------------
-      public interface Reference {
-         public void setVertexBuffer(GL.VertexBuffer buffer);
-      }
-      private ArrayList<Reference> references;
-      public void clearReferences() {
-         references.clear();
-      }
-      public void addReference(Reference ref) {
-         references.add(ref);
-      }
-      
-      // -------------------------------------------------      
-      private HashMap<GL, GL.VertexBuffer> buffers;      
-   }
-
-   private HashMap<Mesh2.DataLayer, PositionBuffer> positionBuffers;
    
-   public PositionBuffer getOrCreatePositionBuffer(Mesh2.DataLayer dataLayer) {
-      PositionBuffer result = null;
-      if (positionBuffers.containsKey(dataLayer)) {
-         result = positionBuffers.get(dataLayer);
-      } else {
-         result = new PositionBuffer(dataLayer);
-         positionBuffers.put(dataLayer, result);
-      }
-      return result;
-   }
-   
-
-   // okay.. again...
-   
+   // ======================================================
+   // RENDER
+   // ======================================================
    
    private static class ExecutionPlan {
       public interface Step {
@@ -529,10 +553,10 @@ public class Scene3D {
       }
    }
    
-   public void traverse (Model model, 
-                         Matrix4x4 projMatrix, 
-                         Matrix4x4 viewMatrix, 
-                         ExecutionPlan accumulator) {
+   private void traverse (Model model, 
+                          Matrix4x4 projMatrix, 
+                          Matrix4x4 viewMatrix, 
+                          ExecutionPlan accumulator) {
       
       viewMatrix = Matrix4x4.product(viewMatrix, model.getTransformation());
       
@@ -587,7 +611,13 @@ public class Scene3D {
    
    public void render(Camera camera, GL gl) {
       
-      // 1. Set all "gl resources" reference-count to zero.
+      // We expect "renderers" to be set-up correctly,
+      // as "renderers" are added or removed when the user edits the tree.
+      //
+      // However "resourceProviders"
+      
+      
+      1. Set all "gl resources" reference-count to zero.
       //    TODO: this will require clearing All VertexBuffers,
       //                                 and All Shaders,
       //                                 and All Samplers...
