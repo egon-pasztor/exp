@@ -221,6 +221,9 @@ public class Scene3D {
       public void removeReference(Object object) {
          references.remove(object);
       }
+      public boolean hasReferences() {
+         return !references.isEmpty();
+      }
       public void destroy() {
          GL.Resource resource = getResource();
          if (resource != null) resource.destroy();
@@ -373,7 +376,6 @@ public class Scene3D {
       
       protected final Data.Array.Floats bufferData;
       private boolean bufferDataNeedsRecomputing;
-      private boolean resourceNeedsUpdate;      
 
       protected GL.VertexBuffer vertexBuffer;
       public GL.VertexBuffer getResource() { return vertexBuffer; }
@@ -411,11 +413,9 @@ public class Scene3D {
       public void updateGL (GL gl) {
          // UpdateGL is called when we need to make sure our
          // resource is ready for use.
-         
          if (bufferDataNeedsRecomputing) {
             rebuildBufferData();
             bufferDataNeedsRecomputing = false;
-            
             if (vertexBuffer != null) {
                vertexBuffer.update(bufferData);
             }
@@ -432,26 +432,48 @@ public class Scene3D {
      = new HashMap<VertexBufferProvider.Key, VertexBufferProvider>();
 
    // - - - - - - - - - - - - - - - -
-   // 2. DataLayer processing..
+   // POSITION-BUFFERS
    // - - - - - - - - - - - - - - - -
-   public static class DataLayerTransformer extends VertexBufferProvider {
-      public DataLayerTransformer(Scene3D scene, Mesh2.DataLayer layer) {
+   public static class PositionVertexBufferProvider extends VertexBufferProvider {
+      public PositionVertexBufferProvider(Scene3D scene, Mesh2.DataLayer layer) {
          super(scene, layer, 4);
       }
-   }
-   
-
-   public PositionBuffer getOrCreatePositionBuffer(Mesh2.DataLayer dataLayer) {
-      PositionBuffer result = null;
-      if (positionBuffers.containsKey(dataLayer)) {
-         result = positionBuffers.get(dataLayer);
-      } else {
-         result = new PositionBuffer(dataLayer);
-         positionBuffers.put(dataLayer, result);
+      public void rebuildBufferData() {
+         // 
+         // TODO.. build buffer data..
+         // 
       }
+   }
+   public VertexBufferProvider getOrCreatePositionBuffer(Mesh2.DataLayer dataLayer) {
+      VertexBufferProvider.Key key = new VertexBufferProvider.Key(dataLayer, PositionVertexBufferProvider.class);
+      VertexBufferProvider result = vertexBufferProviders.get(key);
+      if (result == null) {
+         result = new PositionVertexBufferProvider(this, dataLayer);
+      }      
       return result;
    }
-   private HashMap<Mesh2.DataLayer, PositionBuffer> positionBuffers;
+   
+   // - - - - - - - - - - - - - - - -
+   // NORMAL-BUFFERS
+   // - - - - - - - - - - - - - - - -
+   public static class NormalVertexBufferProvider extends VertexBufferProvider {
+      public NormalVertexBufferProvider(Scene3D scene, Mesh2.DataLayer layer) {
+         super(scene, layer, 3);
+      }
+      public void rebuildBufferData() {
+         // 
+         // TODO.. build buffer data..
+         // 
+      }
+   }
+   public VertexBufferProvider getOrCreateNormalBuffer(Mesh2.DataLayer dataLayer) {
+      VertexBufferProvider.Key key = new VertexBufferProvider.Key(dataLayer, NormalVertexBufferProvider.class);
+      VertexBufferProvider result = vertexBufferProviders.get(key);
+      if (result == null) {
+         result = new PositionVertexBufferProvider(this, dataLayer);
+      }      
+      return result;
+   }
    
    
    
@@ -537,116 +559,77 @@ public class Scene3D {
    // RENDER
    // ======================================================
    
-   private static class ExecutionPlan {
-      public interface Step {
-         void execute(GL gl);
-      }
-      private ArrayList<Step> steps;
-      
-      public void addStep(Step step) {
-         steps.add(step);
-      }
-      public void execute(GL gl) {
-         for (Step step : steps) {
-            step.execute(gl);
-         }
-      }
-   }
-   
-   private void traverse (Model model, 
-                          Matrix4x4 projMatrix, 
-                          Matrix4x4 viewMatrix, 
-                          ExecutionPlan accumulator) {
-      
+   private void setupRenderPositions (Model model, 
+                                      Matrix4x4 projMatrix, 
+                                      Matrix4x4 viewMatrix) {
+
       viewMatrix = Matrix4x4.product(viewMatrix, model.getTransformation());
       
       if (model instanceof Model.Group) {
          Model.Group group = (Model.Group) model;
          for (Model child : group.children()) {
-            traverse (child, projMatrix, viewMatrix, accumulator);
+            setupRenderPositions (child, projMatrix, viewMatrix);
          }
-         return;
       }
-      
-      Model.MeshInstance meshModel = (Model.MeshInstance) model;
-      
-      // -----------------------------------
-      // locate position-vector-generator
-      // -----------------------------------
-      // While some models might not need Position in the future,
-      // right now every model needs Position.  It's based on a DataLayer:
-      
-      { Mesh2.DataLayer dataLayer = meshModel.mesh.dataLayer(
-            meshModel.getPositionLayerName(), 
-            Mesh2.DataLayer.Type.THREE_FLOATS_PER_VERTEX);
-      
-        if (dataLayer == null) {
-           // Mesh doesn't have the requested position-layer
-           return;
-        }
-        
-        // Okay the Mesh DOES have the position-layer,
-        // this will either lookup the PositionBuffer object, or else create it.
-        PositionBuffer positionBuffer =
-              getOrCreatePositionBuffer(dataLayer);
-        
+      if (model instanceof Model.MeshInstance) {
+         Model.MeshInstance meshModel = (Model.MeshInstance) model;
+         
+         // I'm still "indecisive" about what exactly the Renderer represents.
+         // Does it need virtual methods?
+         
+         if (meshModel.renderer instanceof SmoothRenderer) {
+            SmoothRenderer renderer = (SmoothRenderer) meshModel.renderer;
+            
+            renderer.numTriangles = meshModel.mesh.numFaces();
+            renderer.modelToView = viewMatrix;
+            renderer.viewToClip = projMatrix;
+            renderer.faceColor = ((Model.MeshInstance.SmoothStyle) meshModel.style).faceColor;
+         }
+         if (meshModel.renderer instanceof FlatBorderedRenderer) {
+            FlatBorderedRenderer renderer = (FlatBorderedRenderer) meshModel.renderer;
+            
+            renderer.numTriangles = meshModel.mesh.numFaces();
+            renderer.modelToView = viewMatrix;
+            renderer.viewToClip = projMatrix;
+            renderer.faceColor = ((Model.MeshInstance.FlatBorderedStyle) meshModel.style).faceColor;
+            renderer.borderColor = ((Model.MeshInstance.FlatBorderedStyle) meshModel.style).borderColor;
+         }
       }
-      
-      // ------------------------------------------      
-      // Now then... What shader is this model using?
-      // ------------------------------------------
-      if (meshModel.style instanceof Model.MeshInstance.SmoothStyle) {
-         // And this model is using SmoothStyle.
-         
-         
-      }
-      if (meshModel.style instanceof Model.MeshInstance.FlatBorderedStyle) {
-         // And this model is using FlatBorderedStyle.
-         
-         
-      }
-      
    }
-   
    
    public void render(Camera camera, GL gl) {
       
       // We expect "renderers" to be set-up correctly,
       // as "renderers" are added or removed when the user edits the tree.
       //
-      // However "resourceProviders"
-      
-      
-      1. Set all "gl resources" reference-count to zero.
-      //    TODO: this will require clearing All VertexBuffers,
-      //                                 and All Shaders,
-      //                                 and All Samplers...
-      //    but for now we're doing this with *just* "position" VertexBuffers:
-      for (PositionBuffer positionBuffer : positionBuffers.values()) {
-         positionBuffer.clearReferences();
+      // However "resourceProviders" might exist with no references.
+      // These are resource-providers that may have existed at the last frame
+      // and may still have GL resources allocated, but we don't want to delete
+      // GL resources until .. well, now, here, in render.
+      //
+      // The remaining resources, which HAVE references, need to be
+      // updated.  The update operation causes the vertexBuffers to be rebuilt
+      // if needed and the GL resources actually get allocated:
+      //
+      HashSet<ResourceProvider> unusedResourceProviders = new HashSet<ResourceProvider>();
+      for (ResourceProvider resourceProvider : resourceProviders) {
+         if (!resourceProvider.hasReferences()) {
+            resourceProvider.destroy();
+         } else {
+            resourceProvider.updateGL (gl);
+         }
       }
       
-      // 2. Traverse models in a process that prepares an execution-plan,
-      //    but also calls getOrCreate for all needed "gl resources".
-      ExecutionPlan plan = new ExecutionPlan();
-      traverse (root, camera.cameraToClipSpace, camera.worldToCameraSpace, plan);
-      
-      // 3. All "gl-resources" whose reference count is STILL zero should
-      //    be destroyed.
-      //
-      // 4. All "gl-resources" remaining should (rebuild if needed)
-      //    allocate gl-specific object.
-      
-      // 5. "Sort" execution-plan steps by shader, perhaps..
-      //    and secondly by position ..??
-      //
-      // 6. "Execute" the execution-plan's steps..
-      //    Each step will need access to some "gl-resources"..
-      //
-      // 
-   }
-   
-   
+      // Now we do an actual tree traversal in order to multiply out all the
+      // view matrices and save all the "uniforms":
+      setupRenderPositions (root, camera.cameraToClipSpace, camera.worldToCameraSpace);
+
+      // Finally, the actual rendering just needs a pass over each
+      // renderer object...
+      for (MeshInstanceRenderer renderer : renderers) {
+         renderer.render();
+      }
+   }   
 }
 
 
