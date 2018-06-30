@@ -28,6 +28,7 @@ import java.util.HashSet;
 
 import com.generic.base.Camera;
 import com.generic.base.Data;
+import com.generic.base.Demo;
 import com.generic.base.Shader;
 import com.generic.base.Geometry;
 import com.generic.base.Mesh;
@@ -57,7 +58,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // -----------------------------------------------------------
 
    public static void main(String[] args) {
-      System.out.format("Hello world..\n");
+      System.out.format("Hello world from GlSample.main(String[] args).\n");
       new GLSample();
    }
 
@@ -65,25 +66,27 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    // Constructor
    // -----------------------------------------------------------
 
-   private final DemoWorld demoWorld;
+   private DemoWorld demoWorld;
    public Camera.Controller cameraController;
    
-   private final GLCanvas glCanvas;   
-   private final GUI gui;
+   private GLCanvas glCanvas;   
+   private GUI gui;
    
    private boolean intersectionIn3d;
-   private final long startTimeMillis;
+   private long startTimeMillis;
 
-   
+   private final JoglWindow jw;
+     
    public GLSample() {
-      
       /// so, create some "SystemInterface" class?
       // then, DemoApp app = new DemoApp(systemInterface)?
       
-      
-      
-      
-      
+      jw = new JoglWindow();
+      Demo demo = new Demo(jw.platform());
+      // v1Setup();
+   }
+
+   private void v1Setup() {
       System.out.println("GLSample constructor BEGIN\n");
       
       // Create "Demo World" object...
@@ -112,6 +115,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
       // Start animation thread
       startTimeMillis = System.currentTimeMillis();
+      
       Thread animationThread = new Thread(new Runnable(){
          final static int TargetFPS = 30;
          
@@ -150,7 +154,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       
       System.out.println("GLSample constructor END\n");
    }
-
+   
    
    private void updateUVPointer(float x, float y) {
       Vector2 newSelectedUVPoint = new Vector2(x,y);
