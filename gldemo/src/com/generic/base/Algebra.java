@@ -16,6 +16,9 @@ public class Algebra {
       public Vector2(float x_, float y_) {
          x = x_;  y = y_;
       }
+      public static Vector2 of(float x, float y) {
+         return new Vector2(x,y);
+      }
       
       public String toString() {
          return String.format("( %10.9f )\n( %10.9f )\n", x,y);
@@ -171,6 +174,9 @@ public class Algebra {
    
       public Vector3(float x_, float y_, float z_) {
          x = x_;  y = y_;  z = z_;
+      }
+      public static Vector3 of(float x, float y, float z) {
+         return new Vector3(x,y,z);
       }
       
       public String toString() {
@@ -404,6 +410,9 @@ public class Algebra {
    
       public Vector4(float x_, float y_, float z_, float w_) {
          x = x_;  y = y_;  z = z_;  w = w_;
+      }
+      public static Vector4 of(float x, float y, float z, float w) {
+         return new Vector4(x,y,z,w);
       }
       
       public String toString() {

@@ -60,156 +60,66 @@ public class Organizer {
 
    // but today we've been thinking of "Mutable<Contents>"
    //
-   public static class Mutable<Contents> {
+   public static abstract class Mutable<Contents> {
 
-      public Contents contents;
- 
+      private Contents contents = null;
+      
       // -------------------------------------------------
-      // Listeners
+      // Step 1: SETUP
+      //   Owner creates an instance of an derived class,
+      //     implementing the "rebuild" method,
+      //     and adding "needsRebuildingListener" to any mutables
+      //     that the "rebuild" output depends on.
+      // -------------------------------------------------
+      protected abstract boolean rebuild();
       
-      public static class Listener {
-         private boolean changed;
-         public Listener()   { changed = false; }
-         public void set()   { this.changed = true; }
-         public void clear() { this.changed = false; }
-         public boolean changeOccurred() { return changed; }
-      }
-      
-      private HashSet<Listener> listeners = null;
-      
-      public void addListener(Listener listener) {
-         if (listeners == null) listeners = new HashSet<Listener>();
-         listeners.add(listener);
-      }
-      public void removeListener(Listener listener) {
-         if (listeners != null) listeners.remove(listener);
-      }
-      public void notifyListeners() {
-         // must be called from methods within synchronized lock
-         if (listeners != null) {
-            for (Listener listener : listeners) {
-               listener.set();
-            }
+      // -------------------------------------------------
+      private boolean needsRebuilding = true;
+      public final Data.Listener needsRebuildingListener = new Data.Listener () {
+         public void onChange() {
+            needsRebuilding = true;
          }
-      }
-      
+      };
+      // -------------------------------------------------      
+      public final Data.Listener.Set listeners = new Data.Listener.Set();
+         
       // -------------------------------------------------
-      // Refresher
-      
-      public void refreshIfNeeded() {}
+      // Step 2: Call rebuildIfNeeded regularly.
+      //   There could be a thread that calls it at a fixed rate?
+      //   Or users of this class are encouraged to call it before use?
+      //   Or else, we could modify the "needsRebuildingListener" to
+      //     "schedule" a call to rebuildIfNeeded on a worker thread?
+      //   Or else, we could modify the "needsRebuildingListener" to
+      //     call to rebuildIfNeeded directly.
+      // -------------------------------------------------
+      public void rebuildIfNeeded() { 
+         if (needsRebuilding) {
+            needsRebuilding = false;
+            if (rebuild()) {
+               listeners.changeOccurred();
+            }
+         }         
+      }      
    }
 
    // --------------------------------------------------
    
    public abstract static class Generated<Contents,Source> extends Mutable<Contents> {
       public final Mutable<Source> source;
-      public final Listener sourceListener;
       
       public Generated(Mutable<Source> source) {
          this.source = source;
-         sourceListener = new Listener();
-         source.addListener(sourceListener);
+         source.listeners.add(needsRebuildingListener);
       }
       
-      public void refreshIfNeeded() {
-         source.refreshIfNeeded();
-         
-         if (sourceListener.changeOccurred()) {
-            System.out.format("Refreshing...\n");
-            sourceListener.clear();
-            generate();
-            notifyListeners();
-            
-         } else {
-            System.out.format("No refresh needed\n");
-         }
-      }
-      
-      /*
-      public void refreshIfNeeded() {
-         source.refreshIfNeeded();
-         synchronized (source) {
-            if (listener.hasChanged()) {
-               System.out.format("Refreshing...\n");
-               listener.setChanged(false);
-               synchronized (this) {
-                  generate();
-                  notifyListeners();
-               }
-            } else {
-               System.out.format("No refresh needed\n");
-            }
-         }
-      }*/
-      
-      public abstract void generate();
+      // We have no idea how to go further on this, because of the unsolved
+      // problem of WHY calls "rebuildIfNeeded" on these things and why!
    }
-   
    // --------------------------------------------------
    // --------------------------------------------------
-   
-   
-   
-   
-   
-   // --------------------------------------------------
-   // --------------------------------------------------
-
    public static void main(String[] args) {
       System.out.format("Hello.67\n");
-      test();
    }
-   
-   public static void test() {
-      Mutable<String> h = new Mutable<String>();
-      
-      Mutable<String> h2 = new Generated<String, String>(h) {
-         public void generate() {
-            contents = source.contents + "-x2";
-         }
-      };
-
-      Mutable<String> h3 = new Generated<String, String>(h2) {
-         public void generate() {
-            contents = source.contents + "-x3";
-         }
-      };
-      Mutable<String> h4 = new Generated<String, String>(h2) {
-         public void generate() {
-            contents = source.contents + "-x4";
-         }
-      };
-      
-      //synchronized (h) {
-         h.contents = "hello";
-         h.notifyListeners();
-      //}
-      
-      System.out.format("1 h3 is [%s]\n", h3.contents);
-      h3.refreshIfNeeded();
-      System.out.format("2 h3 is [%s]\n", h3.contents);
-      h3.refreshIfNeeded();
-      System.out.format("3 h3 is [%s]\n", h3.contents);
-      
-      //synchronized (h) {
-         h.contents = "goodbyte";
-         h.notifyListeners();
-      //}
-
-      h3.refreshIfNeeded();
-      System.out.format("3 h3 is [%s]\n", h3.contents);
-      h4.refreshIfNeeded();
-      System.out.format("3 h3 is [%s]\n", h4.contents);
-      
-   }
-   
-   
-   
-   
-   
-   
-   
-   
    
    
    // pdf output.. is what?

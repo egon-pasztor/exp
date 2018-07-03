@@ -225,14 +225,14 @@ public class Scene3D {
          return !references.isEmpty();
       }
       public void destroy() {
-         GL.Resource resource = getResource();
+         Graphics3D.Resource resource = getResource();
          if (resource != null) resource.destroy();
          scene.resourceProviders.remove(this);
       }
       
-      public abstract GL.Resource getResource();
+      public abstract Graphics3D.Resource getResource();
       public abstract void clearGL  ();
-      public abstract void updateGL (GL gl);
+      public abstract void updateGL (Graphics3D gl);
    }
    private HashSet<ResourceProvider> resourceProviders = new HashSet<ResourceProvider>();
    
@@ -244,9 +244,9 @@ public class Scene3D {
       protected ShaderProvider(Scene3D scene) {
          super(scene);
       }
-      public abstract GL.Shader getResource();
+      public abstract Graphics3D.Shader getResource();
       public abstract void clearGL  ();
-      public abstract void updateGL (GL gl);
+      public abstract void updateGL (Graphics3D gl);
    }
 
    // - - - - - - - - - - - - - - - -
@@ -254,8 +254,8 @@ public class Scene3D {
    // - - - - - - - - - - - - - - - -
    private static class SmoothShaderProvider extends ShaderProvider {
       // ----------------------------------      
-      protected GL.SmoothShader shader;
-      public GL.SmoothShader getResource() { return shader; }
+      protected Graphics3D.SmoothShader shader;
+      public Graphics3D.SmoothShader getResource() { return shader; }
       // ----------------------------------      
 
       protected SmoothShaderProvider(Scene3D scene) {
@@ -276,7 +276,7 @@ public class Scene3D {
          // so we need to forget them on our end...
          shader = null;
       }
-      public void updateGL (GL gl) {
+      public void updateGL (Graphics3D gl) {
          // UpdateGL is called when we need to make sure our
          // resource is ready for use
          if (shader == null) {
@@ -299,8 +299,8 @@ public class Scene3D {
    private static class FlatBorderedShaderProvider extends ShaderProvider {
       // ----------------------------------      
       private final float borderThickness;
-      protected GL.FlatBorderedShader shader;
-      public GL.FlatBorderedShader getResource() { return shader; }      
+      protected Graphics3D.FlatBorderedShader shader;
+      public Graphics3D.FlatBorderedShader getResource() { return shader; }      
       // ----------------------------------      
       
       protected FlatBorderedShaderProvider(Scene3D scene, float borderThickness) {
@@ -322,7 +322,7 @@ public class Scene3D {
          // so we need to forget them on our end...         
          shader = null; 
       }
-      public void updateGL (GL gl) {
+      public void updateGL (Graphics3D gl) {
          // UpdateGL is called when we need to make sure our
          // resource is ready for use
          if (shader == null) {
@@ -377,8 +377,8 @@ public class Scene3D {
       protected final Data.Array.Floats bufferData;
       private boolean bufferDataNeedsRecomputing;
 
-      protected GL.VertexBuffer vertexBuffer;
-      public GL.VertexBuffer getResource() { return vertexBuffer; }
+      protected Graphics3D.VertexBuffer vertexBuffer;
+      public Graphics3D.VertexBuffer getResource() { return vertexBuffer; }
       // ----------------------------------      
       
       protected VertexBufferProvider(Scene3D scene, Mesh2.DataLayer layer, int floatsPerVertex) {
@@ -410,7 +410,7 @@ public class Scene3D {
          // so we need to forget them on our end...
          vertexBuffer = null;         
       }
-      public void updateGL (GL gl) {
+      public void updateGL (Graphics3D gl) {
          // UpdateGL is called when we need to make sure our
          // resource is ready for use.
          if (bufferDataNeedsRecomputing) {
@@ -505,15 +505,15 @@ public class Scene3D {
          super(scene, model);
       }
       
-      private GL.FlatBorderedShader shader;
+      private Graphics3D.FlatBorderedShader shader;
       private int numTriangles;      
       private Matrix4x4 modelToView;
       private Matrix4x4 viewToClip;
       private Color faceColor;
       private Color borderColor;
-      private GL.VertexBuffer positions;
-      private GL.VertexBuffer normals;
-      private GL.VertexBuffer baryCoords;
+      private Graphics3D.VertexBuffer positions;
+      private Graphics3D.VertexBuffer normals;
+      private Graphics3D.VertexBuffer baryCoords;
       
       public void render() {
          shader.setModelToView(modelToView);
@@ -533,14 +533,14 @@ public class Scene3D {
          super(scene, model);
       }
       
-      private GL.SmoothShader shader;
+      private Graphics3D.SmoothShader shader;
       private int numTriangles;
       
       private Matrix4x4 modelToView;
       private Matrix4x4 viewToClip;
       private Color faceColor;
-      private GL.VertexBuffer positions;
-      private GL.VertexBuffer normals;
+      private Graphics3D.VertexBuffer positions;
+      private Graphics3D.VertexBuffer normals;
       
       public void render() {
          shader.setModelToView(modelToView);
@@ -597,7 +597,7 @@ public class Scene3D {
       }
    }
    
-   public void render(Camera camera, GL gl) {
+   public void render(Camera camera, Graphics3D gl) {
       
       // We expect "renderers" to be set-up correctly,
       // as "renderers" are added or removed when the user edits the tree.

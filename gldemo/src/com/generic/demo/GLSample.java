@@ -1541,16 +1541,12 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
             gl.glBufferData(GL.GL_ARRAY_BUFFER,
                   managedFloatBuffer.array.length * 4,//Float.SIZE / 8,
                   managedFloatBuffer.floatBuffer, GL.GL_STATIC_DRAW);
-            
-            buffer.glBufferSize = managedFloatBuffer.array.length;
          } else {
             Shader.ManagedIntBuffer managedIntBuffer = (Shader.ManagedIntBuffer) buffer;
             System.out.format(" ... setting up n INT buffer of len %d\n", managedIntBuffer.array.length);
             gl.glBufferData(GL.GL_ARRAY_BUFFER,
                   managedIntBuffer.array.length * 4,//Integer.SIZE / 8,
                   managedIntBuffer.intBuffer, GL.GL_STATIC_DRAW);
-            
-            buffer.glBufferSize = managedIntBuffer.array.length;
          }
          System.out.format("Created GL buffer %d\n", buffer.glBufferID);
       }

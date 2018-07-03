@@ -1,6 +1,10 @@
 package com.generic.base;
 
+import com.generic.base.Data.Array.Primitive;
+import com.generic.base.Data.Array.Type;
+
 import java.util.HashSet;
+import java.util.Objects;
 
 public class Image {
 
@@ -283,22 +287,80 @@ public class Image {
    
    // ---------------------
    // LISTENERS
+   // (Not sure about adding "Listeners" to "Images".
+   //  Maybe we "Image" should be a dumb-data-class,
+   //  we could use Mutable<Image> to hold listeners, mutexes...
    // ---------------------
-  
-   public interface Listener {
-      public void modified();
-   }
-   private HashSet<Listener> listeners;
+   public final Data.Listener.Set listeners = new Data.Listener.Set();
+
+   // -----------------------------------------------------------------------
+   // Integer Size / Position / Rect classes?
+   // -----------------------------------------------------------------------
    
-   public void addListener(Listener listener) {
-      listeners.add(listener);
-   }
-   public void removeListener(Listener listener) {
-      listeners.remove(listener);
-   }
-   public void notifyListeners() {
-      for (Listener listener : listeners) {
-         listener.modified();
+   public static class Size {
+      public final int width, height;
+
+      public Size (int width, int height) {
+         this.width = width;
+         this.height = height;
+      }
+      public int hashCode() {
+         return Objects.hash(width, height);
+      }
+      public boolean equals(Size o) {
+         return (width == o.width) && (height == o.height);
+      }
+      public boolean equals(Object o) {
+         return (o != null) && (o instanceof Size) && equals((Size)o);
+      }
+      public String toString() {
+         return String.format("(%d,%d)", width, height);
       }
    }
+   public static class Position {
+      public final int x, y;
+
+      public Position (int x, int y) {
+         this.x = x;
+         this.y = y;
+      }
+      public int hashCode() {
+         return Objects.hash(x, y);
+      }
+      public boolean equals(Position o) {
+         return (x == o.x) && (y == o.y);
+      }
+      public boolean equals(Object o) {
+         return (o != null) && (o instanceof Position) && equals((Position)o);
+      }
+      public String toString() {
+         return String.format("(%d,%d)", x, y);
+      }
+   }
+   public static class Rect {
+      public final int left, right, top, bottom;
+
+      public Rect (int left, int right, int top, int bottom) {
+         this.left = left;
+         this.right = right;
+         this.top = top;
+         this.bottom = bottom;
+      }
+      public Size size() {
+         return new Size(right-left, bottom-top);
+      }
+      public int hashCode() {
+         return Objects.hash(left, right, top, bottom);
+      }
+      public boolean equals(Rect o) {
+         return (left == o.left) && (right == o.right)
+             && (top == o.top) && (bottom == o.bottom);
+      }
+      public boolean equals(Object o) {
+         return (o != null) && (o instanceof Rect) && equals((Rect)o);
+      }
+      public String toString() {
+         return String.format("(%d,%d)-(%d,%d)", left,top,right,bottom);
+      }
+   }   
 }

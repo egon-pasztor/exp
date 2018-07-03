@@ -11,8 +11,19 @@ public interface Platform {
    public interface Widget {
       public Widget parent();
       public boolean isConnected();
-      // Maybe also a method to get Widget Size,
-      // or a way to register size-change handlers?      
+      public Image.Size size();
+
+      // Something to set a resizeListener??
+      public interface ResizeListener {
+         public void resized();
+      }
+      public void setResizeListener(ResizeListener listener);
+      
+      // But if we support resizeListener,
+      //   why not windowVisibility listeners?
+      //        or windowClosing listeners?
+      // (Or maybe those are listeners we can only support
+      //  on the ROOT window?)
       
       // -------------------------------
       // Specific Widget-Types
@@ -21,6 +32,7 @@ public interface Platform {
          public Iterable<Widget> children();
          public void addChild(Widget child);
          public void removeChild(Widget child);
+         
          // Some way for ower to provide a layout method?
          // Container must keep a MAP providing a Rect
          // for each child, maybe also a borderspec.
@@ -52,17 +64,13 @@ public interface Platform {
 
    // -------------------------------------
    // We're not really sure how the above will work...
-   // as an introductory step, we're proposing platforms
-   // whose "rootWidget" is a Graphics3D:
+   // as an introductory step, we're proposing just a root-widget:
+   // -------------------------------------
    public interface Root3DWidget {
-      // A 3D widget will provide call "render(GL gl)"
-      // on something... that does rendering?
-      // so caller has to setRenderer", perhaps?
-      public interface Renderer {
-         public void render(GL gl);
-      }
+      public void setRenderer(Graphics3D.Renderer renderer);
    }
    public Root3DWidget root3D();
    // -------------------------------------
-
 }
+
+

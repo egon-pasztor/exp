@@ -1,7 +1,5 @@
 package com.generic.base;
 
-import com.generic.base.Image.Listener;
-
 import java.util.HashSet;
 import java.util.Objects;
 
@@ -153,7 +151,7 @@ public class Data {
    // The Listener concept
    // -----------------------------------
    public interface Listener {
-      public void modified();
+      public void onChange();
       
       public static class Set {
          private HashSet<Listener> listeners = new HashSet<Listener>();
@@ -164,29 +162,11 @@ public class Data {
          public void remove(Listener listener) {
             listeners.remove(listener);
          }
-         public void notify() {
+         public void changeOccurred() {
             for (Listener listener : listeners) {
-               listener.modified();
+               listener.onChange();
             }
          }
-
-      }
-
-   }
-   private HashSet<Listener> listeners;
-   
-   public void addListener(Listener listener) {
-      listeners.add(listener);
-   }
-   public void removeListener(Listener listener) {
-      listeners.remove(listener);
-   }
-   public void notifyListeners() {
-      for (Listener listener : listeners) {
-         listener.modified();
       }
    }
-   
-   
-   
 }

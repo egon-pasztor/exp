@@ -1,15 +1,12 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Matrix4x4;
-import com.generic.base.Algebra.Vector2;
-import com.generic.base.Algebra.Vector3;
-import com.generic.base.Algebra.Vector4;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-
-public interface GL {
+public interface Graphics3D {
+   
+   public interface Renderer {
+      public void render(Graphics3D gl);
+   }
    
    void setViewport (int width, int height);
    void clear (Color color);

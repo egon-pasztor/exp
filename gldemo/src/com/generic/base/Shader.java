@@ -281,7 +281,6 @@ public class Shader {
          this.type = type;
          this.modified = true;
          this.glBufferID = null;
-         this.glBufferSize = null;
       }
       
       // Abstract Methods -----------------------
@@ -301,7 +300,6 @@ public class Shader {
       
       public abstract void setup();
       public Integer glBufferID;
-      public Integer glBufferSize;
    }
 
    public static abstract class ManagedFloatBuffer extends ManagedBuffer {
