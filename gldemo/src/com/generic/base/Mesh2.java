@@ -804,12 +804,14 @@ public class Mesh2 {
       public final String name;
       public final Type type;
       public final Data.Array data;
+      public final Data.Listener.Set listeners;
       
       private DataLayer(Mesh2 mesh, String name, Type type, Data.Array data) {
          this.mesh = mesh;
          this.name = name;
          this.type = type;
          this.data = data;
+         this.listeners = new Data.Listener.Set();
          
          if (type.elements == DataLayer.Elements.PER_VERTEX) {
             mesh.vertexIDManager.addArray(data);
@@ -837,26 +839,6 @@ public class Mesh2 {
             if (type.elements == DataLayer.Elements.PER_EDGE) {
                mesh.edgeIDManager.removeArray(data);
             }
-         }
-      }
-      
-      // ---------------------
-      // LISTENERS
-      // ---------------------
-     
-      public interface Listener {
-         public void modified();
-      }
-      private HashSet<Listener> listeners;
-      public void addListener(Listener listener) {
-         listeners.add(listener);
-      }
-      public void removeListener(Listener listener) {
-         listeners.remove(listener);
-      }
-      public void notifyListeners() {
-         for (Listener listener : listeners) {
-            listener.modified();
          }
       }
    }

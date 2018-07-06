@@ -98,14 +98,14 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
       // Application wants to create a VertexBuffer...
       
       static class GLVertexBuffer implements VertexBuffer {
-         public final Data.Array.Type type;
+
          
          
          
          public void destroy() {
          }
          public Data.Array.Type type() {
-            return type;
+            return null;
          }
          public int numElements() {
             return 0;

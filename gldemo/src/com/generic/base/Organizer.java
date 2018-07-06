@@ -10,32 +10,7 @@ import java.util.PriorityQueue;
 // as if.
 
 public class Organizer {
-   
-   // App is going to want to create windows...
-   
-   public static class GUI {
-      
-      public static class Window {
-         
-         public static class Size {
-            public final int width;
-            public final int height;
-            public Size(int width, int height) {
-               this.width = width; this.height = height;
-            }
-         }
-         public static class Position {
-            public final int x;
-            public final int y;
-            public Position(int x, int y) {
-               this.x = x;
-               this.y = y;
-            }
-         }
-      }
-   }
 
-   
    // to provide a full windowing system,
    // we'd like:
    //
@@ -50,75 +25,11 @@ public class Organizer {
    //                   Window.TextEntry
    
    // --------------------------------------------------------
-   // but, critically, it also needs Window.Container and Window.TopLevel
-   //
-   // we'd like to keep 
-   //    
-   
-   
-   
+   // it also needs Window.Container and Window.TopLevel?
+   // --------------------------------------------------------
 
-   // but today we've been thinking of "Mutable<Contents>"
-   //
-   public static abstract class Mutable<Contents> {
-
-      private Contents contents = null;
-      
-      // -------------------------------------------------
-      // Step 1: SETUP
-      //   Owner creates an instance of an derived class,
-      //     implementing the "rebuild" method,
-      //     and adding "needsRebuildingListener" to any mutables
-      //     that the "rebuild" output depends on.
-      // -------------------------------------------------
-      protected abstract boolean rebuild();
-      
-      // -------------------------------------------------
-      private boolean needsRebuilding = true;
-      public final Data.Listener needsRebuildingListener = new Data.Listener () {
-         public void onChange() {
-            needsRebuilding = true;
-         }
-      };
-      // -------------------------------------------------      
-      public final Data.Listener.Set listeners = new Data.Listener.Set();
-         
-      // -------------------------------------------------
-      // Step 2: Call rebuildIfNeeded regularly.
-      //   There could be a thread that calls it at a fixed rate?
-      //   Or users of this class are encouraged to call it before use?
-      //   Or else, we could modify the "needsRebuildingListener" to
-      //     "schedule" a call to rebuildIfNeeded on a worker thread?
-      //   Or else, we could modify the "needsRebuildingListener" to
-      //     call to rebuildIfNeeded directly.
-      // -------------------------------------------------
-      public void rebuildIfNeeded() { 
-         if (needsRebuilding) {
-            needsRebuilding = false;
-            if (rebuild()) {
-               listeners.changeOccurred();
-            }
-         }         
-      }      
-   }
-
-   // --------------------------------------------------
-   
-   public abstract static class Generated<Contents,Source> extends Mutable<Contents> {
-      public final Mutable<Source> source;
-      
-      public Generated(Mutable<Source> source) {
-         this.source = source;
-         source.listeners.add(needsRebuildingListener);
-      }
-      
-      // We have no idea how to go further on this, because of the unsolved
-      // problem of WHY calls "rebuildIfNeeded" on these things and why!
-   }
-   // --------------------------------------------------
-   // --------------------------------------------------
    public static void main(String[] args) {
-      System.out.format("Hello.67\n");
+      System.out.format("Hello\n");
    }
    
    

@@ -1,9 +1,29 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Matrix4x4;
+import com.generic.base.Mesh2.DataLayer.Type;
 
-public interface Graphics3D {
+public class Graphics3D {
    
+   // ------------------------------------------
+   // VertexBuffer
+   // ------------------------------------------
+   public static class VertexBuffer {
+      public final Graphics3D owner;
+      public final int id;
+      public final Data.Array data;
+      public final Data.Listener.Set listeners;
+
+      private VertexBuffer(Graphics3D owner, int id, Data.Array.Type type) {
+         this.owner = owner;
+         this.id = id;
+         this.data = Data.Array.create(type);
+         this.listeners = new Data.Listener.Set();
+      }
+   }
+   
+   
+   /*
    public interface Renderer {
       public void render(Graphics3D gl);
    }
@@ -74,7 +94,7 @@ public interface Graphics3D {
    }
    FlatBorderedShader newFlatBorderedShader (float borderThickness);
    
-   
+*/
    
 /*
    public abstract class Shader {

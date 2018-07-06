@@ -169,4 +169,35 @@ public class Data {
          }
       }
    }
+   
+   // -----------------------------------
+   // Owner/Mutable
+   // -----------------------------------
+   // A Data.Owner provides a lock
+   // -----------------------------------
+   public interface Owner {
+      public Object lock();
+   }
+   // -----------------------------------
+   // A Data.Mutable<Content> has
+   // an Owner, a Content, and Listeners
+   // -----------------------------------
+   public static class Mutable<Content> {
+      public final Owner owner;
+      public final Listener.Set listeners;
+      
+      public Mutable(Owner owner) {
+         this.owner = owner;
+         this.listeners = new Listener.Set();
+      }
+      
+      private Content content;
+      public Content content() { return content; }
+      public void setContent(Content newContent) { 
+         if (!Objects.equals(content, newContent)) {
+            content = newContent;
+            listeners.changeOccurred();
+         }
+      }
+   }   
 }
