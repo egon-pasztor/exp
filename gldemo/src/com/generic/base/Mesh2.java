@@ -1,6 +1,7 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
+import com.generic.base.Graphics3D.VertexBuffer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -721,7 +722,7 @@ public class Mesh2 {
    private int numFaces;
    private int numEdges;
    
-   private HashMap<String, DataLayer> dataLayers;
+   private final HashMap<String, DataLayer> dataLayers;
    
    
    public Mesh2() {
@@ -854,6 +855,10 @@ public class Mesh2 {
       DataLayer layer = dataLayers.get(name);
       return (layer.type.equals(type)) ? layer : null;
    }
+   public Iterable<DataLayer> dataLayers() {
+      return dataLayers.values();
+   }
+   
    
    // ---
    // RESOLVED:  as DataLayer is "a part of" a Mesh2,

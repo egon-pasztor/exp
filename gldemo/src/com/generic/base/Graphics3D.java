@@ -1,13 +1,28 @@
 package com.generic.base;
 
-import com.generic.base.Algebra.Matrix4x4;
-import com.generic.base.Mesh2.DataLayer.Type;
+import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Graphics3D {
+   
+   public final Object lock;   
+   public final Data.Listener.Set listeners;
+   
+   public Graphics3D() {
+      lock = new Object();
+      listeners = new Data.Listener.Set();
+      nextVertexBufferId = 1;
+   }
+   public void clear() {
+      vertexBuffers.clear();
+   }
    
    // ------------------------------------------
    // VertexBuffer
    // ------------------------------------------
+   private final HashMap<Integer, VertexBuffer> vertexBuffers = new HashMap<Integer, VertexBuffer>();
+   private int nextVertexBufferId;
+      
    public static class VertexBuffer {
       public final Graphics3D owner;
       public final int id;
@@ -19,8 +34,265 @@ public class Graphics3D {
          this.id = id;
          this.data = Data.Array.create(type);
          this.listeners = new Data.Listener.Set();
+         
+         owner.vertexBuffers.put(id, this);
+      }
+      public void destroy() {
+         if (owner.vertexBuffers.get(id) == this) {
+            owner.vertexBuffers.remove(id);
+         }
       }
    }
+   
+   public VertexBuffer newVertexBuffer(Data.Array.Type type) {
+      return new VertexBuffer(this, nextVertexBufferId++, type);
+   }
+   public VertexBuffer vertexBuffer(int id) {
+      return vertexBuffers.get(id);
+   }
+   public Iterable<VertexBuffer> vertexBuffers() {
+      return vertexBuffers.values();
+   }
+   
+   // ------------------------------------------
+   // Samplers ... will be like VertexBuffers..
+   // ------------------------------------------
+   
+   // TODO Samplers
+   
+   
+   // ------------------------------------------
+   // Shaders ... will be like VertexBuffers..
+   // ------------------------------------------
+   private final HashMap<Integer, Shader> shaders = new HashMap<Integer, Shader>();
+   private int nextShaderId;      
+
+   public static class Shader {
+      public final Graphics3D owner;
+      public final int id;
+      public final Parameters params;
+
+      private Shader(Graphics3D owner, int id, Parameters params) {
+         this.owner = owner;
+         this.id = id;
+         this.params = params;
+         
+         owner.shaders.put(id, this);
+      }
+      public void destroy() {
+         if (owner.shaders.get(id) == this) {
+            owner.shaders.remove(id);
+         }
+      }
+      
+      // -------------------------------------------------------------------
+      // Parameters
+      // -------------------------------------------------------------------
+      public interface Parameters {
+         
+         public static final class Smooth implements Parameters {
+            public Smooth() {}
+         }
+         public static final class FlatBordered implements Parameters {
+            public final float borderThickness;
+            public FlatBordered(float borderThickness) {
+               this.borderThickness = borderThickness;
+            }
+         }
+      }
+      
+      // -------------------------------------------------------------------
+      // Execution
+      // -------------------------------------------------------------------      
+      public interface Command {}
+      
+      public static final class Activate implements Shader.Command {
+         public final Shader shader;
+         public Activate (Shader shader) {
+            this.shader = shader;
+         }
+      }
+      public static final class Execute implements Shader.Command {
+         public final int numTriangles;
+         public Execute (int numTriangles) {
+            this.numTriangles = numTriangles;
+         }
+      }
+      
+      // -------------------------------------------------------------------
+      // Variable
+      // -------------------------------------------------------------------
+      public static abstract class Variable {
+         public final String name;
+         private Variable (String name) {
+            this.name = name;
+         }
+         public interface Binding extends Shader.Command {}
+         
+         // - - - - - - - 
+         // Integer
+         // - - - - - - - 
+         public static final class Integer extends Variable {
+            public Integer(String name) {
+               super(name);
+            }
+            
+            public static final class Binding implements Variable.Binding {
+               public final Shader.Variable.Integer variable;
+               public final int value;
+               public Binding (Shader.Variable.Integer variable, int value) {
+                  this.variable = variable;
+                  this.value = value;
+               }
+            }
+         }
+         // - - - - - - - 
+         // Vector3
+         // - - - - - - - 
+         public static final class Vector3 extends Variable {
+            public Vector3(String name) {
+               super(name);
+            }
+            
+            public static final class Binding implements Variable.Binding {
+               public final Shader.Variable.Vector3 variable;
+               public final Algebra.Vector3 value;
+               public Binding (Shader.Variable.Vector3 variable, Algebra.Vector3 value) {
+                  this.variable = variable;
+                  this.value = value;
+               }
+            }
+         }
+         // - - - - - - - 
+         // Matrix4x4
+         // - - - - - - - 
+         public static final class Matrix4x4 extends Variable {
+            public Matrix4x4(String name) {
+               super(name);
+            }
+            
+            public static final class Binding implements Variable.Binding {
+               public final Shader.Variable.Matrix4x4 variable;
+               public final Algebra.Matrix4x4 value;
+               public Binding (Shader.Variable.Matrix4x4 variable, Algebra.Matrix4x4 value) {
+                  this.variable = variable;
+                  this.value = value;
+               }
+            }
+         }
+         // - - - - - - - 
+         // VertexBuffer
+         // - - - - - - - 
+         public static final class VertexBuffer extends Variable {
+            public final Data.Array.Type type;
+            public VertexBuffer(String name, Data.Array.Type type) {
+               super(name);
+               this.type = type;
+            }
+            
+            public static final class Binding implements Variable.Binding {
+               public final Shader.Variable.VertexBuffer variable;
+               public final Graphics3D.VertexBuffer value;
+               public Binding (Shader.Variable.VertexBuffer variable, Graphics3D.VertexBuffer value) {
+                  this.variable = variable;
+                  this.value = value;
+               }
+            }            
+         }
+      }
+      public static Variable.Matrix4x4 MODEL_TO_VIEW = new Variable.Matrix4x4("modelToView");
+      public static Variable.Matrix4x4 VIEW_TO_CLIP  = new Variable.Matrix4x4("viewToClip");
+      public static Variable.Vector3 FACE_COLOR      = new Variable.Vector3("faceColor");
+      public static Variable.Vector3 BORDER_COLOR    = new Variable.Vector3("borderColor");
+      public static Variable.VertexBuffer POSITIONS  = new Variable.VertexBuffer("positions", Data.Array.Type.FOUR_FLOATS);
+      public static Variable.VertexBuffer NORMALS    = new Variable.VertexBuffer("normals", Data.Array.Type.THREE_FLOATS);
+      public static Variable.VertexBuffer BARYCOORDS = new Variable.VertexBuffer("baryCoords", Data.Array.Type.THREE_FLOATS);
+   }
+
+   public Shader newShader(Shader.Parameters parameters) {
+      return new Shader(this, nextShaderId++, parameters);
+   }
+   public Shader shader(int id) {
+      return shaders.get(id);
+   }
+   public Iterable<Shader> shaders() {
+      return shaders.values();
+   }
+   
+   
+   // ------------------------------------------
+   // RenderCommands
+   // ------------------------------------------
+   private final ArrayList<Shader.Command> commands = new ArrayList<Shader.Command>();
+   
+   public void clearCommands() {
+      commands.clear();
+   }   
+   public void addCommand(Shader.Command command) {
+      commands.add(command);
+   }
+   public Iterable<Shader.Command> commands() {
+      return commands;
+   }
+   
+   
+   // -------------------------------------------
+   // hmm.
+   // 
+   // Graphics3D contains "state".
+   // The "Graphics3D" state contains
+   //   (VertexBuffers, Samplers, Shaders ...
+   //    and a LIST of RenderCommands where a single RenderCommand
+   //    is either ("activate_shader", shader-id)
+   //           or ("bind_variable", variable-id, value-to-bind)
+   //           or "execute"
+   //
+   // Graphics3D also has a LOCK (users must lock it before using any other methods)
+   //   and <listeners>.
+   //
+   // Question1:   Do the Listeners convey event-description-objects?
+   //              EG:   If I add a VertexBuffer, does that notify the listeners of what VertexBuffer was added
+   //                                                     or just that something changed?
+   //
+   //                    is it:
+   //                              changeOccurred()
+   //                       or
+   //                              vertexBufferAdded   (int id);
+   //                              vertexBufferRemoved (int id);
+   //                       or
+   //                              vertexBufferAdded   (VertexBuffer buffer);
+   //                              vertexBufferRemoved (VertexBuffer buffer);
+   //                       or
+   //                              changeOccurred(Event e)
+   //                              where "Event" is <either> (VERTEX_BUFFER_ADDED, id)
+   //                                                   <or> (VERTEX_BUFFER_REMOVED, id)
+   //
+   // Question2:
+   //              Internally, do we even need "vertexbuffer ids"?
+   //              Why not just use object refs directly?
+   //
+   //                  Why not HashSet<VertexBuffer>
+   //               instead of HashMap<Integer,VertexBuffer> ?
+   //
+   // what if we DONT use IDs:
+   //
+   //    then we have HashSet<VertexBuffer>
+   //                   and the Binding uses actual references...
+   //
+   //
+   // -----------------------------------------------
+   //
+   // Graphics2D contains "state".
+   // The "Graphics2D" state contains
+   //   (Sprites, Paths ... Painters ...
+   //    and a LIST of RenderCommands where a single RenderCommand
+   //    is either "activate_painter" -- providing a Painter ID
+   //           or "bind_variable"    -- providing a painter-variable identifier, and a value of type appropriate to that variable
+   //           or "execute"
+   //
+   
+   
+   
    
    
    /*

@@ -2,13 +2,15 @@ package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
 
-public class Demo implements Graphics3D.Renderer {
+public class Demo {
 
    private final Platform platform;
+   private final Graphics3D graphics;
    
    public Demo(Platform platform) {
       this.platform = platform;
-      platform.root3D().setRenderer(this);
+      graphics = new Graphics3D();
+      platform.root3D().setRenderer(graphics);
    }
 
    public void render(Graphics3D gl) {

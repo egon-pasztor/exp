@@ -79,7 +79,9 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
    // -------------------------------------------------------------------
    // OpenGL interface
    // -------------------------------------------------------------------
-   public static class GLProvider implements Graphics3D {
+   public static class GLProvider {
+      private Graphics3D graphics3D;
+
       private GL3 gl3;
       
       public void setGL3(GL3 gl3) {
@@ -134,7 +136,6 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
    // -------------------------------------------------------------------
    private final JoglWindowPlatform platform;   
    private final GLCanvas glCanvas;   
-   private Graphics3D.Renderer glRenderer;   
 
    
    public Platform platform() { return platform; }
@@ -195,8 +196,8 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
    // ----------------------------------------------------------
    // Implementing Platform.Root3DWidget
    // ----------------------------------------------------------
-   public void setRenderer(Graphics3D.Renderer renderer) {
-      this.glRenderer = renderer;
+   public void setRenderer(Graphics3D graphics3D) {
+      this.graphics3D = graphics3D;
    }
       
    // -----------------------------------------------------------
