@@ -162,7 +162,7 @@ public class Data {
          public void remove(Listener listener) {
             listeners.remove(listener);
          }
-         public void changeOccurred() {
+         public void onChange() {
             for (Listener listener : listeners) {
                listener.onChange();
             }
@@ -196,7 +196,7 @@ public class Data {
       public void setContent(Content newContent) { 
          if (!Objects.equals(content, newContent)) {
             content = newContent;
-            listeners.changeOccurred();
+            listeners.onChange();
          }
       }
    }   

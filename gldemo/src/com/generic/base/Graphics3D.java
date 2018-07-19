@@ -5,6 +5,34 @@ import java.util.HashMap;
 
 public class Graphics3D {
    
+   // ------------------------------------------
+   // How about this then?
+   // ------------------------------------------
+   
+   public final Object lock = new Object();
+   
+   
+   public final HashMap<Integer, Data.Array> vertexBuffers = new HashMap<Integer, Data.Array>();
+   public final HashMap<Integer, Image> samplers = new HashMap<Integer, Image>();
+   public final HashMap<Integer, Shader> shaders = new HashMap<Integer, Shader.>();
+
+   public void setVertexBuffer(int id, Data.Array data) {
+      vertexBuffers 
+   }
+   public VertexBuffer vertexBuffer(int id) {
+      return vertexBuffers.get(id);
+   }
+   public Iterable<VertexBuffer> vertexBuffers() {
+      return vertexBuffers.values();
+   }
+   
+   
+   // ------------------------------------------
+   // 
+   // ------------------------------------------
+   /*
+   
+   
    public final Object lock;   
    public final Data.Listener.Set listeners;
    
@@ -54,50 +82,43 @@ public class Graphics3D {
       return vertexBuffers.values();
    }
    
+   // this asks that
+   //    USERS of this class who want to change the data held in VertexBuffer
+   //       first lock the "lock" object of this Graphics3D
+   //         then change the floats or ints in data.array()
+   //         then call the "listeners.onChange()" method
+   //       finally unlock the "lock" object
+   //
+   // we could have a HashMap<Integer,Data.Array> instead, and no VertexBuffer class,
+   //    but then there would be no listener.onChange to call after changing an array.
+   //    But this wouldn't be a problem if *this* class's listeners took an "change-description"
+   //    object allowing *this* class's listeners to be told about a change to one vertexbuffer.
+   //
+   //    
+   
    // ------------------------------------------
    // Samplers ... will be like VertexBuffers..
    // ------------------------------------------
-   
+
    // TODO Samplers
-   
+
    
    // ------------------------------------------
    // Shaders ... will be like VertexBuffers..
    // ------------------------------------------
    private final HashMap<Integer, Shader> shaders = new HashMap<Integer, Shader>();
-   private int nextShaderId;      
+   private int nextShaderId;
+   */
+   
+   public interface Shader {
 
-   public static class Shader {
-      public final Graphics3D owner;
-      public final int id;
-      public final Parameters params;
-
-      private Shader(Graphics3D owner, int id, Parameters params) {
-         this.owner = owner;
-         this.id = id;
-         this.params = params;
-         
-         owner.shaders.put(id, this);
+      public static final class Smooth implements Shader {
+         public Smooth() {}
       }
-      public void destroy() {
-         if (owner.shaders.get(id) == this) {
-            owner.shaders.remove(id);
-         }
-      }
-      
-      // -------------------------------------------------------------------
-      // Parameters
-      // -------------------------------------------------------------------
-      public interface Parameters {
-         
-         public static final class Smooth implements Parameters {
-            public Smooth() {}
-         }
-         public static final class FlatBordered implements Parameters {
-            public final float borderThickness;
-            public FlatBordered(float borderThickness) {
-               this.borderThickness = borderThickness;
-            }
+      public static final class FlatBordered implements Shader {
+         public final float borderThickness;
+         public FlatBordered(float borderThickness) {
+            this.borderThickness = borderThickness;
          }
       }
       
@@ -107,8 +128,8 @@ public class Graphics3D {
       public interface Command {}
       
       public static final class Activate implements Shader.Command {
-         public final Shader shader;
-         public Activate (Shader shader) {
+         public final int shader;
+         public Activate (int shader) {
             this.shader = shader;
          }
       }
@@ -192,8 +213,8 @@ public class Graphics3D {
             
             public static final class Binding implements Variable.Binding {
                public final Shader.Variable.VertexBuffer variable;
-               public final Graphics3D.VertexBuffer value;
-               public Binding (Shader.Variable.VertexBuffer variable, Graphics3D.VertexBuffer value) {
+               public final int vertexBuffer;
+               public Binding (Shader.Variable.VertexBuffer variable, int value) {
                   this.variable = variable;
                   this.value = value;
                }
@@ -235,6 +256,7 @@ public class Graphics3D {
       return commands;
    }
    
+   */
    
    // -------------------------------------------
    // hmm.
