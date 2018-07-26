@@ -1,14 +1,8 @@
 package com.generic.demo;
 
-import com.generic.base.Data;
-import com.generic.base.Data.Array;
-import com.generic.base.Data.Array.Type;
 import com.generic.base.Color;
 import com.generic.base.Graphics3D;
-import com.generic.base.Image;
 import com.generic.base.Platform;
-import com.generic.base.Platform.Root3DWidget;
-import com.generic.base.Platform.Widget;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -98,7 +92,7 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
       }
       
       // Application wants to create a VertexBuffer...
-      
+      /*
       static class GLVertexBuffer implements VertexBuffer {
 
          
@@ -130,7 +124,14 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
       public FlatBorderedShader newFlatBorderedShader(float borderThickness) {
          return null;
       }
+      */
    }
+   
+   public void check() {
+      Graphics3D.Shader.Smooth s = new Graphics3D.Shader.Smooth();
+      
+   }
+   
    
    // -------------------------------------------------------------------
    // -------------------------------------------------------------------
@@ -196,7 +197,8 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
    // ----------------------------------------------------------
    // Implementing Platform.Root3DWidget
    // ----------------------------------------------------------
-   public void setRenderer(Graphics3D graphics3D) {
+   private Graphics3D graphics3D;
+   public void setGraphics3D(Graphics3D graphics3D) {
       this.graphics3D = graphics3D;
    }
       

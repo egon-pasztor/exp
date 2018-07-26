@@ -67,7 +67,7 @@ public interface Platform {
    // as an introductory step, we're proposing just a root-widget:
    // -------------------------------------
    public interface Root3DWidget {
-      public void setRenderer(Graphics3D renderer);
+      public void setGraphics3D(Graphics3D g);
    }
    public Root3DWidget root3D();
    // -------------------------------------
