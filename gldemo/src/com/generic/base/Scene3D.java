@@ -204,6 +204,8 @@ public class Scene3D {
    // ##############################################################
    // ResourceProvider
    // ##############################################################
+   /*
+   
    
    private static abstract class ResourceProvider {      
       protected ResourceProvider(Scene3D scene) {
@@ -480,7 +482,7 @@ public class Scene3D {
    
    
    
-   
+   */
    
    // -----------------------------------------------   
    // Each MeshInstance connected to this Scene has a MeshInstanceRenderer 
@@ -498,13 +500,20 @@ public class Scene3D {
       public abstract void disconnect();      
    }
    private HashSet<MeshInstanceRenderer> renderers = new HashSet<MeshInstanceRenderer>();
-   
-   
+
    public static class FlatBorderedRenderer extends MeshInstanceRenderer {
       FlatBorderedRenderer(Scene3D scene, Model.MeshInstance model) {
          super(scene, model);
       }
+   
+      // Each Model.MeshInstance in this scene-graph has a MeshInstanceRenderer..
+      // which writes some Graphics3D.Shader.Commands into the Graphics3D commands array..
+      // (in the future, the Graphics3D commands array might be a skip-list,
+      // and the MeshInstanceRenderer would point to a "range" of Graphics3D.Shader.Commands,
+      // Currently if any rendering parameters change in any mesh, we have to rebuild
+      // the entire Graphics3D commands array by traversing all the Renderers..)
       
+      /*
       private Graphics3D.FlatBorderedShader shader;
       private int numTriangles;      
       private Matrix4x4 modelToView;
@@ -525,6 +534,9 @@ public class Scene3D {
          shader.setBaryCoords(baryCoords);
          shader.shadeTriangles(numTriangles);
       }
+      */
+      
+      public void render() {}
       public void disconnect() {}
    }
    
@@ -532,7 +544,8 @@ public class Scene3D {
       SmoothRenderer(Scene3D scene, Model.MeshInstance model) {
          super(scene, model);
       }
-      
+
+      /*
       private Graphics3D.SmoothShader shader;
       private int numTriangles;
       
@@ -550,11 +563,14 @@ public class Scene3D {
          shader.setNormals(normals);
          shader.shadeTriangles(numTriangles);
       }
+      */
+      
+      public void render() {}
       public void disconnect() {}
    }
    
    
-   
+   /*
    // ======================================================
    // RENDER
    // ======================================================
@@ -629,7 +645,8 @@ public class Scene3D {
       for (MeshInstanceRenderer renderer : renderers) {
          renderer.render();
       }
-   }   
+   }
+   */   
 }
 
 

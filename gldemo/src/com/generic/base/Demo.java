@@ -10,7 +10,7 @@ public class Demo {
    public Demo(Platform platform) {
       this.platform = platform;
       graphics = new Graphics3D();
-      platform.root3D().setRenderer(graphics);
+      platform.root3D().setGraphics3D(graphics);
    }
 
    public void render(Graphics3D gl) {

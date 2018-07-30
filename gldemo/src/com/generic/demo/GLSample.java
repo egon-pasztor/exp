@@ -75,15 +75,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private boolean intersectionIn3d;
    private long startTimeMillis;
 
-   private final JoglWindow jw;
+   private JoglWindow jw;
      
    public GLSample() {
       /// so, create some "SystemInterface" class?
       // then, DemoApp app = new DemoApp(systemInterface)?
       
-      jw = new JoglWindow();
-      Demo demo = new Demo(jw.platform());
-      // v1Setup();
+      //jw = new JoglWindow();
+      //Demo demo = new Demo(jw.platform());
+      v1Setup();
    }
 
    private void v1Setup() {

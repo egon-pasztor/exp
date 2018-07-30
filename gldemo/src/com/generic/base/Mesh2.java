@@ -1,7 +1,6 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
-import com.generic.base.Graphics3D.VertexBuffer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
