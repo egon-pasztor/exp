@@ -1,9 +1,5 @@
 package com.generic.base;
 
-import com.generic.base.Data.Array.Primitive;
-import com.generic.base.Data.Array.Type;
-
-import java.util.HashSet;
 import java.util.Objects;
 
 public class Image {
@@ -285,14 +281,27 @@ public class Image {
       }
    }
    
+   
    // ---------------------
    // LISTENERS
    // (Not sure about adding "Listeners" to "Images".
    //  Maybe we "Image" should be a dumb-data-class,
    //  we could use Mutable<Image> to hold listeners, mutexes...
    // ---------------------
-   public final Data.Listener.Set listeners = new Data.Listener.Set();
+   //
+   // Recent though suggests NO, we should not have listeners in Image.
+   //
+   // Maybe "Mutable<Image>" wraps Image along with a lock and a Listener.Set,
+   // or maybe we go all the way to defining "Value.Item<Image,ImageChange>"
+   //
+   // which explicitly adds "print" & "parse" methods, and a "type" method which reveals
+   
+   
+   // public final Data.Listener.Set listeners = new Data.Listener.Set();
 
+   
+   
+   
    // -----------------------------------------------------------------------
    // Integer Size / Position / Rect classes?
    // -----------------------------------------------------------------------

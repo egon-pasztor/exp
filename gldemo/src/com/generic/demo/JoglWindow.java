@@ -2,6 +2,7 @@ package com.generic.demo;
 
 import com.generic.base.Color;
 import com.generic.base.Graphics3D;
+import com.generic.base.Image;
 import com.generic.base.Platform;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
@@ -27,7 +28,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 
 public class JoglWindow implements GLEventListener, MouseListener, MouseMotionListener, MouseWheelListener,
-                                   Platform.Root3DWidget {
+                                   Platform.Widget.Renderer3D {
    
    // -------------------------------------------------------------------
    // Platform
@@ -65,11 +66,13 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
       public Widget.Container rootWidget() { return null; }
       public Widget.Factory widgetFactory() { return null; }
       
-      public Root3DWidget root3D() {
+      public Widget.Renderer3D root3D() {
         return owner;  
       }
    }
-   
+   private final JoglWindowPlatform platform;
+   public Platform platform() { return platform; }
+
    // -------------------------------------------------------------------
    // OpenGL interface
    // -------------------------------------------------------------------
@@ -127,19 +130,12 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
       */
    }
    
-   public void check() {
-      Graphics3D.Shader.Smooth s = new Graphics3D.Shader.Smooth();
-      
-   }
-   
-   
    // -------------------------------------------------------------------
    // -------------------------------------------------------------------
-   private final JoglWindowPlatform platform;   
+   
    private final GLCanvas glCanvas;   
 
    
-   public Platform platform() { return platform; }
 
    
    
@@ -195,12 +191,26 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
    }
 
    // ----------------------------------------------------------
-   // Implementing Platform.Root3DWidget
+   // Implementing Platform.Widget.Renderer3D
    // ----------------------------------------------------------
    private Graphics3D graphics3D;
+   
    public void setGraphics3D(Graphics3D graphics3D) {
       this.graphics3D = graphics3D;
    }
+   public Platform.Widget parent() {
+      return null;
+   }
+   public boolean isConnected() {
+      return true;
+   }
+   public Image.Size size() {
+      return null;
+   }
+   public void setResizeListener(Platform.Widget.ResizeListener listener) {
+      
+   }
+   
       
    // -----------------------------------------------------------
    // Implementing MouseListener & MouseMotionListener

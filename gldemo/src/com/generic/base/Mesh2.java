@@ -22,7 +22,7 @@ public class Mesh2 {
    // ==================================================================
    
    // Each vertex, face, and edge has an integer ID.
-   // This tells you how many have been allocated:
+   // These first 3 methods tell you how many IDs have been allocated.
    public int numVertexIDs() { return vertexIDManager.getNumReservedIDs(); }
    public int numEdgeIDs()   { return edgeIDManager.getNumReservedIDs();   }
    public int numFaceIDs()   { return faceIDManager.getNumReservedIDs();   }
@@ -822,7 +822,6 @@ public class Mesh2 {
          if (type.elements == DataLayer.Elements.PER_EDGE) {
             mesh.edgeIDManager.addArray(data);
          }
-         
          mesh.dataLayers.put(name, this);
       }
       
@@ -860,23 +859,6 @@ public class Mesh2 {
    
    
    // ---
-   // RESOLVED:  as DataLayer is "a part of" a Mesh2,
-   //            so VertexBuffer will be "a part of" a GL.State
-   //                   (leter thinking:  sure, but VertexBuffer doesn't actually allow access to the data.)
-   //
-   // so someone calls "createVertexBuffer" on the GL.State to create one, just like we call "createDataLayer" on Mesh2...
-   //    now what happens if mesh2 size changes?
-   //       .. adding/removing mesh faces causes changes in datalayer allocation, but it doesn't
-   //          fire changes because caller responsible for adding/removing faces must fill in data...
-   //          so it's responsible for calling a "fireChanges" method on the datalayers
-   //
-   //    the fireChanges method on the dataLayers sets a bool in the Fillers, and, yes, Fillers have
-   //          "numElements" method...
-   // 
-   //    how does that propagate to the VertexBuffer?
-   //
-   
-
    /*   
     * This is left over from the "Cursors" object plan...
 
@@ -896,7 +878,10 @@ public class Mesh2 {
       public void set(int i, float v);
    }
    */
+   // ---
+
    
+
    // #############################################################################################
    // Specific Models for Testing
    // #############################################################################################

@@ -37,15 +37,14 @@ public interface Platform {
          // Container must keep a MAP providing a Rect
          // for each child, maybe also a borderspec.
       }
-      public interface Graphics2D extends Widget {
-         // Okay, a Widget.Graphics2D is a Widget that
-         // provides a 2D graphics interface to painting its
-         // contents .. a wrapper around Java's Graphics2D
-         // I guess?  
+      public interface Renderer2D extends Widget {
+         // Okay, a Widget.Renderer2D is a Widget
+         // that accepts a Graphics2D and "renders" it
       }
-      public interface Graphics3D extends Widget {
-         // Now a Graphics3D provices access to ...
-         // well, it must provide a "GL" object, right?
+      public interface Renderer3D extends Widget {
+         // Okay, a Widget.Renderer3D is a Widget
+         // that accepts a Graphics3D and "renders" it
+         public void setGraphics3D(Graphics3D g);
       }
       
       // -------------------------------
@@ -53,8 +52,8 @@ public interface Platform {
       // -------------------------------
       public interface Factory {
          public Container  newContainer();
-         public Graphics2D newGraphics2D();
-         public Graphics3D newGraphics3D();
+         public Renderer2D newRenderer2D();
+         public Renderer3D newRenderer3D();
       }
    }
    // -------------------------------------
@@ -63,13 +62,11 @@ public interface Platform {
    // -------------------------------------
 
    // -------------------------------------
-   // We're not really sure how the above will work...
-   // as an introductory step, we're proposing just a root-widget:
+   // We're not really sure how the above will work.
+   // As an introductory step, we're proposing
+   // the root-widget will be a Widget.Renderer3D
    // -------------------------------------
-   public interface Root3DWidget {
-      public void setGraphics3D(Graphics3D g);
-   }
-   public Root3DWidget root3D();
+   public Widget.Renderer3D root3D();
    // -------------------------------------
 }
 

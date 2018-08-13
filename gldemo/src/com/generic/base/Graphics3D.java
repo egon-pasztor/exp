@@ -2,53 +2,94 @@ package com.generic.base;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class Graphics3D {
    
    // ------------------------------------------
    // How about this then?
    // ------------------------------------------
-   
-   public final Object lock = new Object();
-   
    public final HashMap<Integer, Data.Array> vertexBuffers = new HashMap<Integer, Data.Array>();
    public final HashMap<Integer, Image> samplers = new HashMap<Integer, Image>();
    public final HashMap<Integer, Shader> shaders = new HashMap<Integer, Shader>();
    public final ArrayList<Shader.Command> commands = new ArrayList<Shader.Command>();
-
-   
    
    // ------------------------------------------
    // Shader Definitions
-   // ------------------------------------------
-   
+   // ------------------------------------------   
    public interface Shader {
 
+      // "Smooth-Shading"
       public static final class Smooth implements Shader {
          public Smooth() {}
+         // Uses:
+         //   MODEL_TO_VIEW, VIEW_TO_CLIP
+         //   POSITIONS, NORMALS
+         //   FACE_COLOR
       }
+ 
+      // "Flat-Shading-with-Borders"
       public static final class FlatBordered implements Shader {
          public final float borderThickness;
          public FlatBordered(float borderThickness) {
             this.borderThickness = borderThickness;
          }
+         // Uses:
+         //   MODEL_TO_VIEW, VIEW_TO_CLIP
+         //   POSITIONS, NORMALS, BARYCOORDS
+         //   FACE_COLOR, BORDER_COLOR
       }
+      
+      // Other shaders we should support eventually
+      //
+      // * "Texturemapped Color"
+      //    (will need uvCoords vertexBuffer, with a sampler)
+      //    (might also need parameters to select smooth/flat lighting and or border)
+      //
+      // * "PerFace/PerEdge/PerVertex Colors"
+      //    (caller provides a vertexBuffer of "colors" with one color per face.
+      //    and/or other colors for edges or vertices, or lines)
+      //    
+      // Experimental:
+      // 
+      // * "GridVisualization"
+      //    (caller provides uvCoords vertexBuffer, current-uv-cursor-pos,
+      //     and the matrix providing shader access to pixel-level positions)
+      //
+      // * "Juliabrot"
+      //    (caller provides uvCoords vertexBuffer and iteration-limit values)
+      //
+      // * "PerlinNoise"
+      //    (the blob-generator)
+
+      
+      // -------------------------------------------------------------------
+      // Available Variables
+      // -------------------------------------------------------------------      
+      public static Variable.Matrix4x4 MODEL_TO_VIEW = new Variable.Matrix4x4("modelToView");
+      public static Variable.Matrix4x4 VIEW_TO_CLIP  = new Variable.Matrix4x4("viewToClip");
+      public static Variable.Vector3 FACE_COLOR      = new Variable.Vector3("faceColor");
+      public static Variable.Vector3 BORDER_COLOR    = new Variable.Vector3("borderColor");
+      public static Variable.VertexBuffer POSITIONS  = new Variable.VertexBuffer("positions", Data.Array.Type.FOUR_FLOATS);
+      public static Variable.VertexBuffer NORMALS    = new Variable.VertexBuffer("normals", Data.Array.Type.THREE_FLOATS);
+      public static Variable.VertexBuffer BARYCOORDS = new Variable.VertexBuffer("baryCoords", Data.Array.Type.THREE_FLOATS);
       
       // -------------------------------------------------------------------
       // Execution
       // -------------------------------------------------------------------      
-      public interface Command {}
+      public interface Command {
       
-      public static final class Activate implements Shader.Command {
-         public final int shader;
-         public Activate (int shader) {
-            this.shader = shader;
+         public static final class Activate implements Shader.Command {
+            public final int shader;
+            public Activate (int shader) {
+               this.shader = shader;
+            }
          }
-      }
-      public static final class Execute implements Shader.Command {
-         public final int numTriangles;
-         public Execute (int numTriangles) {
-            this.numTriangles = numTriangles;
+         public static final class Execute implements Shader.Command {
+            public final int numTriangles;
+            public Execute (int numTriangles) {
+               this.numTriangles = numTriangles;
+            }
          }
       }
       
@@ -132,96 +173,75 @@ public class Graphics3D {
                }
             }            
          }
+         // - - - - - - - 
+         // Sampler
+         // - - - - - - - 
+         public static final class Sampler extends Variable {
+            public final Data.Array.Type type;
+            public Sampler(String name, Data.Array.Type type) {
+               super(name);
+               this.type = type;
+            }
+            
+            public static final class Binding implements Variable.Binding {
+               public final Shader.Variable.Sampler variable;
+               public final int sampler;
+               public Binding (Shader.Variable.Sampler variable, int sampler) {
+                  this.variable = variable;
+                  this.sampler = sampler;
+               }
+            }            
+         }
       }
-      public static Variable.Matrix4x4 MODEL_TO_VIEW = new Variable.Matrix4x4("modelToView");
-      public static Variable.Matrix4x4 VIEW_TO_CLIP  = new Variable.Matrix4x4("viewToClip");
-      public static Variable.Vector3 FACE_COLOR      = new Variable.Vector3("faceColor");
-      public static Variable.Vector3 BORDER_COLOR    = new Variable.Vector3("borderColor");
-      public static Variable.VertexBuffer POSITIONS  = new Variable.VertexBuffer("positions", Data.Array.Type.FOUR_FLOATS);
-      public static Variable.VertexBuffer NORMALS    = new Variable.VertexBuffer("normals", Data.Array.Type.THREE_FLOATS);
-      public static Variable.VertexBuffer BARYCOORDS = new Variable.VertexBuffer("baryCoords", Data.Array.Type.THREE_FLOATS);
    }
    
-   // Styles we want to support:
-   // 
-   //  1 flat shading:
-   //      minimal SHADER needs:
-   //          uniforms:
-   //              modelToView-(mat4x4)
-   //              viewToClip-(mat4x4)
-   //              meshColor-(vec3)
-   //          vertex-buffers:
-   //              positions (3-vec3's per triangle)
-   //              normals   (3-vec3's per triangle)
-   //
-   //  2 flat-shading with borders
-   //      minimal SHADER needs:
-   //          uniforms:
-   //              modelToView-(mat4x4)
-   //              viewToClip-(mat4x4)
-   //              meshColor-(vec3)
-   //              borderColor-(vec3)
-   //          vertex-buffers:
-   //              positions  (3-vec3's per triangle)
-   //              baryCoords (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
-   //              normals    (3-vec3's per triangle)
-   //
-   //  2 per-face / per-edge / per-vertex colors
-   //      minimal SHADER needs:
-   //          uniforms:
-   //              modelToView-(mat4x4)
-   //              viewToClip-(mat4x4)
-   //          vertex-buffers:
-   //              positions  (3-vec3's per triangle)
-   //              normals    (3-vec3's per triangle)
-   //              colorInfo  (3-uvec4's per triangle) <-- each uvec4 provides
-   //                             1 full int for "face color"
-   //
-   //  3 texture-shading
-   //      minimal SHADER needs:
-   //          uniforms:
-   //              modelToView-(mat4x4)
-   //              viewToClip-(mat4x4)
-   //          vertex-buffers:
-   //              positions  (3-vec3's per triangle)
-   //              normals    (3-vec3's per triangle)
-   //              texCoords  (3-vec2's per triangle)
-   //          texture-maps:
-   //              texture
-   //
-   //  4 texture-shading with borders
-   //      minimal SHADER needs:
-   //          uniforms:
-   //              modelToView-(mat4x4)
-   //              viewToClip-(mat4x4)
-   //              borderColor-(vec3)
-   //          vertex-buffers:
-   //              positions  (3-vec3's per triangle)
-   //              baryCoords (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
-   //              normals    (3-vec3's per triangle)
-   //              texCoords  (3-vec2's per triangle)
-   //          texture-maps:
-   //              texture
-   //
-   //   -- (NOTE: the above shaders *interpolate* texCoords and normal across each pixel,
-   //               so the pixel shader knows its texCoords and normal, but nothing about the full triangle.
-   //             below, grid-shading provides each pixel with v0,v1,v2 in both 3d and uv space,
-   //               so it can figure out its own normal and texCoords)
-   //
-   //  5 grid-shading
-   //      minimal SHADER needs:
-   //          uniforms:
-   //              modelToView-(mat4x4)
-   //              viewToClip-(mat4x4)
-   //          vertex-buffers:
-   //              positions    (3-vec3's per triangle)
-   //              baryCoords   (3-vec3's per triangle) <--- note that ALL meshes could share the same baryCoords
-   //
-   //              v0_positions (3-vec3's per triangle)
-   //              v1_positions (3-vec3's per triangle)
-   //              v2_positions (3-vec3's per triangle)
-   //              v0_texCoords (3-vec2's per triangle)
-   //              v1_texCoords (3-vec2's per triangle)
-   //              v2_texCoords (3-vec2's per triangle)
+   // ------------------------------------------
+   // Listeners
+   // ------------------------------------------   
    
+   public final Object lock = new Object();
+   public final HashSet<Listener> listeners = new HashSet<Listener>();
+   
+   // Here we have one way of supporting "listeners":
+   // We provide public access to final HashMaps (vertexBuffers, samplers, shaders)
+   //   and public access to a final HashSet of listeners.
+   // But we declare that the contract for using this object is that any caller that
+   //   wants to change our data needs to first acquire the lock, make his changes,
+   //   then call the appropriate "listener functions", and only then release the lock.
+
+   public interface Listener {
+      // Changes to vertexBuffers
+      public void vertexBufferAdded (int vertexBuffer);
+      public void vertexBufferRemoved (int vertexBuffer);
+      // Changes to samplers
+      public void samplerAdded (int sampler);
+      public void samplerRemoved (int shader);
+      // Changes to shaders
+      public void shaderAdded (int shader);
+      public void shaderRemoved (int shader);      
+      // Changes to command-list
+      public void commandsChanged ();
+   }
+   
+   void vertexBufferAdded (int vertexBuffer) {
+      for (Listener listener : listeners) listener.vertexBufferAdded(vertexBuffer);
+   }
+   void vertexBufferRemoved (int vertexBuffer) {
+      for (Listener listener : listeners) listener.vertexBufferRemoved(vertexBuffer);
+   }
+   void samplerAdded (int sampler) {
+      for (Listener listener : listeners) listener.samplerAdded(sampler);
+   }
+   void samplerRemoved (int sampler) {
+      for (Listener listener : listeners) listener.samplerRemoved(sampler);
+   }
+   void shaderAdded (int shader) {
+      for (Listener listener : listeners) listener.shaderAdded(shader);
+   }
+   void shaderRemoved (int shader) {
+      for (Listener listener : listeners) listener.shaderRemoved(shader);
+   }
+   void commandsChanged () {
+      for (Listener listener : listeners) listener.commandsChanged();
+   }
 }

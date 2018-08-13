@@ -77,13 +77,11 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    private JoglWindow jw;
      
-   public GLSample() {
-      /// so, create some "SystemInterface" class?
-      // then, DemoApp app = new DemoApp(systemInterface)?
+   public GLSample() {      
+      jw = new JoglWindow();
+      Demo demo = new Demo(jw.platform());
       
-      //jw = new JoglWindow();
-      //Demo demo = new Demo(jw.platform());
-      v1Setup();
+      //v1Setup();
    }
 
    private void v1Setup() {
