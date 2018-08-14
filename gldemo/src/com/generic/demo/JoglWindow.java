@@ -74,70 +74,9 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
    public Platform platform() { return platform; }
 
    // -------------------------------------------------------------------
-   // OpenGL interface
-   // -------------------------------------------------------------------
-   public static class GLProvider {
-      private Graphics3D graphics3D;
-
-      private GL3 gl3;
-      
-      public void setGL3(GL3 gl3) {
-         this.gl3 = gl3;
-      }
-      
-      public void clear(Color color) {
-         Color.RGB.Floats colorFloats = color.rgbFloats();
-         gl3.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-         gl3.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
-      }
-      public void setViewport(int width, int height) {
-         gl3.glViewport(0,0,width, height);
-      }
-      
-      // Application wants to create a VertexBuffer...
-      /*
-      static class GLVertexBuffer implements VertexBuffer {
-
-         
-         
-         
-         public void destroy() {
-         }
-         public Data.Array.Type type() {
-            return null;
-         }
-         public int numElements() {
-            return 0;
-         }
-         public void update(Data.Array data) {
-         }
-      }
-      public VertexBuffer newVertexBuffer(Data.Array data) {
-         return null;
-      }
-      
-      // TODO: samplers
-      public Sampler newSampler(Image image) {
-         return null;
-      }
-            
-      public SmoothShader newSmoothShader() {
-         return null;
-      }
-      public FlatBorderedShader newFlatBorderedShader(float borderThickness) {
-         return null;
-      }
-      */
-   }
-   
-   // -------------------------------------------------------------------
    // -------------------------------------------------------------------
    
    private final GLCanvas glCanvas;   
-
-   
-
-   
    
    public JoglWindow() {
       platform = new JoglWindowPlatform(this);
@@ -190,6 +129,63 @@ public class JoglWindow implements GLEventListener, MouseListener, MouseMotionLi
       
    }
 
+   // -------------------------------------------------------------------
+   // OpenGL interface
+   // -------------------------------------------------------------------
+   public static class GLProvider {
+      private Graphics3D graphics3D;
+      public void setGraphics3D(Graphics3D graphics3D) {
+         this.graphics3D = graphics3D;
+      }
+      
+      public void clear(Color color) {
+         Color.RGB.Floats colorFloats = color.rgbFloats();
+         gl3.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+         gl3.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+      }
+      public void setViewport(int width, int height) {
+         gl3.glViewport(0,0,width, height);
+      }
+      
+      
+      
+      
+      // Application wants to create a VertexBuffer...
+      /*
+      static class GLVertexBuffer implements VertexBuffer {
+
+         
+         
+         
+         public void destroy() {
+         }
+         public Data.Array.Type type() {
+            return null;
+         }
+         public int numElements() {
+            return 0;
+         }
+         public void update(Data.Array data) {
+         }
+      }
+      public VertexBuffer newVertexBuffer(Data.Array data) {
+         return null;
+      }
+      
+      // TODO: samplers
+      public Sampler newSampler(Image image) {
+         return null;
+      }
+            
+      public SmoothShader newSmoothShader() {
+         return null;
+      }
+      public FlatBorderedShader newFlatBorderedShader(float borderThickness) {
+         return null;
+      }
+      */
+   }
+   
    // ----------------------------------------------------------
    // Implementing Platform.Widget.Renderer3D
    // ----------------------------------------------------------
