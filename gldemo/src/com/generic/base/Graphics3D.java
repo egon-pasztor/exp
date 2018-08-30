@@ -199,25 +199,26 @@ public class Graphics3D {
    // Listeners
    // ------------------------------------------   
    
-   public final Object lock = new Object();
    public final HashSet<Listener> listeners = new HashSet<Listener>();
    
    // Here we have one way of supporting "listeners":
    // We provide public access to final HashMaps (vertexBuffers, samplers, shaders)
    //   and public access to a final HashSet of listeners.
    // But we declare that the contract for using this object is that any caller that
-   //   wants to change our data needs to first acquire the lock, make his changes,
+   //   wants to change our data needs to first acquire our lock, make his changes,
    //   then call the appropriate "listener functions", and only then release the lock.
 
    public interface Listener {
       // Changes to vertexBuffers
-      public void vertexBufferAdded (int vertexBuffer);
+      public void vertexBufferAdded   (int vertexBuffer);
       public void vertexBufferRemoved (int vertexBuffer);
+      public void vertexBufferChanged (int vertexBuffer);
       // Changes to samplers
-      public void samplerAdded (int sampler);
-      public void samplerRemoved (int shader);
+      public void samplerAdded   (int sampler);
+      public void samplerRemoved (int sampler);
+      public void samplerChanged (int sampler);
       // Changes to shaders
-      public void shaderAdded (int shader);
+      public void shaderAdded   (int shader);
       public void shaderRemoved (int shader);      
       // Changes to command-list
       public void commandsChanged ();
@@ -229,11 +230,17 @@ public class Graphics3D {
    void vertexBufferRemoved (int vertexBuffer) {
       for (Listener listener : listeners) listener.vertexBufferRemoved(vertexBuffer);
    }
+   void vertexBufferChanged (int vertexBuffer) {
+      for (Listener listener : listeners) listener.vertexBufferChanged(vertexBuffer);
+   }
    void samplerAdded (int sampler) {
       for (Listener listener : listeners) listener.samplerAdded(sampler);
    }
    void samplerRemoved (int sampler) {
       for (Listener listener : listeners) listener.samplerRemoved(sampler);
+   }
+   void samplerChanged (int sampler) {
+      for (Listener listener : listeners) listener.samplerChanged(sampler);
    }
    void shaderAdded (int shader) {
       for (Listener listener : listeners) listener.shaderAdded(shader);
@@ -243,5 +250,47 @@ public class Graphics3D {
    }
    void commandsChanged () {
       for (Listener listener : listeners) listener.commandsChanged();
+   }
+   
+   // ----------------------------------------------------------------
+   // Compare the above to this "different" form of listener:
+   // ----------------------------------------------------------------
+  
+   public interface Listener2 {
+      public void changeOccurred (Graphics3D.Change change);
+   }
+   public static class Change {
+      
+      // Consider, if there could be a principled way to "reflectively construct" these "Change" objects?
+      // If we could represent that Graphics3D type as:
+      //
+      // Graphics3D == Record {
+      //    "shaders"  : Map<Integer to DataArray>
+      //    "samplers" : Map<Integer to DataArray>
+      //    "shaders"  : Map<Integer to ShaderSpec>
+      //    "commands" : List<Command>
+      // }
+      //
+      // then the proper form of a CHANGE to Graphics3D should be mechanically generated,
+      // so long as we know how to represent a CHANGE to DataArray, ShaderSpec, or Command.
+      //
+      // We would LIKE to be able to "parse" & "print" Graphics3D objects to/from Strings.
+      // (Again, so long as we know how to "parse" & "print" the DataArray, ShaderSpec, Command
+      // classes, the code to "parse" & "print" Graphics3D, and CHANGE to Graphics3D,
+      // could be mechanically generated.)
+      
+      public final HashSet<Integer> vertexBuffersAdded   = new HashSet<Integer>();
+      public final HashSet<Integer> vertexBuffersRemoved = new HashSet<Integer>();
+      public final HashSet<Integer> vertexBuffersChanged = new HashSet<Integer>();
+
+      public final HashSet<Integer> shadersAdded   = new HashSet<Integer>();
+      public final HashSet<Integer> shadersRemoved = new HashSet<Integer>();
+      public final HashSet<Integer> shadersChanged = new HashSet<Integer>();
+      
+      public final HashSet<Integer> samplersAdded   = new HashSet<Integer>();
+      public final HashSet<Integer> samplersRemoved = new HashSet<Integer>();
+      public final HashSet<Integer> samplersChanged = new HashSet<Integer>();
+      
+      // and some other class for "commandsChanged" (reference to Boolean)?
    }
 }
