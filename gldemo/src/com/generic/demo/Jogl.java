@@ -46,7 +46,8 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
       // Jogl.Window is a wrapper around this com.jogamp.opengl.awt.GLCanvas,
       // a window that will display the contents of a Graphics3D..
 
-      private final GLCanvas glCanvas;      
+      private final GLCanvas glCanvas;
+      private final Thread renderThread;
       
       public Window() {
          GLProfile glProfile = GLProfile.get(GLProfile.GL3);
@@ -83,12 +84,8 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
          //         
          //   when someone calls "addChild" on droid.Window, it will
          //   have to examine the Platform.Widget it's given...
-         //   if it's a Jogl.Window instance, it'll need to access "glCanvas"
-         //   to call ... java.awt.Container.add 
-         
-         // 
-         // For web, we can have a ... package com.generic.platform.interactive
-         //   which inherits ideas from the Google days..
+         //   if it's the android-equivalent of this class, it'll be wrapping
+         //   an android.opengl.GLSurfaceView, which will be added to the View,,
          //
          // ...
          // 
@@ -110,7 +107,7 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
          });
          frame.setVisible(true);
          
-         Thread animationThread = new Thread(new Runnable(){
+         renderThread = new Thread(new Runnable(){
             final static int TargetFPS = 1;
             
             @Override
@@ -124,8 +121,7 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
                }
             }
          });
-         animationThread.start();
-
+         renderThread.start();
       }
       
       public void setGraphics3D(Graphics3D graphics3D) {
@@ -194,14 +190,37 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
    }
    
    // ======================================================================
+   // GL Interface
+   // ======================================================================
+   
+   private static class GL3Manager {
+      
+      public void addGraphics3D(Graphics3D graphics3D) {
+      }
+      public void removeGraphics3D(Graphics3D graphics3D) {
+      }
+   }
+   
+   // ======================================================================
    // Platform
    // ======================================================================
    
    private static class Platform implements com.generic.base.Platform {
-      private JoglWindow owner;
-      public JoglWindowPlatform(JoglWindow owner) {
-         this.owner = owner;
+      
+      // Currently Jogl.Window creates a "top-level" window:
+      //
+      private final Jogl.Window window;
+      
+      public Platform() {
+         window = new Jogl.Window();
       }
+      public Widget.Renderer3D root3D() {
+         return window;  
+      }
+      
+      public Widget.Container rootWidget() { return null; }
+      public Widget.Factory widgetFactory() { return null; }
+      
       
       public void log(String s, Object... args) {
          System.out.println(String.format(s, args));
@@ -226,80 +245,23 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
          }
 
          return strBuilder.toString();
+      }      
+   }   
+   
+   // ======================================================================
+   
+   public static com.generic.base.Platform platform = null;
+   public static com.generic.base.Platform platform() {
+      if (platform == null) {
+         platform = new Jogl.Platform(); 
       }
-      public Widget.Container rootWidget() { return null; }
-      public Widget.Factory widgetFactory() { return null; }
-      
-      public Widget.Renderer3D root3D() {
-        return owner;  
-      }
+      return platform;
    }
-   private final JoglWindowPlatform platform;
-   public Platform platform() { return platform; }
 
    // -------------------------------------------------------------------
    // Interface to Jogl GL
    // -------------------------------------------------------------------
    
-   
-   
-
-   // -------------------------------------------------------------------
-   // Interface to Jogl GL
-   // -------------------------------------------------------------------
-   
-   private final GLCanvas glCanvas;   
-   
-   public Jogl() {
-      platform = new JoglWindowPlatform(this);
-      
-      GLProfile glProfile = GLProfile.get(GLProfile.GL3);
-      GLCapabilities glCapabilities = new GLCapabilities(glProfile);
-      
-      System.out.println("System Capabilities:" + glCapabilities.toString());
-      System.out.println("Profile Details: " + glProfile.toString());
-      System.out.println("Is GL3 Supported?: " + glProfile.isGL3());
-      
-      glCanvas = new GLCanvas(glCapabilities);
-      glCanvas.setPreferredSize(new Dimension(400,300));
-      glCanvas.addGLEventListener(this);
-      glCanvas.addMouseListener(this);
-      glCanvas.addMouseMotionListener(this);
-      glCanvas.addMouseWheelListener(this);
-
-      final Frame frame = new Frame() {
-         private static final long serialVersionUID = 1L;
-         public void update(Graphics g) { paint(g); }
-      };
-      frame.add(glCanvas); 
-      frame.pack();
-      frame.setBackground(java.awt.Color.CYAN);
-      frame.setSize(new Dimension(400,300));
-      frame.setTitle("Window-Name");
-      frame.addWindowListener(new WindowAdapter() { 
-         public void windowClosing(WindowEvent evt) {
-           System.exit(0); 
-         }
-      });
-      frame.setVisible(true);
-      
-      Thread animationThread = new Thread(new Runnable(){
-         final static int TargetFPS = 1;
-         
-         @Override
-         public void run() {
-            while(true) {
-               try {
-                  Thread.sleep(1000 / TargetFPS);
-               } catch (InterruptedException e) {}
-               
-               glCanvas.display();
-            }
-         }
-      });
-      animationThread.start();
-      
-   }
 
    // -------------------------------------------------------------------
    // This JoglWindow class manages "buffers"

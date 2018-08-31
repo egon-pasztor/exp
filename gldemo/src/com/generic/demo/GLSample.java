@@ -32,6 +32,7 @@ import com.generic.base.Demo;
 import com.generic.base.Shader;
 import com.generic.base.Geometry;
 import com.generic.base.Mesh;
+import com.generic.base.Platform;
 import com.generic.base.World;
 import com.generic.base.Algebra.*;
 import com.generic.base.Algebra;
@@ -75,11 +76,9 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    private boolean intersectionIn3d;
    private long startTimeMillis;
 
-   private JoglWindow jw;
-     
    public GLSample() {      
-      jw = new JoglWindow();
-      Demo demo = new Demo(jw.platform());
+      Platform platform = Jogl.platform();
+      Demo demo = new Demo(platform);
       
       //v1Setup();
    }
