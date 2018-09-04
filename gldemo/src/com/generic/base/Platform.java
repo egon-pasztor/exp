@@ -36,6 +36,10 @@ public interface Platform {
          // Some way for ower to provide a layout method?
          // Container must keep a MAP providing a Rect
          // for each child, maybe also a borderspec.
+         //
+         // We believe Container should support
+         // setBounds (Widget child, Rect bounds)
+         // and setBorder (Widget child, BorderDescription....)
       }
       public interface Renderer2D extends Widget {
          // Okay, a Widget.Renderer2D is a Widget

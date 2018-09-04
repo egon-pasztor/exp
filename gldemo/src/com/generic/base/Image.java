@@ -325,6 +325,9 @@ public class Image {
       public String toString() {
          return String.format("(%d,%d)", width, height);
       }
+      public static Size of (int width, int height) {
+         return new Size(width, height);
+      }
    }
    public static class Position {
       public final int x, y;
@@ -345,6 +348,9 @@ public class Image {
       public String toString() {
          return String.format("(%d,%d)", x, y);
       }
+      public static Position of (int x, int y) {
+         return new Position(x, y);
+      }      
    }
    public static class Rect {
       public final int left, right, top, bottom;
