@@ -34,6 +34,7 @@ public class Demo {
       // We're also going to need a "camera" that'll produce the model_to_view and view_to_clip matrices.
       // Notice this requires width & height, which we get from the window object.
       Image.Size windowSize = window.size();
+      platform.log("Platform has a %d x %d root-window", windowSize.width, windowSize.height);
       camera = new Camera(windowSize.width, windowSize.height,
             new Vector3(0.0f, 0.0f, 0.0f),   // look-at
             new Vector3(0.0f, 0.0f, 18.0f),   // camera-pos

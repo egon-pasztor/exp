@@ -1,11 +1,12 @@
 package com.generic.demo;
 
+import com.google.common.base.Objects;
+
 import com.generic.base.Color;
 import com.generic.base.Graphics3D;
 import com.generic.base.Image;
 import com.generic.base.Image.Size;
 import com.generic.base.Platform;
-import com.generic.base.Platform.Widget;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -33,26 +34,23 @@ import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.HashMap;
 
-public class Jogl implements GLEventListener, MouseListener, MouseMotionListener, MouseWheelListener,
-                                   Platform.Widget.Renderer3D {
+public class Jogl {
    
    // ======================================================================
    // Window
    // ======================================================================
    
-   private static class Window3D implements GLEventListener, MouseListener, MouseMotionListener, MouseWheelListener,
-                                            com.generic.base.Platform.Widget.Renderer3D {
+   private static class Window3D implements GLEventListener,                                         /* jogamp   */
+                                            MouseListener, MouseMotionListener, MouseWheelListener,  /* awt      */
+                                            Platform.Widget.Renderer3D, Graphics3D.Listener {        /* platform */
 
       // Jogl.Window is a wrapper around this com.jogamp.opengl.awt.GLCanvas,
       // a window that will display the contents of a Graphics3D..
 
       private final GLCanvas glCanvas;
-      private final Jogl.GL3Manager glManager;
       private final Thread renderThread;
       
-      public Window3D (Jogl.GL3Manager glManager) {
-         this.glManager = glManager;
-         
+      public Window3D () {
          GLProfile glProfile = GLProfile.get(GLProfile.GL3);
          GLCapabilities glCapabilities = new GLCapabilities(glProfile);
          
@@ -98,10 +96,8 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
             private static final long serialVersionUID = 1L;
             public void update(Graphics g) { paint(g); }
          };
-         frame.add(glCanvas); 
          frame.pack();
          frame.setBackground(java.awt.Color.CYAN);
-         frame.setSize(new Dimension(400,300));
          frame.setTitle("Window-Name");
          frame.addWindowListener(new WindowAdapter() { 
             public void windowClosing(WindowEvent evt) {
@@ -109,6 +105,8 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
             }
          });
          frame.setVisible(true);
+         frame.setSize(new Dimension(400,300));
+         frame.add(glCanvas); 
          
          renderThread = new Thread(new Runnable(){
             final static int TargetFPS = 1;
@@ -127,26 +125,94 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
          renderThread.start();
       }
       
-      // This Jogl.Window object is displaying the contents of this Graphics3D:
-      private Graphics3D graphics3D;
+      // ==========================================================
+      // Translating a Graphics3D object into GL3 calls
+      // ==========================================================
       
+      // This Jogl.Window object is displaying the contents of one Graphics3D.
+      private Graphics3D graphics3D;
+
       public void setGraphics3D(Graphics3D graphics3D) {
          if (this.graphics3D != graphics3D) {
             if (this.graphics3D != null) {
-               glManager.removeGraphics3D(this.graphics3D);
+               disconnectGraphics3D();
             }
             
             this.graphics3D = graphics3D;
             
             if (this.graphics3D != null) {
-               glManager.addGraphics3D(this.graphics3D);
+               connectGraphics3D();
             }
          }
       }
       
-      // ----------------------------------------------------------
+      public void vertexBufferAdded(int vertexBuffer) {
+      }
+      public void vertexBufferChanged(int vertexBuffer) {
+      }
+      public void vertexBufferRemoved(int vertexBuffer) {
+      }
+      public void samplerAdded(int sampler) {
+      }
+      public void samplerChanged(int sampler) {
+      }
+      public void samplerRemoved(int sampler) {
+      }
+      public void shaderAdded(int shader) {
+      }
+      public void shaderRemoved(int shader) {
+      }
+      public void commandsChanged() {
+      }
+
+      // --------------
+      private void connectGraphics3D() {         
+         // Connect all vertex-buffers.
+         // Connect all samplers.
+         // Connect all shaders.
+         graphics3D.listeners.add(this);
+      }
+      private void disconnectGraphics3D() {         
+         graphics3D.listeners.remove(this);
+         // Mark all vertex-buffers dead.
+         // Mark all samplers dead.
+         // Mark all shaders dead.       
+      }
+      
+      // ------------------------------------------------------------
+      // Now then.  THIS WINDOW class will keep track of all the vertex-buffers
+      // being used in the display.
+      
+      private HashMap<Integer, GLBuffer> vertexBuffers = new HashMap<Integer, GLBuffer>();
+
+      private static class GLBuffer {
+         public final int key;
+         public GLBuffer(int key) { 
+            this.key = key;
+            this.changed = true;
+         }
+         
+         public boolean changed;
+         public boolean destroyed;
+         public Integer glBufferID;
+         
+         // The "Data.Array" in Graphics3D has to be FIRST converted
+         // into a native Buffer, either IntBuffer or FloatBuffer
+         public Buffer nativeBuffer;
+         
+         
+         public void update(GL3 gl) {
+            
+         }
+      }
+
+      
+      
+      
+      
+      // ========================================================
       // Implementing Platform.Widget
-      // ----------------------------------------------------------
+      // ========================================================
       
       public Platform.Widget parent() {
          return null;
@@ -188,20 +254,17 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
       // -----------------------------------------------------------
       // Implementing GLEventListener
       // -----------------------------------------------------------
-      
-      
       public void init(GLAutoDrawable drawable) {
          System.out.format("JOGLWin.init called\n");
          // Not sure if we have to do anything here
       }
       public void display(GLAutoDrawable drawable) {
          System.out.format("JOGLWin.display() called\n");
-         glManager.display(drawable, graphics3D);
       }
       public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {      
          System.out.format("JOGLWin.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
          Image.Size newSize = Image.Size.of(width, height);
-         if (!newSize.equals(size)) {
+         if (!Objects.equal(newSize, size)) {
             size = newSize;
             if (resizeListener != null) {
                resizeListener.resized();
@@ -210,53 +273,22 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
       }
       public void dispose(GLAutoDrawable drawable) {
          System.out.format("JOGLWin.dispose() called\n");
-         glManager.dispose(drawable, graphics3D);
       }
    }
    
    // ======================================================================
    // GL Interface
    // ======================================================================
-   
+   /* 
+      
+     We had an idea for a "GLManager" that would own all the vertexbuffers
+     and would support "sharing" between different 3D-windows in the same "Platform".
+     It was abandoned when we made no progress after several weeks, but maybe
+     that was just because we were doing other things?
+    
    private static class GL3Manager {
       
-      private class Graphics3DReference implements Graphics3D.Listener {
-         private final Graphics3D graphics3D;
-         
-         public Graphics3DListener (Graphics3D graphics3D) {
-            this.graphics3D = graphics3D;
-            this.graphics3D.listeners.add(this);
-         }
-         public void dispose() {
-            this.graphics3D.listeners.remove(this);
-         }
-         
-         public void vertexBufferAdded(int vertexBuffer) {
-            GLBuffer newBuffer = new GLBuffer(vertexBuffer);
-            vertexBuffers.put(vertexBuffer, null)
-         }
-         public void vertexBufferRemoved(int vertexBuffer) {
-         }
-         public void vertexBufferChanged(int vertexBuffer) {
-         }
-         public void samplerAdded(int sampler) {
-         }
-         public void samplerRemoved(int sampler) {
-         }
-         public void samplerChanged(int sampler) {
-         }
-         public void shaderAdded(int shader) {
-         }
-         public void shaderRemoved(int shader) {
-         }
-         public void commandsChanged() {
-         }
-      }
-      
-      // TODO soon we'll want to handle multiple Graphics3D objects..
-      // but let's get ONE working.
-      private Graphics3D graphics3D;
-      
+            
       public void addGraphics3D(Graphics3D graphics3D) {
          this.graphics3D = graphics3D;
       }
@@ -264,66 +296,14 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
          this.graphics3D = null;
       }
       
-      // ----------------------------------------------------------------------------
-      // The GL3Manager is reponsible for keeping track of the "vertexBuffers"
-      // that have been registered with GL3 contexts..
-      // ----------------------------------------------------------------------------
-      
-      private HashMap<Integer, GLBuffer> vertexBuffers = new HashMap<Integer, GLBuffer>();
-
-      private static class GLBuffer {
-         public final int key;
-         public GLBuffer(int key) { 
-            this.key = key;
-            this.changed = true;
-         }
-         
-         public boolean changed;
-         public boolean destroyed;
-         public Integer glBufferID;
-         
-         // The "Data.Array" in Graphics3D has to be FIRST converted
-         // into a native Buffer, either IntBuffer or FloatBuffer
-         public Buffer nativeBuffer;
-         
-         
-         public void update(GL3 gl) {
-            
-         }
-      }
-      
-      private void setupBuffers(GL3 gl) {
-         
-      }
-      
-      
-      private Graphics3D graphics3D = null;
-      
-      
-      
-      
-      
-      // -------------------------------------------------------------
-      // Now then, actually rendering the Graphics3D content involves
-      // iterating over the Graphics3D "commands"..
-      // -------------------------------------------------------------
-      public void display(GLAutoDrawable drawable, Graphics3D graphics3D) {
-         
-         
-      }
-      public void dispose(GLAutoDrawable drawable, Graphics3D graphics3D) {
-         // Not sure if we have to do anything here...
-      }
    }
+   */
    
    // ======================================================================
    // Platform
    // ======================================================================
    
-   private static class Platform implements com.generic.base.Platform {
-
-      // The desktop platform will contain a single GL3Manager
-      private final GL3Manager glManager;
+   private static class JoglPlatform implements Platform {
       
       // Currently Jogl.Window creates a "top-level" window that is a Jogl.Window3D.
       //
@@ -335,9 +315,8 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
       //
       private final Jogl.Window3D window;
       
-      public Platform() {
-         glManager = new GL3Manager();
-         window = new Jogl.Window3D(glManager);
+      public JoglPlatform() {
+         window = new Jogl.Window3D();
       }
 
       public Widget.Renderer3D root3D() {
@@ -376,86 +355,11 @@ public class Jogl implements GLEventListener, MouseListener, MouseMotionListener
    
    // ======================================================================
    
-   public static com.generic.base.Platform platform = null;
-   public static com.generic.base.Platform platform() {
+   public static Platform platform = null;
+   public static Platform platform() {
       if (platform == null) {
-         platform = new Jogl.Platform(); 
+         platform = new JoglPlatform(); 
       }
       return platform;
-   }
-
-   // -------------------------------------------------------------------
-   // Interface to Jogl GL
-   // -------------------------------------------------------------------
-   
-
-   // -------------------------------------------------------------------
-   // This JoglWindow class manages "buffers"
-   // so let's start with that.
-   // -------------------------------------------------------------------
-   
-   
-   public void setGraphics3D(Graphics3D graphics3D) {
-      if (this.graphics3D != null) {
-        this.graphics3D.listeners.remove(listener);
-      }
-      
-      this.graphics3D = graphics3D;
-      
-      if (this.graphics3D != null) {
-         this.graphics3D.listeners.add(listener);
-      }
-   }
-   
-   // ----------------------------------------------------------
-   // Implementing Platform.Widget
-   // ----------------------------------------------------------
-   
-   public Platform.Widget parent() {
-      return null;
-   }
-   public boolean isConnected() {
-      return true;
-   }
-   public Image.Size size() {
-      return null;
-   }
-   public void setResizeListener(Platform.Widget.ResizeListener listener) {
-   }
-         
-   // -----------------------------------------------------------
-   // Implementing MouseListener & MouseMotionListener
-   // -----------------------------------------------------------
-   public void mouseWheelMoved(MouseWheelEvent e) {
-   }
-   public void mouseDragged(MouseEvent e) {
-   }
-   public void mouseMoved(MouseEvent e) {
-   }
-   public void mouseClicked(MouseEvent e) {
-   }
-   public void mousePressed(MouseEvent e) {
-   }
-   public void mouseReleased(MouseEvent e) {
-   }
-   public void mouseEntered(MouseEvent e) {
-   }
-   public void mouseExited(MouseEvent e) {
-   }
-   
-   // -----------------------------------------------------------
-   // Implementing GLEventListener
-   // -----------------------------------------------------------
-   public void init(GLAutoDrawable drawable) {
-      System.out.format("JOGLWin.init called\n");
-   }
-   public void dispose(GLAutoDrawable drawable) {
-      System.out.format("JOGLWin.dispose() called\n");
-   }
-   public void display(GLAutoDrawable drawable) {
-      System.out.format("JOGLWin.display() called\n");
-   }
-   public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {      
-      System.out.format("JOGLWin.reshape(%d,%d,%d,%d) called\n",x,y,width,height);      
    }
 }
