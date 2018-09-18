@@ -180,8 +180,8 @@ public class Jogl {
       }
       
       // ------------------------------------------------------------
-      // Now then.  THIS WINDOW class will keep track of all the vertex-buffers
-      // being used in the display.
+      // Now then.  THIS WINDOW class will keep track of all the 
+      // vertex-buffers being used in the scene
       
       private HashMap<Integer, GLBuffer> vertexBuffers = new HashMap<Integer, GLBuffer>();
 
@@ -194,11 +194,13 @@ public class Jogl {
          
          public boolean changed;
          public boolean destroyed;
-         public Integer glBufferID;
          
          // The "Data.Array" in Graphics3D has to be FIRST converted
          // into a native Buffer, either IntBuffer or FloatBuffer
          public Buffer nativeBuffer;
+         
+         
+         public Integer glBufferID;
          
          
          public void update(GL3 gl) {
