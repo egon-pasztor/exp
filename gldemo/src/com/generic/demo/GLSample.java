@@ -999,7 +999,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
       System.out.format("GLSample.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
 
-      Camera initialCamera = new Camera(width, height,
+      Camera initialCamera = new Camera(
+            Image.Size.of (width, height),
          new Vector3(0.0f, 0.0f, 0.0f),   // look-at
          new Vector3(0.0f, 0.0f, 18.0f),   // camera-pos
          new Vector3(0.0f, 1.0f, 0.0f),   // camera-up
@@ -1137,8 +1138,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       updateBuffers(gl);
 
       Camera camera = cameraController.getCamera();
-      int width = camera.width;
-      int height = camera.height;
+      int width = camera.size.width;
+      int height = camera.size.height;
       
       demoWorld.bindPositions(camera.cameraToClipSpace, camera.worldToCameraSpace, width, height);
       
@@ -1264,8 +1265,8 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
                                Camera camera,            // where this is the camera,
                                int x, int y) {           // intersect this point in the view?
 
-      int width = camera.width;
-      int height = camera.height;
+      int width = camera.size.width;
+      int height = camera.size.height;
 
       float aspect = ((float)width) / height;
       float fHeight = (float) Math.tan(camera.verticalFovInDegrees * (Math.PI / 180.0) * 0.5);

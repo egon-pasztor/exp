@@ -6,7 +6,7 @@ import com.generic.base.Algebra.Vector2;
 
 public class Camera {
 
-   public Camera(int windowWidth, int windowHeight,
+   public Camera(Image.Size size,
                  Vector3 lookAtPoint,
                  Vector3 cameraPosition,
                  Vector3 cameraUpVector,
@@ -15,8 +15,7 @@ public class Camera {
       // A Camera provides a method to project from points
       // in a 3D "world space" to points on a 2D window.
 
-      this.width = windowWidth;
-      this.height = windowHeight;
+      this.size = size;
 
       // The objects in "world space" are in a right-handed
       // coordinate system, where:
@@ -92,7 +91,7 @@ public class Camera {
       // Our vertical "field of view in degrees" determines how much
       // of the <x,y> plane at z=-1 we can see in our viewport:
 
-      float aspect = ((float) width) / height;
+      float aspect = ((float) size.width) / size.height;
       this.verticalFovInDegrees = verticalFovInDegrees;
       fHeight = (float) Math.tan(verticalFovInDegrees * (Math.PI / 180.0) * 0.5);
       fWidth = aspect * fHeight;
@@ -195,7 +194,7 @@ public class Camera {
 
    // Public final properties describing this Camera
 
-   public final int width, height;
+   public final Image.Size size;
 
    public final Vector3 cameraPosition;
    public final Vector3 cameraUpVector;
@@ -257,8 +256,8 @@ public class Camera {
       private float tScale;
 
       private Vector3 getCameraSpacePosition(int ix, int iy) {
-         int width = camera.width;
-         int height = camera.height;
+         int width = camera.size.width;
+         int height = camera.size.height;
          float y  = grabCamera.fHeight * ((height/2-iy) / ((float) (height/2)));
          float x  =  grabCamera.fWidth * ((ix-width/2)  / ((float) (width/2)));
          return new Vector3(x,y,-1.0f);
@@ -312,7 +311,7 @@ public class Camera {
 
          Vector3 newCameraUpVector = grabCamera.camY.rotated(grabCamera.camZ, deltaAngle);
 
-         camera = new Camera(grabCamera.width, grabCamera.height,
+         camera = new Camera(grabCamera.size,
                              newCameraLookAtPoint,
                              newCameraPosition,
                              newCameraUpVector,
@@ -411,7 +410,7 @@ public class Camera {
             }
          }
 
-         camera = new Camera(grabCamera.width, grabCamera.height,
+         camera = new Camera(grabCamera.size,
             newCameraLookAtPoint,
             newCameraPosition,
             newCameraUpVector,
