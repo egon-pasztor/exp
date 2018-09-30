@@ -455,38 +455,7 @@ public class Mesh2 {
             this.numEdges--;
          }
       }
-   }
-   
-   
-   // ========================================================================
-   // Given a face-ID or a vertex-ID, these functions will count
-   // the number of edges connected to either.
-   // ========================================================================
-   
-   public int numEdgesForFace (int face) {
-      int firstEdge = directedEdgeForFace(face);
-      if (firstEdge < 0) return 0;
-      
-      int count = 0;
-      int edge = firstEdge;
-      do {
-         count++;
-         edge = nextInLoop(edge);
-      } while (edge != firstEdge);
-      return count;
-   }
-   public int numEdgesForVertex (int vertex) {
-      int firstEdge = outgoingEdgeForVertex(vertex);
-      if (firstEdge < 0) return 0;
-      
-      int count = 0;
-      int edge = firstEdge;
-      do {
-         count++;
-         edge = nextAroundStart(edge);
-      } while (edge != firstEdge);
-      return count;
-   }
+   }   
 
    
    // ========================================================================
@@ -496,7 +465,7 @@ public class Mesh2 {
 
    // The largest IDs in use, provided above, 
    // may not be the same as the number of vertices, edges, and faces 
-
+   
    public int numVertices () { return numVertices; }
    public int numFaces ()    { return numFaces; }
    public int numEdges ()    { return numEdges; }
@@ -520,7 +489,6 @@ public class Mesh2 {
       });
    }
  
-   
    // Private utility for the iterables above
    
    private interface SequenceWithGaps {
@@ -605,6 +573,20 @@ public class Mesh2 {
          }
       };
    }
+
+   // Given a face-ID or a vertex-ID, these functions
+   // count the number of edges connected to either.
+   
+   public int numEdgesForVertex (int vertex) {
+      int numEdges = 0;
+      for (Integer edgeId : outgoingEdges(vertex)) numEdges++;
+      return numEdges;
+   }   
+   public int numEdgesForFace (int face) {
+      int numEdges = 0;
+      for (Integer edgeId : faceEdges(face)) numEdges++;
+      return numEdges;
+   }   
 
    
    // ==================================================================
@@ -720,6 +702,7 @@ public class Mesh2 {
    private int numVertices;
    private int numFaces;
    private int numEdges;
+   private int numTriangles;
    
    private final HashMap<String, DataLayer> dataLayers;
    
