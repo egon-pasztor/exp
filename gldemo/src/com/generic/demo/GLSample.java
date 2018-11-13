@@ -1012,8 +1012,14 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    /** GL Render loop */
    @Override
    public void display(GLAutoDrawable drawable) {
+      
+      // so yeah ... THIS would update the states of objects in demoWorld,
+      // changing the positions of some objects and/or mesh/texture data
       demoWorld.updateDemoWorld(System.currentTimeMillis() - startTimeMillis);      
       GL3 gl = drawable.getGL().getGL3();
+      
+      // this does the work we're moving to the Jogl class.
+      // what should be calledcom.generic.platform.desktop.DesktopPlatform
       renderGL(gl);
    }
 

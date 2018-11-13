@@ -245,7 +245,7 @@ public class Algebra {
          float remainder = 1.0f - fraction;
          return new Vector3(x * remainder + target.x * fraction,
                              y * remainder + target.y * fraction,
-                             z * remainder + target.z * fraction);
+                            z * remainder + target.z * fraction);
       }
 
       // -------------------------------------------------------

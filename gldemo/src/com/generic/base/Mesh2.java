@@ -17,20 +17,67 @@ import java.util.Set;
 public class Mesh2 {
 
    // ==================================================================
-   // A Mesh keeps track of CONNECTIVITY
-   // within a set of Vertices, Faces, and Edges
+   // A Mesh maintains information about Vertices, Faces, and Edges.
    // ==================================================================
    
-   // Each vertex, face, and edge has an integer ID.
-   // These first 3 methods tell you how many IDs have been allocated.
-   public int numVertexIDs() { return vertexIDManager.getNumReservedIDs(); }
-   public int numEdgeIDs()   { return edgeIDManager.getNumReservedIDs();   }
-   public int numFaceIDs()   { return faceIDManager.getNumReservedIDs();   }
+   // Now many vertices, faces, and edges we have:   
+   public int numVertices () { return numVertices; }
+   public int numFaces ()    { return numFaces; }
+   public int numEdges ()    { return numEdges; }
 
 
+   // ==================================================================
+   // Each Vertex, Face, and Edge has an integer ID.
+   // ==================================================================
+
+   // These methods return a number greater than the largest ID
+   // of vertices, faces, and edges respectively.  Not all IDs may be in
+   // use, in general the largest ID is larger than the number of IDs.
+   public int numVertexIDs()  { return vertexIDManager.getNumReservedIDs();  }
+   public int numEdgeIDs()    { return edgeIDManager.getNumReservedIDs();    }
+   public int numFaceIDs()    { return faceIDManager.getNumReservedIDs();    }
+
+   // These methods let the caller iterate over all the vertex, face,
+   // and edge IDs in sequence, skipping over any unused ones.
+   public Iterable<Integer> vertices() {
+      return elements(new SequenceWithGaps(){
+         public int maxID() { return numVertexIDs(); }
+         public boolean isValid(int vertex) { return isVertexInMesh(vertex); }
+      });
+   }
+   public Iterable<Integer> faces() {
+      return elements(new SequenceWithGaps(){
+         public int maxID() { return numFaceIDs(); }
+         public boolean isValid(int face) { return isFaceInMesh(face); }
+      });
+   }
+   public Iterable<Integer> edges() {
+      return elements(new SequenceWithGaps(){
+         public int maxID() { return numEdgeIDs(); }
+         public boolean isValid(int edge) { return isEdgeInMesh(edge); }
+      });
+   }
+   
+   // Not all IDs may be in use.   Given a vertex, edge, or face ID,
+   // these methods reveal if it's in use:
+   public boolean isVertexInMesh (int vertex) {
+      return outgoingEdgeForVertex(vertex) >= 0;
+   }
+   public boolean isFaceInMesh (int face) {
+      return directedEdgeForFace(face) >= 0;
+   }
+   public boolean isEdgeInMesh (int edge) {
+      return isDirectedEdgeInMesh(forwardDirectedEdge(edge));
+   }   
+
+   
+   // ==================================================================
+   // Each DIRECTED edge also has an ID.
+   // ==================================================================
+   
    // Each edge is associated with two directed-edges pointing in opposite directions.
-   // Given an edge-ID, the IDs of its directed-edges can be found by doubling the edge-ID,
-   // and optionally adding one:
+   // Given an edge-ID, the IDs of its two directed-edges can be found
+   // by doubling the edge-ID, and either adding one or not.
    public int forwardDirectedEdge (int edge) {
       return 2 * edge;
    }
@@ -47,6 +94,18 @@ public class Mesh2 {
    public int opposite (int directedEdge) {
       return directedEdge ^ 1;
    }
+   
+   // Not all IDs may be in use.   Given a directedEdge-id,
+   // this method reveals if it's in use:
+   public boolean isDirectedEdgeInMesh (int directedEdge) {
+      return startOf(directedEdge) >= 0;
+   }
+   
+   
+   // ==================================================================
+   // The Mesh keeps track of the CONNECTIVITY between its
+   // vertices, faces, edges, and directed-edges..
+   // ==================================================================
 
    // Given a directedEdge-ID, you can retrieve the vertex-ID
    // of the Vertex that's at the START or END of the directedEdge.
@@ -107,26 +166,57 @@ public class Mesh2 {
    public int directedEdgeForFace (int face) {
       return faceToDirectedEdge.array()[face];
    }
+   
 
-
-   // A vertex-ID that doesn't have a directedEdge is "disconnected"
-   public boolean isVertexConnected (int vertex) {
-      return outgoingEdgeForVertex(vertex) >= 0;
+   // The functions produce Iterables that iterate over the directed-edges
+   // involved in a particular face or vertex:
+   
+   public Iterable<Integer> directedEdgesOfFace(final int face) {
+      return elements(new CyclicSequence(){
+         public int firstID() { return directedEdgeForFace(face); }
+         public int next(int id) { return nextInLoop(id); }
+      });
    }
-   // An face-ID that doesn't have a directedEdge is "disconnected"
-   public boolean isFaceConnected (int face) {
-      return directedEdgeForFace(face) >= 0;
+   public Iterable<Integer> outgoingEdges(final int vertex) {
+      return elements(new CyclicSequence(){
+         public int firstID() { return outgoingEdgeForVertex(vertex); }
+         public int next(int id) { return nextAroundStart(id); }
+      });
    }
-   // A directedEdge-ID that doesn't have a start-vertex is "disconnected"
-   public boolean isDirectedEdgeConnected (int directedEdge) {
-      return startOf(directedEdge) >= 0;
-   }
-   // An edge-ID whose directedEdge is "disconnected" is itself "disconnected"
-   public boolean isEdgeConnected (int edge) {
-      return isDirectedEdgeConnected(forwardDirectedEdge(edge));
+   public Iterable<Integer> incomingEdges(final int vertex) {
+      return elements(new CyclicSequence(){
+         public int firstID() { return opposite(outgoingEdgeForVertex(vertex)); }
+         public int next(int id) { return nextAroundEnd(id); }
+      });
    }
    
+   // These functions count the number of edges connected to a vertex
+   // (called the "valence" of the vertex) or the number of edges encircling
+   // a face (revealing if the face is a triangle or a quad or a pentagon, etc)
    
+   public int numEdgesForVertex (int vertex) {
+      return countIterator(outgoingEdges(vertex).iterator());
+   }   
+   public int numEdgesForFace (int face) {
+      return countIterator(directedEdgesOfFace(face).iterator());
+   }   
+   private int countIterator (Iterator<?> it) {
+      int count = 0;
+      while (it.hasNext()) count++;
+      return count;
+   }
+
+   
+   // ==================================================================
+   // The Mesh keeps track of how many triangles are used by the entire mesh.
+   // This will equal the number of faces if each face is triangular,
+   // otherwise it will be more than the number of faces.
+   // ==================================================================
+   
+   public int numTriangles ()  { return numTriangles; }
+   
+   
+
    // ==================================================================
    // A Mesh can be built up iteratively by adding disconnected
    // vertex-IDs, and connecting them by adding faces.
@@ -280,8 +370,9 @@ public class Mesh2 {
       // [2] We're ADDING a Face to the connected mesh
       setDirectedEdgeForFace(newFaceID, faceEdges[0]);
       this.numFaces++;
+      this.numTriangles += (numVertices - 2);
 
-      // Finally, we have to fix up the various edge links --
+      // Finally, we have to fix up the various edge links.
       // We consider each VERTEX in turn:      
       for (int i = 0; i < numVertices; ++i) {
          int prevEdge = faceEdges[(i + (numVertices-1)) % numVertices];
@@ -437,6 +528,7 @@ public class Mesh2 {
       // [5] We're REMOVING a Face from the connected mesh
       setDirectedEdgeForFace(face, -1);
       this.numFaces--;
+      this.numTriangles -= (numVertices - 2);
       
       // Finally, we have to remove any edges that were
       // not attached to other still-existing faces:
@@ -455,42 +547,53 @@ public class Mesh2 {
             this.numEdges--;
          }
       }
+      
+      // Okay.... why doesn't this function call "releaseID"?
+      // Don't we want that?
    }   
 
    
+   // ==================================================================
+   // These private functions are called by "addFace" and "removeFace"
+   // to set connectivity array elements:
+   // ==================================================================
+   
+   private void setFaceOf (int directedEdge, int face) {
+      directedEdgeData.array()[4 * directedEdge + 1] = face;
+   }
+   private void setNextInLoop (int directedEdge, int nextDirectedEdge) {
+      directedEdgeData.array()[4 * directedEdge + 2] = nextDirectedEdge;
+   }
+   private void setPrevInLoop (int directedEdge, int prevDirectedEdge) {
+      directedEdgeData.array()[4 * directedEdge + 3] = prevDirectedEdge;
+   }
+   private void setOutgoingEdgeForVertex (int vertex, int directedEdge) {
+      vertexToDirectedEdge.array()[vertex] = directedEdge;
+   }
+   private void setDirectedEdgeForFace(int face, int directedEdge) {
+      faceToDirectedEdge.array()[face] = directedEdge;
+   }
+   private void connectEdges (int prevEdge, int nextEdge) {
+      setNextInLoop (prevEdge, nextEdge);
+      setPrevInLoop (nextEdge, prevEdge);      
+   }
+   private void initEdge (int edge, int startVertex, int endVertex) {
+      int[] edgeArray = directedEdgeData.array();
+      edgeArray[8*edge + 0] = startVertex;  // forward-edge start-Vertex-ID
+      edgeArray[8*edge + 1] = -1;           // forward-edge face-ID
+      edgeArray[8*edge + 2] = -1;           // forward-edge next-edge-in-loop
+      edgeArray[8*edge + 3] = -1;           // forward-edge prev-edge-in-loop
+      edgeArray[8*edge + 4] = endVertex;    // reverse-edge start-Vertex-ID
+      edgeArray[8*edge + 5] = -1;           // reverse-edge face-ID
+      edgeArray[8*edge + 6] = -1;           // reverse-edge next-edge-in-loop
+      edgeArray[8*edge + 7] = -1;           // reverse-edge prev-edge-in-loop
+   }   
+   
    // ========================================================================
-   // Callers can use these ITERABLES to loop over all Vertices or Faces
-   // or Edges, or around the Edges involved in a particular Face or Vertex
+   // These private interfaces and methods are used
+   // by public methods above that return iterables.
    // ========================================================================
 
-   // The largest IDs in use, provided above, 
-   // may not be the same as the number of vertices, edges, and faces 
-   
-   public int numVertices () { return numVertices; }
-   public int numFaces ()    { return numFaces; }
-   public int numEdges ()    { return numEdges; }
-   
-   public Iterable<Integer> vertices() {
-      return elements(new SequenceWithGaps(){
-         public int maxID() { return numVertexIDs(); }
-         public boolean isValid(int vertex) { return isVertexConnected(vertex); }
-      });
-   }
-   public Iterable<Integer> faces() {
-      return elements(new SequenceWithGaps(){
-         public int maxID() { return numFaceIDs(); }
-         public boolean isValid(int face) { return isFaceConnected(face); }
-      });
-   }
-   public Iterable<Integer> edges() {
-      return elements(new SequenceWithGaps(){
-         public int maxID() { return numEdgeIDs(); }
-         public boolean isValid(int edge) { return isEdgeConnected(edge); }
-      });
-   }
- 
-   // Private utility for the iterables above
-   
    private interface SequenceWithGaps {
       int maxID();
       boolean isValid(int id);
@@ -507,7 +610,7 @@ public class Mesh2 {
                }
                public Integer next() {
                   int result = id;
-                  id = nextValidId(id+1);
+                  id = nextValidId(id + 1);
                   return result;
                }
                
@@ -520,28 +623,6 @@ public class Mesh2 {
       };
    }
 
-   // The functions return Iterables that iterate over the edges involved
-   // in a particular face or vertex:
-   
-   public Iterable<Integer> faceEdges(final int face) {
-      return elements(new CyclicSequence(){
-         public int firstID() { return directedEdgeForFace(face); }
-         public int next(int id) { return nextInLoop(id); }
-      });
-   }
-   public Iterable<Integer> outgoingEdges(final int vertex) {
-      return elements(new CyclicSequence(){
-         public int firstID() { return outgoingEdgeForVertex(vertex); }
-         public int next(int id) { return nextAroundStart(id); }
-      });
-   }
-   public Iterable<Integer> incomingEdges(final int vertex) {
-      return elements(new CyclicSequence(){
-         public int firstID() { return opposite(outgoingEdgeForVertex(vertex)); }
-         public int next(int id) { return nextAroundEnd(id); }
-      });
-   }
-   
    // Private utility for the iterables above   
 
    private interface CyclicSequence {
@@ -573,66 +654,14 @@ public class Mesh2 {
          }
       };
    }
-
-   // Given a face-ID or a vertex-ID, these functions
-   // count the number of edges connected to either.
-   
-   public int numEdgesForVertex (int vertex) {
-      int numEdges = 0;
-      for (Integer edgeId : outgoingEdges(vertex)) numEdges++;
-      return numEdges;
-   }   
-   public int numEdgesForFace (int face) {
-      int numEdges = 0;
-      for (Integer edgeId : faceEdges(face)) numEdges++;
-      return numEdges;
-   }   
-
-   
-   // ==================================================================
-   // Private functions for setting connectivity array elements...
-   // ==================================================================
-   
-   private void setFaceOf (int directedEdge, int face) {
-      directedEdgeData.array()[4 * directedEdge + 1] = face;
-   }
-   private void setNextInLoop (int directedEdge, int nextDirectedEdge) {
-      directedEdgeData.array()[4 * directedEdge + 2] = nextDirectedEdge;
-   }
-   private void setPrevInLoop (int directedEdge, int prevDirectedEdge) {
-      directedEdgeData.array()[4 * directedEdge + 3] = prevDirectedEdge;
-   }
-   private void setOutgoingEdgeForVertex (int vertex, int directedEdge) {
-      vertexToDirectedEdge.array()[vertex] = directedEdge;
-   }
-   private void setDirectedEdgeForFace(int face, int directedEdge) {
-      faceToDirectedEdge.array()[face] = directedEdge;
-   }
-   
-   // ------------------------------------------   
-   private void connectEdges (int prevEdge, int nextEdge) {
-      setNextInLoop (prevEdge, nextEdge);
-      setPrevInLoop (nextEdge, prevEdge);      
-   }
-   
-   private void initEdge (int edge, int startVertex, int endVertex) {
-      int[] edgeArray = directedEdgeData.array();
-      edgeArray[8*edge + 0] = startVertex;  // forward-edge start-Vertex-ID
-      edgeArray[8*edge + 1] = -1;           // forward-edge face-ID
-      edgeArray[8*edge + 2] = -1;           // forward-edge next-edge-in-loop
-      edgeArray[8*edge + 3] = -1;           // forward-edge prev-edge-in-loop
-      edgeArray[8*edge + 4] = endVertex;    // reverse-edge start-Vertex-ID
-      edgeArray[8*edge + 5] = -1;           // reverse-edge face-ID
-      edgeArray[8*edge + 6] = -1;           // reverse-edge next-edge-in-loop
-      edgeArray[8*edge + 7] = -1;           // reverse-edge prev-edge-in-loop
-   }   
    
 
    // ==================================================================
-   // MESH STORAGE
+   // This private class keeps track of which IDs are not in use,
+   // so that new vertices, faces, edges will be able to reuse old IDs.
    // ==================================================================
 
-   public static class IDManager {
+   private static class IDManager {
       public IDManager() {
          numReservedIDs = 0;
          releasedIDs = new Data.Array.Integers(1);
@@ -650,6 +679,13 @@ public class Mesh2 {
             return numReservedIDs-1;
          }
       }
+      
+      // TODO -- note that no-one's calling releaseID.
+      // That's a concern...  
+      // How *should* it work?
+      //   NewVertexID should be paired with ReleaseVertexID, 
+      //   while "removeFace" should release Face & Edge IDs but NOT Vertex IDs?
+      // 
       public void releaseID(int releasedID) {
          int numReleasedIDs = releasedIDs.numElements();
          releasedIDs.setNumElements(numReleasedIDs+1);
@@ -688,8 +724,10 @@ public class Mesh2 {
       }
    }
 
-   // -----------------------------------------------------   
-   // -----------------------------------------------------
+
+   // ==================================================================
+   // DATA
+   // ==================================================================
    
    private final Data.Array.Integers vertexToDirectedEdge;
    private final Data.Array.Integers faceToDirectedEdge;
@@ -706,6 +744,10 @@ public class Mesh2 {
    
    private final HashMap<String, DataLayer> dataLayers;
    
+   
+   // ==================================================================
+   // Constructor
+   // ==================================================================
    
    public Mesh2() {
       vertexToDirectedEdge = new Data.Array.Integers(1);
@@ -724,6 +766,7 @@ public class Mesh2 {
    }
 
    public void clear() {
+      numTriangles = 0;
       numVertices = 0;
       numFaces = 0;
       numEdges = 0;
@@ -738,9 +781,11 @@ public class Mesh2 {
       System.out.format("NumFaces: %d  (NumFacesIDs: %d)\n", numFaces, numFaceIDs());
    }
 
-   // -------------------------------------------------------
+
+   // ==================================================================
    // "DataLayers"
-   // -------------------------------------------------------
+   // ==================================================================
+   
    public static class DataLayer {
       
       public enum Elements  { PER_VERTEX, PER_EDGE, PER_FACE };
@@ -825,6 +870,7 @@ public class Mesh2 {
       }
    }
 
+   // ---------------------------------------------------------------      
    public DataLayer newDataLayer(String name, DataLayer.Type type) {
       if (dataLayers.get(name) != null) {
          throw new RuntimeException(String.format(
@@ -841,32 +887,14 @@ public class Mesh2 {
    }
    
    
-   // ---
-   /*   
-    * This is left over from the "Cursors" object plan...
-
-   public interface ElementData {
-      public int size();
-   }
-   public interface ElementIntData extends ElementData {
-      public int get(int i);
-   }
-   public interface MutableElementIntData extends ElementIntData {
-      public void set(int i, int v);
-   }
-   public interface ElementFloatData extends ElementData {
-      public float get(int i);
-   }
-   public interface MutableElementFloatData extends ElementFloatData {
-      public void set(int i, float v);
-   }
-   */
-   // ---
-
-   
 
    // #############################################################################################
-   // Specific Models for Testing
+   // #############################################################################################
+   //
+   // Code for loading/saving models to a particular file format
+   // is NOT considered finished..
+   // 
+   // #############################################################################################
    // #############################################################################################
    
    private static class SavedModel {

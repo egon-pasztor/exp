@@ -1,12 +1,12 @@
 package com.generic.demo;
 
-import com.google.common.base.Objects;
-
 import com.generic.base.Color;
 import com.generic.base.Graphics3D;
 import com.generic.base.Image;
 import com.generic.base.Image.Size;
 import com.generic.base.Platform;
+import com.generic.base.Algebra;
+import com.generic.base.Algebra.*;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -40,7 +40,7 @@ public class Jogl {
    // Window
    // ======================================================================
    
-   private static class Window3D implements GLEventListener,                                         /* jogamp   */
+   private static class Renderer3D implements GLEventListener,                                         /* jogamp   */
                                             MouseListener, MouseMotionListener, MouseWheelListener,  /* awt      */
                                             Platform.Widget.Renderer3D, Graphics3D.Listener {        /* platform */
 
@@ -50,7 +50,10 @@ public class Jogl {
       private final GLCanvas glCanvas;
       private final Thread renderThread;
       
-      public Window3D () {
+      private final Object lock = new Object();
+      private boolean gotInitialSize = false;
+      
+      public Renderer3D () {
          GLProfile glProfile = GLProfile.get(GLProfile.GL3);
          GLCapabilities glCapabilities = new GLCapabilities(glProfile);
          
@@ -69,11 +72,11 @@ public class Jogl {
          // but eventually this Widget will have to support...
          // ... being "added" to a Platform.Widget.Container.
          //
-         // I guess we'll have ... a package com.generic.platform.desktop,
-         //   where desktop.Window will be a class that wraps .. a java.awt.Container?
+         // I guess we'll have ... a package com.generic.platform.linux,
+         //   where linux.Window will be a class that wraps .. a java.awt.Container?
          //   (currently, this is the code in GLSample.GUI)
          //
-         //   when someone calls "addChild" on desktop.Window, it will
+         //   when someone calls "addChild" on linux.Window, it will
          //   have to examine the Platform.Widget it's given...
          //   if it's a Jogl.Window instance, it'll need to access "glCanvas"
          //   to call ... java.awt.Container.add 
@@ -107,6 +110,22 @@ public class Jogl {
          frame.setVisible(true);
          frame.setSize(new Dimension(400,300));
          frame.add(glCanvas); 
+         
+         // We've created the root window, pause until we get a size.
+         // (Not sure how we should be doing this... I guess at any given moment
+         // a window mihgt not have a size, and owners just need to check for that?)
+         System.out.println("RootWindow Started ... waiting for first size");
+         synchronized(lock) {
+            while (!gotInitialSize) {
+               try {
+                  lock.wait();
+               } catch (InterruptedException e) {
+                  e.printStackTrace();
+               }
+            }
+            System.out.format(
+               "RootWindow ... my size is (%d x %d)", size.width, size.height);
+         }
          
          renderThread = new Thread(new Runnable(){
             final static int TargetFPS = 1;
@@ -180,8 +199,6 @@ public class Jogl {
       }
       
       // ------------------------------------------------------------
-      // Now then.  THIS WINDOW class will keep track of all the 
-      // vertex-buffers being used in the scene
       
       private HashMap<Integer, GLBuffer> vertexBuffers = new HashMap<Integer, GLBuffer>();
 
@@ -191,7 +208,7 @@ public class Jogl {
             this.key = key;
             this.changed = true;
          }
-         
+
          public boolean changed;
          public boolean destroyed;
          
@@ -209,7 +226,50 @@ public class Jogl {
       }
 
       
-      
+
+      private void renderGL (GL3 gl) {         
+         if (size == null) {
+            System.out.format("In renderGL .. but size == null\n");
+            return;
+         }
+         int width = size.width;
+         int height = size.height;
+         gl.glViewport(0,0,width, height);
+         gl.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+         
+         // -------------------------------------------
+         // 
+         
+         Matrix4x4 modelToView = null;
+         Matrix4x4 viewToClip = null;
+         Vector3 faceColor = null;
+         Vector3 borderColor = null;
+         int positionsBuffer = -1;
+         int normalsBuffer = -1;
+         int baryBuffer = -1;
+                  
+         for (Graphics3D.Shader.Command command : graphics3D.commands) {
+            
+            if (command instanceof Graphics3D.Shader.Variable.Binding) {
+               if (command instanceof Graphics3D.Shader.Variable.Matrix4x4.Binding) {
+                  Graphics3D.Shader.Variable.Matrix4x4.Binding b = (Graphics3D.Shader.Variable.Matrix4x4.Binding) command;
+                  if (b.variable == Graphics3D.Shader.MODEL_TO_VIEW) {
+                     modelToView = b.value;
+                  }
+                  if (b.variable == Graphics3D.Shader.VIEW_TO_CLIP) {
+                     viewToClip = b.value;
+                  }
+               }
+            
+                  
+               
+            }
+            // ... hmmm
+            // 
+            
+         }
+      }
       
       
       // ========================================================
@@ -262,14 +322,25 @@ public class Jogl {
       }
       public void display(GLAutoDrawable drawable) {
          System.out.format("JOGLWin.display() called\n");
+         // utimately, this is the function that does the OpenGL work...
+       
+         GL3 gl = drawable.getGL().getGL3();
+         renderGL(gl);
+
       }
       public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {      
          System.out.format("JOGLWin.reshape(%d,%d,%d,%d) called\n",x,y,width,height);
          Image.Size newSize = Image.Size.of(width, height);
-         if (!Objects.equal(newSize, size)) {
+         if ((size == null) || !size.equals(newSize)) {
             size = newSize;
             if (resizeListener != null) {
                resizeListener.resized();
+            }
+         }
+         synchronized(lock) {
+            if (!gotInitialSize) {
+               gotInitialSize = true;
+               lock.notify();
             }
          }
       }
@@ -277,29 +348,6 @@ public class Jogl {
          System.out.format("JOGLWin.dispose() called\n");
       }
    }
-   
-   // ======================================================================
-   // GL Interface
-   // ======================================================================
-   /* 
-      
-     We had an idea for a "GLManager" that would own all the vertexbuffers
-     and would support "sharing" between different 3D-windows in the same "Platform".
-     It was abandoned when we made no progress after several weeks, but maybe
-     that was just because we were doing other things?
-    
-   private static class GL3Manager {
-      
-            
-      public void addGraphics3D(Graphics3D graphics3D) {
-         this.graphics3D = graphics3D;
-      }
-      public void removeGraphics3D(Graphics3D graphics3D) {
-         this.graphics3D = null;
-      }
-      
-   }
-   */
    
    // ======================================================================
    // Platform
@@ -315,13 +363,15 @@ public class Jogl {
       // to construct a Platform.Widget.Renderer3D instance, and he'll call 
       // "addChild" to ADD it to the "top-level" Platform.Widget.Container
       //
-      private final Jogl.Window3D window;
+      private Jogl.Renderer3D window = null;
       
       public JoglPlatform() {
-         window = new Jogl.Window3D();
       }
 
       public Widget.Renderer3D root3D() {
+         if (window == null) {
+            window = new Jogl.Renderer3D();
+         }
          return window;  
       }
       

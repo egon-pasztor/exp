@@ -77,17 +77,12 @@ public class Graphics3D {
       // -------------------------------------------------------------------
       // Execution
       // -------------------------------------------------------------------      
-      public interface Command {
-      
-         public static final class Activate implements Shader.Command {
-            public final int shader;
-            public Activate (int shader) {
-               this.shader = shader;
-            }
-         }
+      public interface Command {  
          public static final class Execute implements Shader.Command {
+            public final int shader;
             public final int numTriangles;
-            public Execute (int numTriangles) {
+            public Execute (int shader, int numTriangles) {
+               this.shader = shader;
                this.numTriangles = numTriangles;
             }
          }
