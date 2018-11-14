@@ -320,6 +320,9 @@ public class Shader {
             if ((array == null) || (array.length != newNumFloats)) {
                array = new float[newNumFloats];
                
+               System.out.format("NATIVE-ARRAY-ALLOC ing ... %d floats ... calling allocateDirect with %d\n",
+                     array.length, array.length * 4);
+               
                ByteBuffer byteBuffer = ByteBuffer.allocateDirect(array.length * 4);
                byteBuffer.order(ByteOrder.nativeOrder());
                floatBuffer = byteBuffer.asFloatBuffer();

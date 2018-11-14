@@ -935,33 +935,13 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
       }
       return res;
    }
-   private String loadStringFileFromCurrentPackage(String fileName){
-      InputStream stream = this.getClass().getResourceAsStream(fileName);
-      BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-      StringBuilder strBuilder = new StringBuilder();
-      try {
-         String line = reader.readLine();
-         // get text from file, line per line
-         while(line != null) {
-            strBuilder.append(line + "\n");
-            line = reader.readLine();  
-         }
-         // close resources
-         reader.close();
-         stream.close();
-      } catch (IOException e) {
-         e.printStackTrace();
-      }
-
-      return strBuilder.toString();
-   }
    
    
    // ------- loading the bunny
    
    private Mesh loadBunny() {
       Mesh mesh = new Mesh();
-      mesh.loadFromString(loadStringFileFromCurrentPackage("bunny.obj"));
+      mesh.loadFromString(Data.loadPackageResource(GLSample.class, "bunny.obj"));
       
       System.out.format("Loaded bunny %d vertices, %d edges, %d triangles, %d boundary-edges\n",
             mesh.vertices.size(),
@@ -1058,18 +1038,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
    @Override
    public void mousePressed(MouseEvent e) {
       //System.out.format("GLSample.mousePressed() called\n");
-      cameraController.grab(e.getX(), e.getY(),
+      cameraController.grab(Image.Position.of(e.getX(), e.getY()),
             e.isShiftDown()   ? (e.isControlDown() ? Camera.Controller.GrabState.FOV : Camera.Controller.GrabState.Zoom)
                               : (e.isControlDown() ? Camera.Controller.GrabState.Pan : Camera.Controller.GrabState.Rotate));
    }
 
    @Override
    public void mouseDragged(MouseEvent e) {
-      hoverX = e.getX();
-      hoverY = e.getY();
-
       //System.out.format("GLSample.mouseDragged(%d,%d) called\n", e.getX(), e.getY());
-      cameraController.moveTo(e.getX(), e.getY());
+      cameraController.moveTo(Image.Position.of(e.getX(), e.getY()));
       glCanvas.display();
    }
    
@@ -1089,34 +1066,15 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    @Override
    public void mouseWheelMoved(MouseWheelEvent e) {
-      cameraController.grab(e.getX(), e.getY(), Camera.Controller.GrabState.Zoom);
-      cameraController.moveTo(e.getX(), e.getY() + 20 * ((e.getPreciseWheelRotation() > 0)?1:-1));
+      cameraController.grab(Image.Position.of(e.getX(), e.getY()), Camera.Controller.GrabState.Zoom);
+      cameraController.moveTo(Image.Position.of(e.getX(), e.getY()
+            + 20 * ((e.getPreciseWheelRotation() > 0)?1:-1)));
       cameraController.release();
       
       glCanvas.display();
    }
-   
-   // -----------------------------------------------------------
-   // -----------------------------------------------------------
-   // we think platform-specific side presents a single "GL class" that...
-   // acts like opengl, i guess ...
-   //
-   // 
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
+  
+
    // -----------------------------------------------------------
    // GL-RENDERING
    // -----------------------------------------------------------
@@ -1405,7 +1363,7 @@ public class GLSample implements GLEventListener, MouseListener, MouseMotionList
 
    private int newShaderFromCurrentClass(GL3 gl, String fileName, ShaderType type){
       // load the source
-      String shaderSource = this.loadStringFileFromCurrentPackage( fileName);
+      String shaderSource = Data.loadPackageResource(GLSample.class, fileName);
       // define the shaper type from the enum
       int shaderType = (type == ShaderType.VertexShader) ? GL3.GL_VERTEX_SHADER : GL3.GL_FRAGMENT_SHADER;
       // create the shader id

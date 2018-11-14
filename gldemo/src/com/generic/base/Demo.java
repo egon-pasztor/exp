@@ -1,14 +1,14 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
+import com.generic.base.Image.Position;
 
 public class Demo {
 
-   private final Platform platform;
+   private final Platform platform;   
+   private final Mesh2 mesh;   
    
-   private final Mesh2 mesh;
-   
-   private Camera camera;
+   private Camera.Controller cameraController;
 
    
    // -------------------------------------------------
@@ -17,34 +17,59 @@ public class Demo {
    public Demo(Platform platform) {
       this.platform = platform;
       
-      // Create the Mesh we want to display, and setup
+      // Load the mesh we want to display
       mesh = initMesh();
       
-      // Access Root window and get its size
+      // Initialize the "Graphics3D" object's vertexbuffers and shaders:
+      initGraphics3D();
+      
+      // Access Root window and tell it that it'll be displaying our "Graphics3D" object
       Platform.Widget.Renderer3D window = platform.root3D();
+      window.setGraphics3D(this.graphics);
+      
+      // Get the Root window size, which we need to construct the camera-controller,
+      // which completes the "Graphics3D" object by setting the "commands list"      
       Image.Size windowSize = window.size();
-      platform.log("Platform has a %d x %d root-window", windowSize.width, windowSize.height);
-            
+      platform.log("Demo constructor, I have a %d x %d root-window", windowSize.width, windowSize.height);
+      initCameraController(windowSize);
+      
+      // Future window events should notify us here:      
+      window.setResizeListener(new Platform.Widget.ResizeListener() {
+         public void resized() {
+            Image.Size windowSize = window.size();
+            platform.log("Demo Resize Handler, I have a %d x %d root-window", windowSize.width, windowSize.height);
+            initCameraController(windowSize);
+         }
+      });
+      window.setMouseListener(new Platform.Widget.MouseListener() {
+         public void mouseHover(Position position) {
+         }
+         public void mouseDown(Position position) {
+            cameraController.grab(position, Camera.Controller.GrabState.Rotate);
+         }
+         public void mouseDrag(Position position) {
+            cameraController.moveTo(position);
+            rebuildCommands (cameraController.getCamera());
+         }
+         public void mouseUp() {
+            cameraController.release();
+         }
+      });      
+   }
+   private void initCameraController (Image.Size windowSize) {
+      
       // Define the camera through which we're going to view the mesh,
       // note that this requires the windowSize.
-      camera = new Camera(windowSize,
-            new Vector3(0.0f, 0.0f, 0.0f),   // look-at
+      Camera initialCamera = new Camera(windowSize,
+            new Vector3(0.0f, 4.0f, 0.0f),   // look-at
             new Vector3(0.0f, 0.0f, 18.0f),  // camera-pos
             new Vector3(0.0f, 1.0f, 0.0f),   // camera-up
             53.13f/2.0f);
       
-
-      initGraphics3D ();
-      rebuildCommands (camera);
-      
-      // Later we'll use something like a MouseListener to listen for grabs
-      // and drags, and use these to update the Camera.   When we do this,
-      // we'll only need to call "rebuildCommands" for each change in Camera.
-
-      // Set the graphics3D object of the root window.
-      // Eventually we'll require a second call, to "show" the root window
-      window.setGraphics3D(this.graphics);
+      cameraController = new Camera.Controller(initialCamera);
+      rebuildCommands (cameraController.getCamera());
    }
+   
    
    // ----------------------------------------------------------
    // Creating the Mesh
@@ -53,7 +78,8 @@ public class Demo {
       // Currently we're "loading" the bunny from "bunny.obj" but that requires the
       // "bunny.obj" file to be .. where, exactly?
       Mesh2 mesh = Mesh2.loadMesh("bunny.obj");
-      platform.log("Mesh loaded with %d vertices", mesh.numVertices());
+      platform.log("Mesh loaded with %d vertices, %d faces, %d edges ... %d triangles", 
+            mesh.numVertices(), mesh.numFaces(), mesh.numEdges(), mesh.numTriangles());
       return mesh;
    }
    
@@ -209,5 +235,6 @@ public class Demo {
          Graphics3D.Shader.BARYCOORDS, baryCoordsId));
       graphics.commands.add(new Graphics3D.Shader.Command.Execute(
          shaderId, mesh.numTriangles()));
+      graphics.commandsChanged();
    }
 }

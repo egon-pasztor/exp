@@ -201,7 +201,7 @@ public class Organizer {
    
           an "element" fo S*_h conists of { one value of u for each EDGE }
           for any point P in triangle T_i compute barycentric coordinates from the 3 edge values and interpolate...
-          (so, exactly V numbers. for the icosahedron a member of S*_h consists of 30 numbers)
+          (so, exactly E numbers. for the icosahedron a member of S*_h consists of 30 numbers)
            
     ===========================================
     

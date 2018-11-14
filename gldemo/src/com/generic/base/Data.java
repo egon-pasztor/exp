@@ -1,5 +1,9 @@
 package com.generic.base;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashSet;
 import java.util.Objects;
 
@@ -169,35 +173,28 @@ public class Data {
          }
       }
    }
-   
-   // -----------------------------------
-   // Owner/Mutable
-   // -----------------------------------
-   // A Data.Owner provides a lock
-   // -----------------------------------
-   public interface Owner {
-      public Object lock();
-   }
-   // -----------------------------------
-   // A Data.Mutable<Content> has
-   // an Owner, a Content, and Listeners
-   // -----------------------------------
-   public static class Mutable<Content> {
-      public final Owner owner;
-      public final Listener.Set listeners;
-      
-      public Mutable(Owner owner) {
-         this.owner = owner;
-         this.listeners = new Listener.Set();
-      }
-      
-      private Content content;
-      public Content content() { return content; }
-      public void setContent(Content newContent) { 
-         if (!Objects.equals(content, newContent)) {
-            content = newContent;
-            listeners.onChange();
+
+   // ====================================================================
+   // Utility function to access local resources .. 
+   // ====================================================================
+   public static String loadPackageResource(Class<?> c, String fileName){
+      InputStream stream = c.getResourceAsStream(fileName);
+      BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+      StringBuilder strBuilder = new StringBuilder();
+      try {
+         String line = reader.readLine();
+         // get text from file, line per line
+         while(line != null) {
+            strBuilder.append(line + "\n");
+            line = reader.readLine();  
          }
+         // close resources
+         reader.close();
+         stream.close();
+      } catch (IOException e) {
+         e.printStackTrace();
       }
-   }   
+
+      return strBuilder.toString();
+   }
 }

@@ -915,26 +915,7 @@ public class Mesh2 {
       public void addFace(int v0, int v1, int v2) { 
          faceIds.add(new Triangle(v0,v1,v2)); 
       }
-   }   
-   private static String loadStringFileFromCurrentPackage(String filename){
-      InputStream stream = Mesh2.class.getResourceAsStream(filename);
-      BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-      StringBuilder strBuilder = new StringBuilder();
-      try {
-         String line = reader.readLine();
-         // get text from file, line per line
-         while(line != null){
-            strBuilder.append(line + "\n");
-            line = reader.readLine();  
-         }
-         // close resources
-         reader.close();
-         stream.close();
-      } catch (IOException e) {
-         e.printStackTrace();
-      }
-      return strBuilder.toString();
-   }  
+   }
    private static SavedModel savedModelFromString(String serialized) {
       SavedModel result = new SavedModel();
 
@@ -968,7 +949,7 @@ public class Mesh2 {
       Mesh2 mesh = new Mesh2();
       DataLayer positions = mesh.newDataLayer("positions", DataLayer.Type.THREE_FLOATS_PER_VERTEX);
       
-      SavedModel model = savedModelFromString(loadStringFileFromCurrentPackage(filename));
+      SavedModel model = savedModelFromString(Data.loadPackageResource(Mesh2.class, filename));
       for (Vector3 position : model.vertexPositions) {
          int v = mesh.newVertexID();
          

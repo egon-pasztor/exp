@@ -13,17 +13,19 @@ public interface Platform {
       public boolean isConnected();
       public Image.Size size();
 
-      // Something to set a resizeListener??
       public interface ResizeListener {
          public void resized();
       }
       public void setResizeListener(ResizeListener listener);
       
-      // But if we support resizeListener,
-      //   why not windowVisibility listeners?
-      //        or windowClosing listeners?
-      // (Or maybe those are listeners we can only support
-      //  on the ROOT window?)
+      public interface MouseListener {
+         public void mouseHover (Image.Position position);
+
+         public void mouseDown  (Image.Position position);
+         public void mouseDrag  (Image.Position position);
+         public void mouseUp();
+      }
+      public void setMouseListener(MouseListener listener);
       
       // -------------------------------
       // Specific Widget-Types

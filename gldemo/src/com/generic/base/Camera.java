@@ -255,25 +255,25 @@ public class Camera {
       private float lastAngle;
       private float tScale;
 
-      private Vector3 getCameraSpacePosition(int ix, int iy) {
+      private Vector3 getCameraSpacePosition(Image.Position p) {
          int width = camera.size.width;
          int height = camera.size.height;
-         float y  = grabCamera.fHeight * ((height/2-iy) / ((float) (height/2)));
-         float x  =  grabCamera.fWidth * ((ix-width/2)  / ((float) (width/2)));
+         float y  = grabCamera.fHeight * ((height/2-p.y) / ((float) (height/2)));
+         float x  =  grabCamera.fWidth * ((p.x-width/2)  / ((float) (width/2)));
          return new Vector3(x,y,-1.0f);
       }
 
-      public void grabPinch(int ix, int iy, int ix2, int iy2) {
+      public void grabPinch(Image.Position p1, Image.Position p2) {
          grabCamera = camera;
          grabState = GrabState.Pinch;
-         grabPointCameraSpace = getCameraSpacePosition(ix,iy);
-         grabPointCameraSpace2 = getCameraSpacePosition(ix2,iy2);
+         grabPointCameraSpace = getCameraSpacePosition(p1);
+         grabPointCameraSpace2 = getCameraSpacePosition(p2);
          grabAngle = (float) Math.atan2(grabPointCameraSpace2.y-grabPointCameraSpace.y,
             grabPointCameraSpace2.x-grabPointCameraSpace.x);
       }
-      public void movePinch(int ix, int iy, int ix2, int iy2) {
-         Vector3 pointCameraSpace = getCameraSpacePosition(ix,iy);
-         Vector3 pointCameraSpace2 = getCameraSpacePosition(ix2,iy2);
+      public void movePinch(Image.Position p1, Image.Position p2) {
+         Vector3 pointCameraSpace = getCameraSpacePosition(p1);
+         Vector3 pointCameraSpace2 = getCameraSpacePosition(p2);
 
          // so yeah.. there's a base translation:
          Vector3 cameraSpaceTranslation = pointCameraSpace.plus(pointCameraSpace2).times(0.5f)
@@ -318,11 +318,15 @@ public class Camera {
                              grabCamera.verticalFovInDegrees);
       }
 
-      public void grab(int ix, int iy, GrabState newGrabState) {
+      public void grab(Image.Position p, GrabState newGrabState) {
 
+         System.out.format("GRABBED, with %d,%d and %d,%d\n",
+               camera.size.width, camera.size.height,
+               p.x,p.y);
+         
          grabCamera = camera;
          grabState = newGrabState;
-         grabPointCameraSpace = getCameraSpacePosition(ix,iy);
+         grabPointCameraSpace = getCameraSpacePosition(p);
 
          roll = (new Vector2(grabPointCameraSpace.x,grabPointCameraSpace.y)).lengthSq()
                > grabCamera.fHeight*grabCamera.fWidth;
@@ -334,11 +338,16 @@ public class Camera {
                 : (grabPointCameraSpace.y+grabCamera.fHeight);
       }
 
-      public void moveTo(int ix, int iy) {
+      public void moveTo(Image.Position p) {
+
+         System.out.format("MOVED, with %d,%d and %d,%d\n",
+               camera.size.width, camera.size.height,
+               p.x,p.y);         
+         
          if ((grabState == GrabState.Ungrabbed) ||
              (grabState == GrabState.Pinch)) return;
 
-         Vector3 pointCameraSpace = getCameraSpacePosition(ix,iy);
+         Vector3 pointCameraSpace = getCameraSpacePosition(p);
          Vector3 deltaCameraSpace = pointCameraSpace.minus(grabPointCameraSpace);
 
          Vector3 newCameraLookAtPoint = grabCamera.lookAtPoint;
