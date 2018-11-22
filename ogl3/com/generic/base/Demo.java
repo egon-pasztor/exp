@@ -9,6 +9,10 @@ public class Demo {
    private final Platform platform;   
    private final Mesh mesh;   
    
+   private final Platform.Widget.Container rootWidget;
+   private final Platform.Widget.Renderer3D renderWidget;
+   
+   
    private Camera.Controller cameraController;
 
    
@@ -17,32 +21,48 @@ public class Demo {
    // -------------------------------------------------
    public Demo(Platform platform) {
       this.platform = platform;
-      
+
       // Load the mesh we want to display
       mesh = initMesh();
-      
+
       // Initialize the "Graphics3D" object's vertexbuffers and shaders:
-      initGraphics3D();
-      
-      // Access Root window and tell it that it'll be displaying our "Graphics3D" object
-      Platform.Widget.Renderer3D window = platform.root3D();
-      window.setGraphics3D(this.graphics);
-      
+      initRendering();
+
+      // Create a renderer-widget
+      renderWidget = platform.newRenderer3D();      
+      renderWidget.setRendering(this.rendering);
+      renderWidget.setResizeListener(new Platform.Widget.ResizeListener() {
+         public void resized() {
+            Image.Size renderWidgetSize = renderWidget.size();
+            platform.log("RenderWidget Resize Handler (%d x %d)", renderWidgetSize.width, renderWidgetSize.height);
+            initCameraController(renderWidgetSize);
+         }
+      });
+
+      // Add renderer-widget to root widget...
+      rootWidget = platform.rootWidget();
+      rootWidget.addChild(renderWidget);      
+      rootWidget.setResizeListener(new Platform.Widget.ResizeListener() {
+         public void resized() {
+            Image.Size rootWidgetSize = rootWidget.size();
+            platform.log("ROOT Resize Handler (%d x %d)", rootWidgetSize.width, rootWidgetSize.height);
+            
+            int margin = 10;
+            Image.Rect renderBounds = Image.Rect.of(margin, rootWidgetSize.width  - margin,
+                                                    margin, rootWidgetSize.height - margin);
+                  
+            rootWidget.setBounds(renderWidget, renderBounds);
+         }
+      });
+
       // Get the Root window size, which we need to construct the camera-controller,
       // which completes the "Graphics3D" object by setting the "commands list"      
-      Image.Size windowSize = window.size();
+      Image.Size windowSize = rootWidget.size();
       platform.log("Demo constructor, I have a %d x %d root-window", windowSize.width, windowSize.height);
       initCameraController(windowSize);
       
       // Future window events should notify us here:      
-      window.setResizeListener(new Platform.Widget.ResizeListener() {
-         public void resized() {
-            Image.Size windowSize = window.size();
-            platform.log("Demo Resize Handler, I have a %d x %d root-window", windowSize.width, windowSize.height);
-            initCameraController(windowSize);
-         }
-      });
-      window.setMouseListener(new Platform.Widget.MouseListener() {
+      renderWidget.setMouseListener(new Platform.Widget.MouseListener() {
          public void mouseHover(Position position) {
          }
          public void mouseDown(Position position, boolean ctrlDown, boolean shiftDown) {
@@ -72,8 +92,8 @@ public class Demo {
       cameraController = new Camera.Controller(initialCamera);
       rebuildCommands (cameraController.getCamera());
    }
-   
-   
+
+
    // ----------------------------------------------------------
    // Creating the Mesh
    // ----------------------------------------------------------
@@ -85,47 +105,15 @@ public class Demo {
          // Currently we're "loading" the bunny from "bunny.obj" but that requires the
          // "bunny.obj" file to be .. where, exactly?
          mesh = Mesh.loadMesh("bunny.obj");
-        
       } else {
-         mesh = new Mesh();
-
-         //   xyz
-         int v[] = new int[8];
-         for (int i = 0; i < 8; ++i) {
-            v[i] = mesh.newVertexID();
-         }
-         
-         DataLayer positions = mesh.newDataLayer("positions", DataLayer.Type.THREE_FLOATS_PER_VERTEX);         
-         float[] positionsArray = ((Data.Array.Floats)(positions.data)).array();
-         
-         int c = 0;
-         float min = -2.0f;
-         float max = 2.0f;
-         for (int x = 0; x < 2; x++) {
-            for (int y = 0; y < 2; y++) {
-               for (int z = 0; z < 2; z++) {
-                  Vector3 pos = Vector3.of((x==0) ? min:max, (y==0) ? min:max, (z==0) ? min:max);
-                  pos.copyToFloatArray(positionsArray, 3*v[c]);
-                  c++;
-               }
-            }
-         }
-         
-         mesh.addFace(v[0], v[2], v[3], v[1]);
-         mesh.addFace(v[4], v[5], v[7], v[6]);
-         
-         mesh.addFace(v[0], v[4], v[6], v[2]);
-         mesh.addFace(v[5], v[1], v[3], v[7]);
-         
-         mesh.addFace(v[2], v[6], v[7], v[3]);
-         mesh.addFace(v[1], v[5], v[4], v[0]);
+         mesh = Mesh.newUnitCube();
       }
       
       platform.log("Mesh loaded with %d vertices, %d faces, %d edges ... %d triangles", 
             mesh.numVertices(), mesh.numFaces(), mesh.numEdges(), mesh.numTriangles());
       return mesh;
    }
-   
+
    // ----------------------------------------------------------
    // Generate a Graphics3D given a Mesh2 and a Camera
    //
@@ -139,15 +127,15 @@ public class Demo {
    //   Graphics3D vertexbuffer and sampler keys should be strings, not ints
    // ----------------------------------------------------------
    
-   private Rendering graphics;
+   private Rendering rendering;
    private int shaderId;
    private int positionsId;
    private int normalsId;
    private int baryCoordsId;
    
    
-   private void initGraphics3D () {
-      graphics = new Rendering();
+   private void initRendering () {
+      rendering = new Rendering();
       int ids = 0;
 
       // Let's say we'd like to display ONE Mesh from a particular angle.
@@ -158,7 +146,7 @@ public class Demo {
       // ------------------------------------
       Rendering.Shader shader = new Rendering.Shader.FlatBordered(0.1f);
       shaderId = ids++;
-      graphics.shaders.put(shaderId, shader);
+      rendering.shaders.put(shaderId, shader);
       
       // ------------------------------------
       // three vertexBuffers for "positions", "normals", "baryCoords"
@@ -258,29 +246,29 @@ public class Demo {
       positionsId = ids++;
       normalsId = ids++;
       baryCoordsId = ids++;
-      graphics.vertexBuffers.put(positionsId,  positions);
-      graphics.vertexBuffers.put(normalsId,    normals);
-      graphics.vertexBuffers.put(baryCoordsId, baryCoords);
+      rendering.vertexBuffers.put(positionsId,  positions);
+      rendering.vertexBuffers.put(normalsId,    normals);
+      rendering.vertexBuffers.put(baryCoordsId, baryCoords);
    }
    
    private void rebuildCommands (Camera camera) {
-      graphics.commands.clear();
+      rendering.commands.clear();
 
       // ------------------------------------
       // one commands list
       // ------------------------------------
-      graphics.commands.add(new Rendering.Shader.Variable.Matrix4x4.Binding(
+      rendering.commands.add(new Rendering.Shader.Variable.Matrix4x4.Binding(
          Rendering.Shader.VIEW_TO_CLIP, camera.cameraToClipSpace));
-      graphics.commands.add(new Rendering.Shader.Variable.Matrix4x4.Binding(
+      rendering.commands.add(new Rendering.Shader.Variable.Matrix4x4.Binding(
          Rendering.Shader.MODEL_TO_VIEW, camera.worldToCameraSpace));
-      graphics.commands.add(new Rendering.Shader.Variable.VertexBuffer.Binding(
+      rendering.commands.add(new Rendering.Shader.Variable.VertexBuffer.Binding(
          Rendering.Shader.POSITIONS, positionsId));
-      graphics.commands.add(new Rendering.Shader.Variable.VertexBuffer.Binding(
+      rendering.commands.add(new Rendering.Shader.Variable.VertexBuffer.Binding(
          Rendering.Shader.NORMALS, normalsId));
-      graphics.commands.add(new Rendering.Shader.Variable.VertexBuffer.Binding(
+      rendering.commands.add(new Rendering.Shader.Variable.VertexBuffer.Binding(
          Rendering.Shader.BARYCOORDS, baryCoordsId));
-      graphics.commands.add(new Rendering.Shader.Command.Execute(
+      rendering.commands.add(new Rendering.Shader.Command.Execute(
          shaderId, mesh.numTriangles()));
-      graphics.commandsChanged();
+      rendering.commandsChanged();
    }
 }

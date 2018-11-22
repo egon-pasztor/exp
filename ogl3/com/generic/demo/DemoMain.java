@@ -3,6 +3,7 @@ package com.generic.demo;
 
 import com.generic.base.Demo;
 import com.generic.base.Platform;
+import com.generic.base.linux.Jogl;
 
 public class DemoMain {
 

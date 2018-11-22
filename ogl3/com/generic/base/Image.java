@@ -295,10 +295,9 @@ public class Image {
    // or maybe we go all the way to defining "Value.Item<Image,ImageChange>"
    //
    // which explicitly adds "print" & "parse" methods, and a "type" method which reveals
-   
-   
+   //
    // public final Data.Listener.Set listeners = new Data.Listener.Set();
-
+   // ---------------------
    
    
    
@@ -376,6 +375,9 @@ public class Image {
       }
       public String toString() {
          return String.format("(%d,%d)-(%d,%d)", left,top,right,bottom);
+      }
+      public static Rect of (int left, int right, int top, int bottom) {
+         return new Rect(left, right, top, bottom);
       }
    }   
 }

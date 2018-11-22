@@ -1,6 +1,7 @@
 package com.generic.base;
 
 import com.generic.base.Algebra.Vector3;
+import com.generic.base.Mesh.DataLayer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -887,7 +888,53 @@ public class Mesh {
    }
    
    
+   // #############################################################################################
+   // #############################################################################################
+   //
+   // Code for constructing a few shapes:
+   // 
+   // #############################################################################################
+   // #############################################################################################
 
+   public static Mesh newUnitCube() {
+      Mesh mesh = new Mesh();
+
+      //   xyz
+      int v[] = new int[8];
+      for (int i = 0; i < 8; ++i) {
+         v[i] = mesh.newVertexID();
+      }
+      
+      DataLayer positions = mesh.newDataLayer("positions", DataLayer.Type.THREE_FLOATS_PER_VERTEX);         
+      float[] positionsArray = ((Data.Array.Floats)(positions.data)).array();
+      
+      int c = 0;
+      float min = -2.0f;
+      float max = 2.0f;
+      for (int x = 0; x < 2; x++) {
+         for (int y = 0; y < 2; y++) {
+            for (int z = 0; z < 2; z++) {
+               Vector3 pos = Vector3.of((x==0) ? min:max, (y==0) ? min:max, (z==0) ? min:max);
+               pos.copyToFloatArray(positionsArray, 3*v[c]);
+               c++;
+            }
+         }
+      }
+      
+      mesh.addFace(v[0], v[2], v[3], v[1]);
+      mesh.addFace(v[4], v[5], v[7], v[6]);
+      
+      mesh.addFace(v[0], v[4], v[6], v[2]);
+      mesh.addFace(v[5], v[1], v[3], v[7]);
+      
+      mesh.addFace(v[2], v[6], v[7], v[3]);
+      mesh.addFace(v[1], v[5], v[4], v[0]);      
+      return mesh;
+   }
+
+   
+   
+   
    // #############################################################################################
    // #############################################################################################
    //

@@ -1,12 +1,9 @@
-package com.generic.demo;
+package com.generic.base.linux;
 
-import com.generic.base.Color;
 import com.generic.base.Data;
 import com.generic.base.Rendering;
 import com.generic.base.Image;
-import com.generic.base.Image.Size;
 import com.generic.base.Platform;
-import com.generic.base.Algebra;
 import com.generic.base.Algebra.*;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
@@ -34,24 +31,25 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 import java.util.HashMap;
 
 public class Jogl {
    
    // ======================================================================
-   // Window
+   // (Implementation of Platform.Widget.Renderer3D)
    // ======================================================================
    
-   private static class Renderer3D implements GLEventListener,                                       /* jogamp   */
-                                            MouseListener, MouseMotionListener, MouseWheelListener,  /* awt      */
-                                            Platform.Widget.Renderer3D, Rendering.Listener {        /* platform */
+   private static class Renderer3D implements
+            GLEventListener,                                         /* jogamp   */
+            MouseListener, MouseMotionListener, MouseWheelListener,  /* awt      */
+            Platform.Widget.Renderer3D, Rendering.Listener {         /* platform */
 
-      // Jogl.Window is a wrapper around this com.jogamp.opengl.awt.GLCanvas,
-      // a window that will display the contents of a Graphics3D..
-
+      // Jogl.Renderer3D is a wrapper around this
+      // com.jogamp.opengl.awt.GLCanvas,
+      //   (extending java.awt.Canvas, extending java.awt.Component):
       private final GLCanvas glCanvas;
       
+      // 
       private final Object lock = new Object();
       private boolean gotInitialSize = false;
       
@@ -137,7 +135,7 @@ public class Jogl {
       // This Jogl.Window object is displaying the contents of one Graphics3D.
       private Rendering graphics3D;
 
-      public void setGraphics3D(Rendering graphics3D) {
+      public void setRendering (Rendering graphics3D) {
          if (this.graphics3D != graphics3D) {
             if (this.graphics3D != null) {
                
@@ -750,30 +748,9 @@ public class Jogl {
    
    private static class JoglPlatform implements Platform {
       
-      // Currently Jogl.Window creates a "top-level" window that is a Jogl.Window3D.
-      //
-      // We believe in the final design we'll still create a "top-level" window,
-      // but it will implement Platform.Widget.Container instead.
-      // The owner will have to call widgetFactory().newRenderer3D()
-      // to construct a Platform.Widget.Renderer3D instance, and he'll call 
-      // "addChild" to ADD it to the "top-level" Platform.Widget.Container
-      //
-      private Jogl.Renderer3D window = null;
-      
-      public JoglPlatform() {
-      }
-
-      public Widget.Renderer3D root3D() {
-         if (window == null) {
-            window = new Jogl.Renderer3D();
-         }
-         return window;  
-      }
-      
-      public Widget.Container rootWidget() { return null; }
-      public Widget.Factory widgetFactory() { return null; }
-      
-      
+      // -------------------------------
+      // Log and LoadResource
+      // -------------------------------
       public void log(String s, Object... args) {
          System.out.println(String.format(s, args));
       }
@@ -798,6 +775,31 @@ public class Jogl {
 
          return strBuilder.toString();
       }      
+      
+      // Currently Jogl.Window creates a "top-level" window that is a Jogl.Window3D.
+      //
+      // We believe in the final design we'll still create a "top-level" window,
+      // but it will implement Platform.Widget.Container instead.
+      // The owner will have to call widgetFactory().newRenderer3D()
+      // to construct a Platform.Widget.Renderer3D instance, and he'll call 
+      // "addChild" to ADD it to the "top-level" Platform.Widget.Container
+      //
+      private Jogl.Renderer3D window = null;
+      
+      public JoglPlatform() {
+      }
+
+      public Widget.Renderer3D root3D() {
+         if (window == null) {
+            window = new Jogl.Renderer3D();
+         }
+         return window;  
+      }
+      
+      public Widget.Container rootWidget() { return null; }
+      public Widget.Factory widgetFactory() { return null; }
+      
+      
    }   
    
    // ======================================================================
