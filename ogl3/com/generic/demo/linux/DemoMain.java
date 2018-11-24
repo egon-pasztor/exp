@@ -1,9 +1,8 @@
 
-package com.generic.demo;
+package com.generic.demo.linux;
 
-import com.generic.base.Demo;
-import com.generic.base.Platform;
 import com.generic.base.linux.Jogl;
+import com.generic.demo.Demo;
 
 public class DemoMain {
 
@@ -12,7 +11,6 @@ public class DemoMain {
    // -----------------------------------------------------------
    public static void main(String[] args) {
       System.out.format("-*- Hello world from DemoMain.main(String[] args).\n");
-      Platform platform = Jogl.platform();
-      Demo demo = new Demo(platform);
+      new Demo(Jogl.platform());
    }
 }

@@ -219,31 +219,31 @@ public class Rendering {
       public void commandsChanged ();
    }
    
-   void vertexBufferAdded (int vertexBuffer) {
+   public void vertexBufferAdded (int vertexBuffer) {
       for (Listener listener : listeners) listener.vertexBufferAdded(vertexBuffer);
    }
-   void vertexBufferRemoved (int vertexBuffer) {
+   public void vertexBufferRemoved (int vertexBuffer) {
       for (Listener listener : listeners) listener.vertexBufferRemoved(vertexBuffer);
    }
-   void vertexBufferChanged (int vertexBuffer) {
+   public void vertexBufferChanged (int vertexBuffer) {
       for (Listener listener : listeners) listener.vertexBufferChanged(vertexBuffer);
    }
-   void samplerAdded (int sampler) {
+   public void samplerAdded (int sampler) {
       for (Listener listener : listeners) listener.samplerAdded(sampler);
    }
-   void samplerRemoved (int sampler) {
+   public void samplerRemoved (int sampler) {
       for (Listener listener : listeners) listener.samplerRemoved(sampler);
    }
-   void samplerChanged (int sampler) {
+   public void samplerChanged (int sampler) {
       for (Listener listener : listeners) listener.samplerChanged(sampler);
    }
-   void shaderAdded (int shader) {
+   public void shaderAdded (int shader) {
       for (Listener listener : listeners) listener.shaderAdded(shader);
    }
-   void shaderRemoved (int shader) {
+   public void shaderRemoved (int shader) {
       for (Listener listener : listeners) listener.shaderRemoved(shader);
    }
-   void commandsChanged () {
+   public void commandsChanged () {
       for (Listener listener : listeners) listener.commandsChanged();
    }
    

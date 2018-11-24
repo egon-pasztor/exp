@@ -1,8 +1,13 @@
-package com.generic.base;
+package com.generic.demo;
 
+import com.generic.base.Camera;
+import com.generic.base.Data;
+import com.generic.base.Image;
+import com.generic.base.Mesh;
+import com.generic.base.Platform;
+import com.generic.base.Rendering;
 import com.generic.base.Algebra.Vector3;
 import com.generic.base.Image.Position;
-import com.generic.base.Mesh.DataLayer;
 
 public class Demo {
 

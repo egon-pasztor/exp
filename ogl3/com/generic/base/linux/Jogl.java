@@ -3,7 +3,10 @@ package com.generic.base.linux;
 import com.generic.base.Data;
 import com.generic.base.Rendering;
 import com.generic.base.Image;
+import com.generic.base.Image.Rect;
+import com.generic.base.Image.Size;
 import com.generic.base.Platform;
+import com.generic.base.Platform.Widget;
 import com.generic.base.Algebra.*;
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
@@ -34,11 +37,70 @@ import java.nio.FloatBuffer;
 import java.util.HashMap;
 
 public class Jogl {
+	
+   private static class Container implements Platform.Widget.Container {
+
+   	public Widget parent() {
+   		return null;
+   	}
+   	public boolean isConnected() {
+   		return false;
+   	}
+   	
+   	public Size size() {
+   		return null;
+   	}
+   	public void setResizeListener(ResizeListener listener) {
+   	}
+   	
+   	
+   	public void setMouseListener(MouseListener listener) {
+   	}
+   	
+   	
+   	public Iterable<Widget> children() {
+   		return null;
+   	}
+   	public void addChild(Platform.Widget child) {
+   	}
+   	public void removeChild(Platform.Widget child) {
+   	}
+   	public Image.Rect getBounds(Platform.Widget child) {
+   		return null;
+   	}
+   	public void setBounds(Platform.Widget child, Image.Rect bounds) {
+   	}
+	   
+   }
    
    // ======================================================================
    // (Implementation of Platform.Widget.Renderer3D)
    // ======================================================================
    
+    // Currently this object constructs its own top-level frame,
+    // but eventually this Widget will have to support...
+    // ... being "added" to a Platform.Widget.Container.
+    //
+    // I guess we'll have ... a package com.generic.platform.linux,
+    //   where linux.Window will be a class that wraps .. a java.awt.Container?
+    //   (currently, this is the code in GLSample.GUI)
+    //
+    //   when someone calls "addChild" on linux.Window, it will
+    //   have to examine the Platform.Widget it's given...
+    //   if it's a Jogl.Window instance, it'll need to access "glCanvas"
+    //   to call ... java.awt.Container.add 
+    //
+    //
+    // For Android, we'll have .. a package com.generic.platform.droid,
+    //   where droid.Window will wrap ... android.view.View?
+    //   (see code in EngineAtivity.java)
+    //         
+    //   when someone calls "addChild" on droid.Window, it will
+    //   have to examine the Platform.Widget it's given...
+    //   if it's the android-equivalent of this class, it'll be wrapping
+    //   an android.opengl.GLSurfaceView, which will be added to the View,,
+	//
+	
    private static class Renderer3D implements
             GLEventListener,                                         /* jogamp   */
             MouseListener, MouseMotionListener, MouseWheelListener,  /* awt      */
@@ -68,32 +130,6 @@ public class Jogl {
          glCanvas.addMouseMotionListener(this);
          glCanvas.addMouseWheelListener(this);
 
-         // Currently this object constructs its own top-level frame,
-         // but eventually this Widget will have to support...
-         // ... being "added" to a Platform.Widget.Container.
-         //
-         // I guess we'll have ... a package com.generic.platform.linux,
-         //   where linux.Window will be a class that wraps .. a java.awt.Container?
-         //   (currently, this is the code in GLSample.GUI)
-         //
-         //   when someone calls "addChild" on linux.Window, it will
-         //   have to examine the Platform.Widget it's given...
-         //   if it's a Jogl.Window instance, it'll need to access "glCanvas"
-         //   to call ... java.awt.Container.add 
-         //
-         //
-         // For Android, we'll have .. a package com.generic.platform.droid,
-         //   where droid.Window will wrap ... android.view.View?
-         //   (see code in EngineAtivity.java)
-         //         
-         //   when someone calls "addChild" on droid.Window, it will
-         //   have to examine the Platform.Widget it's given...
-         //   if it's the android-equivalent of this class, it'll be wrapping
-         //   an android.opengl.GLSurfaceView, which will be added to the View,,
-         //
-         // ...
-         // 
-         // 
          
          final Frame frame = new Frame() {
             private static final long serialVersionUID = 1L;
@@ -113,7 +149,7 @@ public class Jogl {
          
          // We've created the root window, pause until we get a size.
          // (Not sure how we should be doing this... I guess at any given moment
-         // a window mihgt not have a size, and owners just need to check for that?)
+         // a window might not have a size, and owners just need to check for that?)
          System.out.println("RootWindow Started ... waiting for first size");
          synchronized(lock) {
             while (!gotInitialSize) {
@@ -715,8 +751,7 @@ public class Jogl {
          gl.glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
       }
       public void display(GLAutoDrawable drawable) {
-         // utimately, this is the function that does the OpenGL work...
-       
+         // Ultimately, this is the function that does the OpenGL work...       
          GL3 gl = drawable.getGL().getGL3();
          renderGL(gl);
 
