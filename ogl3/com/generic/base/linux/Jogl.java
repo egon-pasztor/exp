@@ -34,31 +34,101 @@ import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 public class Jogl {
-	
-   private static class Container implements Platform.Widget.Container {
 
-   	public Widget parent() {
-   		return null;
-   	}
-   	public boolean isConnected() {
-   		return false;
-   	}
+   // ======================================================================
+   // (Implementation of Platform.Widget)
+   // ======================================================================
+   private static class Widget implements Platform.Widget {
+
+      
+      // -----------------------------------------------------------
+      // Keeping track of parent
+      // -----------------------------------------------------------
+      private Jogl.Container parent;
+      
+      public Platform.Widget.Container parent() {
+         return parent;
+      }
+      protected void setParent (Jogl.Container parent) {
+         this.parent = parent;
+      }
+      
+      // -----------------------------------------------------------
+      // Keeping track of size??
+      // -----------------------------------------------------------
+      private Image.Size size = null;
+      
+      public Size size() {
+         return size;
+      }
+      
+      private Platform.Widget.ResizeListener resizeListener = null;
+      public void setResizeListener(Platform.Widget.ResizeListener resizeListener) {
+         this.resizeListener = resizeListener;
+      }
+      
+      // -----------------------------------------------------------
+      // Implementing MouseListener & MouseMotionListener
+      // -----------------------------------------------------------
+      private PointerListenerSupport pointerListenerSupport = new PointerListenerSupport();
+      public void setPointerListener(Platform.Widget.PointerListener pointerListener) {
+         pointerListenerSupport.setPointerListener(pointerListener);
+      }
+      
+      private static class PointerListenerSupport
+         implements MouseListener, MouseMotionListener, MouseWheelListener {
+
+         private Platform.Widget.PointerListener pointerListener = null;
+         public void setPointerListener(Platform.Widget.PointerListener pointerListener) {
+            this.pointerListener = pointerListener;
+         }
+         
+         public void mouseWheelMoved(MouseWheelEvent e) {
+         }
+         public void mouseMoved(MouseEvent e) {
+            if (pointerListener != null) {
+               pointerListener.hover(Image.Position.of(e.getX(), e.getY()));
+            }
+         }      
+         public void mousePressed(MouseEvent e) {
+            if (pointerListener != null) {
+               pointerListener.down(Image.Position.of(e.getX(), e.getY()), e.isControlDown(), e.isShiftDown());
+            }
+         }
+         public void mouseDragged(MouseEvent e) {
+            if (pointerListener != null) {
+               pointerListener.drag(Image.Position.of(e.getX(), e.getY()));
+            }
+         }
+         public void mouseReleased(MouseEvent e) {
+            if (pointerListener != null) {
+               pointerListener.up();
+            }
+         }
+         public void mouseClicked(MouseEvent e) {
+         }
+         public void mouseEntered(MouseEvent e) {
+         }
+         public void mouseExited(MouseEvent e) {
+         }
+      };
+            
+   }
+      
+   // ======================================================================
+   // (Implementation of Platform.Widget.Container)
+   // ======================================================================
+   private static class Container extends Jogl.Widget implements Platform.Widget.Container {
+
+   	// -----------------------------------------------------------
+   	private List<Platform.Widget> children = new ArrayList<Platform.Widget>();
    	
-   	public Size size() {
-   		return null;
-   	}
-   	public void setResizeListener(ResizeListener listener) {
-   	}
-   	
-   	
-   	public void setMouseListener(MouseListener listener) {
-   	}
-   	
-   	
-   	public Iterable<Widget> children() {
+   	public Iterable<Platform.Widget> children() {
    		return null;
    	}
    	public void addChild(Platform.Widget child) {
@@ -77,28 +147,28 @@ public class Jogl {
    // (Implementation of Platform.Widget.Renderer3D)
    // ======================================================================
    
-    // Currently this object constructs its own top-level frame,
-    // but eventually this Widget will have to support...
-    // ... being "added" to a Platform.Widget.Container.
-    //
-    // I guess we'll have ... a package com.generic.platform.linux,
-    //   where linux.Window will be a class that wraps .. a java.awt.Container?
-    //   (currently, this is the code in GLSample.GUI)
-    //
-    //   when someone calls "addChild" on linux.Window, it will
-    //   have to examine the Platform.Widget it's given...
-    //   if it's a Jogl.Window instance, it'll need to access "glCanvas"
-    //   to call ... java.awt.Container.add 
-    //
-    //
-    // For Android, we'll have .. a package com.generic.platform.droid,
-    //   where droid.Window will wrap ... android.view.View?
-    //   (see code in EngineAtivity.java)
-    //         
-    //   when someone calls "addChild" on droid.Window, it will
-    //   have to examine the Platform.Widget it's given...
-    //   if it's the android-equivalent of this class, it'll be wrapping
-    //   an android.opengl.GLSurfaceView, which will be added to the View,,
+   // Currently this object constructs its own top-level frame,
+   // but eventually this Widget will have to support...
+   // ... being "added" to a Platform.Widget.Container.
+   //
+   // I guess we'll have ... a package com.generic.platform.linux,
+   //   where linux.Window will be a class that wraps .. a java.awt.Container?
+   //   (currently, this is the code in GLSample.GUI)
+   //
+   //   when someone calls "addChild" on linux.Window, it will
+   //   have to examine the Platform.Widget it's given...
+   //   if it's a Jogl.Window instance, it'll need to access "glCanvas"
+   //   to call ... java.awt.Container.add 
+   //
+   //
+   // For Android, we'll have .. a package com.generic.platform.droid,
+   //   where droid.Window will wrap ... android.view.View?
+   //   (see code in EngineAtivity.java)
+   //         
+   //   when someone calls "addChild" on droid.Window, it will
+   //   have to examine the Platform.Widget it's given...
+   //   if it's the android-equivalent of this class, it'll be wrapping
+   //   an android.opengl.GLSurfaceView, which will be added to the View,,
 	//
 	
    private static class Renderer3D implements
@@ -684,11 +754,8 @@ public class Jogl {
       // Implementing Platform.Widget
       // ========================================================
       
-      public Platform.Widget parent() {
+      public Platform.Widget.Container parent() {
          return null;
-      }
-      public boolean isConnected() {
-         return true;
       }
       
       private Image.Size size = null;
@@ -809,7 +876,7 @@ public class Jogl {
          }
 
          return strBuilder.toString();
-      }      
+      }
       
       // Currently Jogl.Window creates a "top-level" window that is a Jogl.Window3D.
       //

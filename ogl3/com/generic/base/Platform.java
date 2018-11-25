@@ -12,8 +12,7 @@ public interface Platform {
    // Widgets
    // ---------------------------------------------
    public interface Widget {
-      public Widget parent();
-      public boolean isConnected();
+      public Widget.Container parent();
       public Image.Size size();
 
       public interface ResizeListener {
@@ -21,13 +20,13 @@ public interface Platform {
       }
       public void setResizeListener(ResizeListener listener);
       
-      public interface MouseListener {
-         public void mouseHover (Image.Position position);
-         public void mouseDown  (Image.Position position, boolean ctrlDown, boolean shiftDown);
-         public void mouseDrag  (Image.Position position);
-         public void mouseUp();
+      public interface PointerListener {
+         public void hover (Image.Position position);
+         public void down  (Image.Position position, boolean ctrlDown, boolean shiftDown);
+         public void drag  (Image.Position position);
+         public void up();
       }
-      public void setMouseListener(MouseListener listener);
+      public void setPointerListener(PointerListener listener);
       
       // -------------------------------
       // Widget-Types
@@ -43,8 +42,7 @@ public interface Platform {
       }
       
       public interface Renderer3D extends Widget {
-         // Okay, a Widget.Renderer3D is a Widget
-         // that accepts a Graphics3D and "renders" it
+         // Rendering contains all the vertex-buffers and texture-images
          public void setRendering (Rendering g);
       }
    }
