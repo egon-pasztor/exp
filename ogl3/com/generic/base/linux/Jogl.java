@@ -3,11 +3,9 @@ package com.generic.base.linux;
 import com.generic.base.Data;
 import com.generic.base.Rendering;
 import com.generic.base.Image;
-import com.generic.base.Image.Rect;
-import com.generic.base.Image.Size;
 import com.generic.base.Platform;
-import com.generic.base.Platform.Widget;
 import com.generic.base.Algebra.*;
+
 import com.jogamp.opengl.GL;
 import com.jogamp.opengl.GL3;
 import com.jogamp.opengl.GLAutoDrawable;
@@ -26,6 +24,7 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,7 +43,15 @@ public class Jogl {
    // (Implementation of Platform.Widget)
    // ======================================================================
    private static class Widget implements Platform.Widget {
+      
+      protected java.awt.Component component = null;
 
+      protected void setComponent (java.awt.Component component) {
+         this.component = component;
+      }
+      protected java.awt.Component component () {
+         return component;
+      }
       
       // -----------------------------------------------------------
       // Keeping track of parent
@@ -61,10 +68,16 @@ public class Jogl {
       // -----------------------------------------------------------
       // Keeping track of size??
       // -----------------------------------------------------------
-      private Image.Size size = null;
+      private Image.Rect bounds = null;
       
-      public Size size() {
-         return size;
+      protected void setBounds (Image.Rect bounds) {
+         this.bounds = bounds;
+      }
+      protected Image.Rect bounds() {
+         return bounds;
+      }
+      public Image.Size size() {
+         return (bounds != null) ? bounds.size() : null;
       }
       
       private Platform.Widget.ResizeListener resizeListener = null;
@@ -117,28 +130,64 @@ public class Jogl {
          public void mouseExited(MouseEvent e) {
          }
       };
-            
    }
       
    // ======================================================================
    // (Implementation of Platform.Widget.Container)
    // ======================================================================
    private static class Container extends Jogl.Widget implements Platform.Widget.Container {
+      
+      private List<Jogl.Widget> children = new ArrayList<Jogl.Widget>();
 
+      private Container(java.awt.Container nativeContainer) {
+         setComponent(nativeContainer);
+      }
+      
    	// -----------------------------------------------------------
-   	private List<Platform.Widget> children = new ArrayList<Platform.Widget>();
    	
-   	public Iterable<Platform.Widget> children() {
-   		return null;
+   	public Iterable<? extends Platform.Widget> children() {
+   		return children;
    	}
    	public void addChild(Platform.Widget child) {
+   	   Jogl.Widget jChild = (Jogl.Widget) child;
+   	   
+   	   // Adding a child to our list of children.
+   	   if (child.parent() != null) {
+   	      throw new RuntimeException(String.format(
+   	        "addChild(...) called with widget that already has a parent"));
+   	   }
+   	   children.add(jChild);
+   	   jChild.setParent(this);
+   	   ((java.awt.Container)component).add(jChild.component());
+   	   
+   	   // We've just added this child -- but haven't assigned it a "size" yet.
+   	   // Is the child's "size" null?   Should we *set* its size?
    	}
    	public void removeChild(Platform.Widget child) {
+         Jogl.Widget jChild = (Jogl.Widget) child;
+         
+         // Removing a child from our list of children.
+         if (!children.remove(child)) {
+            throw new RuntimeException(String.format(
+              "removeChild(...) called with widget that was not a child"));
+         }
+         
+         ((java.awt.Container)component).remove(jChild.component());
+         jChild.setParent(null);
+         
+         // We've just removed this child -- but haven't zeroed-out its "size" yet.
+         // Should we clear its bounds?
    	}
+   	
    	public Image.Rect getBounds(Platform.Widget child) {
-   		return null;
+         Jogl.Widget jChild = (Jogl.Widget) child;
+   		return jChild.bounds();
    	}
    	public void setBounds(Platform.Widget child, Image.Rect bounds) {
+         Jogl.Widget jChild = (Jogl.Widget) child;
+         jChild.setBounds(bounds);
+         
+         //
    	}
 	   
    }

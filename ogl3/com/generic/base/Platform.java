@@ -32,7 +32,7 @@ public interface Platform {
       // Widget-Types
       // -------------------------------
       public interface Container extends Widget {
-         public Iterable<Widget> children();
+         public Iterable<? extends Widget> children();
          public void addChild(Widget child);
          public void removeChild(Widget child);
          
